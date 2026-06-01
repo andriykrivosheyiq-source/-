@@ -117,15 +117,16 @@ export async function generateDesigns(photoFile, styleId) {
   const pair = PROMPTS[styleId]
   if (!pair) throw new Error(`Немає промпту для стилю: ${styleId}`)
 
-  const [img1, img2] = await Promise.all([
-    callGemini(apiKey, modelId, base64, mimeType, pair[0].prompt),
-    callGemini(apiKey, modelId, base64, mimeType, pair[1].prompt),
-  ])
+  const results = await Promise.all(
+    pair.map((p) =>
+      callGemini(apiKey, modelId, base64, mimeType, p.prompt).then((image) => ({
+        label: p.label,
+        image,
+      }))
+    )
+  )
 
-  return [
-    { label: pair[0].label, image: img1 },
-    { label: pair[1].label, image: img2 },
-  ]
+  return results
 }
 
-export const GENERATIVE_STYLES = ['dad-no-face', 'dad-face']
+export const GENERATIVE_STYLES = ['dad-face']

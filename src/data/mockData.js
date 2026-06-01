@@ -118,46 +118,10 @@ export const products = [
 
 export const designStyles = [
   {
-    id: 'pet',
-    name: 'Pet',
-    nameUk: 'Pet',
-    image: '/abdafa93-e9b4-46cc-b9c4-992eac143309-removebg-preview.png',
-  },
-  {
     id: 'dad-face',
     name: 'Dad з рисами',
     nameUk: 'Dad з рисами обличчя',
     image: '/1a0ac8a8-3d48-4892-bfa5-b0325a4b0e92-removebg-preview.png',
-  },
-  {
-    id: 'dad-no-face',
-    name: 'Dad без рис',
-    nameUk: 'Dad без рис обличчя',
-    image: '/dad.png',
-  },
-  {
-    id: 'anime-avatar',
-    name: 'Anime Avatar',
-    nameUk: 'Аніме аватар',
-    image: 'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=300&h=300&fit=crop&auto=format',
-  },
-  {
-    id: 'streetwear',
-    name: 'Streetwear',
-    nameUk: 'Стріт-арт',
-    image: 'https://images.unsplash.com/photo-1547826039-bfc35e0f1ea8?w=300&h=300&fit=crop&auto=format',
-  },
-  {
-    id: 'embroidery',
-    name: 'Embroidery Logo',
-    nameUk: 'Вишивка логотип',
-    image: 'https://images.unsplash.com/photo-1490481651871-ab68de25d43d?w=300&h=300&fit=crop&auto=format',
-  },
-  {
-    id: 'luxury',
-    name: 'Luxury Illustration',
-    nameUk: 'Люкс ілюстрація',
-    image: 'https://images.unsplash.com/photo-1503376780353-7e6692767b70?w=300&h=300&fit=crop&auto=format',
   },
 ]
 

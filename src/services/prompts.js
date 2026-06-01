@@ -516,12 +516,7 @@ NOT:
 FINAL REMINDER — HIGHEST PRIORITY: All facial features must be in flat vector style only — simple shapes, no realistic details, no 3D effects.`
 
 export const PROMPTS = {
-  'dad-no-face': [
-    { label: 'DAD', prompt: DAD_NO_FACE },
-    { label: 'ТАТО', prompt: TATO_NO_FACE },
-  ],
   'dad-face': [
     { label: 'DAD', prompt: DAD_FACE },
-    { label: 'ТАТО', prompt: TATO_FACE },
   ],
 }
