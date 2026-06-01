@@ -3,7 +3,7 @@ export const products = [
     id: 'hoodie',
     name: 'Hoodie',
     nameUk: 'Худі',
-    image: '/1ae6b98c-f947-4e34-aced-47be3b5cfab3-removebg-preview.png',
+    image: '/023e8239-8aaf-4173-91b9-be8aca746796-removebg-preview.png',
     colors: [
       { id: 'black', name: 'Black', nameUk: 'Чорний', hex: '#1a1a1a' },
       { id: 'white', name: 'White', nameUk: 'Білий', hex: '#f5f5f5', border: true },
@@ -121,7 +121,7 @@ export const designStyles = [
     id: 'pet',
     name: 'Pet',
     nameUk: 'Pet',
-    image: '/abdafa93-e9b4-46cc-b9c4-992eac143309.jpg',
+    image: '/abdafa93-e9b4-46cc-b9c4-992eac143309-removebg-preview.png',
   },
   {
     id: 'dad-face',
@@ -175,7 +175,7 @@ export const mockOrders = [
     name: 'Худі з собакою',
     date: '31 травня 2024, 10:42',
     colors: ['#1a1a1a', '#9ca3af', '#d4b896', '#8b5e3c'],
-    image: '/1ae6b98c-f947-4e34-aced-47be3b5cfab3-removebg-preview.png',
+    image: '/023e8239-8aaf-4173-91b9-be8aca746796-removebg-preview.png',
   },
   {
     id: '#10426',
@@ -220,7 +220,7 @@ export const mockOrders = [
     name: 'Худі з левом',
     date: '30 травня 2024, 11:08',
     colors: ['#1a1a1a', '#9ca3af', '#f5f5f5'],
-    image: '/1ae6b98c-f947-4e34-aced-47be3b5cfab3-removebg-preview.png',
+    image: '/023e8239-8aaf-4173-91b9-be8aca746796-removebg-preview.png',
   },
   {
     id: '#10430',
