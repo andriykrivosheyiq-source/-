@@ -1,6 +1,7 @@
 import React, { useState, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { products, designStyles } from '../data/mockData'
+import { generateDesigns, GENERATIVE_STYLES } from '../services/gemini'
 
 // ─── Product Selector ────────────────────────────────────────────────────────
 function ProductSelector({ selected, onChange }) {
@@ -324,18 +325,31 @@ export default function CreateDesign({ onGenerate }) {
   })
   const [uploadedFile, setUploadedFile] = useState(null)
   const [isGenerating, setIsGenerating] = useState(false)
+  const [generationError, setGenerationError] = useState(null)
 
   const handleColorChange = (productId, colors) => {
     setProductColors((prev) => ({ ...prev, [productId]: colors }))
   }
 
   const handleGenerate = async () => {
-    if (selectedProducts.length === 0) return
+    if (!canGenerate) return
     setIsGenerating(true)
-    await new Promise((r) => setTimeout(r, 2200))
-    setIsGenerating(false)
-    onGenerate?.({ selectedProducts, selectedStyle, productColors, uploadedFile })
-    navigate('/placement')
+    setGenerationError(null)
+
+    try {
+      let generatedDesigns = null
+
+      if (uploadedFile && GENERATIVE_STYLES.includes(selectedStyle)) {
+        generatedDesigns = await generateDesigns(uploadedFile, selectedStyle)
+      }
+
+      onGenerate?.({ selectedProducts, selectedStyle, productColors, uploadedFile, generatedDesigns })
+      navigate('/placement')
+    } catch (err) {
+      setGenerationError(err.message || 'Помилка генерації. Спробуйте ще раз.')
+    } finally {
+      setIsGenerating(false)
+    }
   }
 
   const canGenerate = selectedProducts.length > 0 && selectedStyle
@@ -409,9 +423,18 @@ export default function CreateDesign({ onGenerate }) {
               </>
             )}
           </button>
-          <p className="text-center text-xs text-gray-400 mt-2">
-            Наш ШІ згенерує унікальні дизайни для всіх обраних товарів та кольорів.
-          </p>
+          {generationError && (
+            <p className="text-center text-sm text-red-500 mt-2 font-medium">
+              ⚠️ {generationError}
+            </p>
+          )}
+          {!generationError && (
+            <p className="text-center text-xs text-gray-400 mt-2">
+              {GENERATIVE_STYLES.includes(selectedStyle) && uploadedFile
+                ? 'Gemini згенерує 2 варіанти: DAD та ТАТО (~15–30 сек)'
+                : 'Наш ШІ згенерує унікальні дизайни для обраних товарів.'}
+            </p>
+          )}
         </div>
       </div>
     </div>

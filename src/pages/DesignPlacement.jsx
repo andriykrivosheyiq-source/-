@@ -1,20 +1,6 @@
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-
-const DESIGN_IMG = 'https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=600&h=600&fit=crop&auto=format'
-const HOODIE_IMG = 'https://images.unsplash.com/photo-1556821840-3a63f15232d0?w=600&h=700&fit=crop&auto=format'
-
-const mockGeneratedDesigns = [
-  'https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=600&h=600&fit=crop&auto=format',
-  'https://images.unsplash.com/photo-1543466835-00a7907e9de1?w=600&h=600&fit=crop&auto=format',
-  'https://images.unsplash.com/photo-1518020382113-a7e8fc38eac9?w=600&h=600&fit=crop&auto=format',
-]
-
-const products = [
-  { id: 'hoodie', nameUk: 'Худі', image: HOODIE_IMG },
-  { id: 'tshirt', nameUk: 'Футболка', image: 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=600&h=700&fit=crop&auto=format' },
-  { id: 'sweatshirt', nameUk: 'Світшот', image: 'https://images.unsplash.com/photo-1578587018452-892bacefd3f2?w=600&h=700&fit=crop&auto=format' },
-]
+import { products as allProducts } from '../data/mockData'
 
 function AIEditModal({ onClose }) {
   const [prompt, setPrompt] = useState('')
@@ -39,9 +25,6 @@ function AIEditModal({ onClose }) {
             </svg>
           </button>
         </div>
-        <p className="text-sm text-gray-500 mb-4">
-          Опишіть зміни, які ви хочете внести до дизайну
-        </p>
         <textarea
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
@@ -50,26 +33,20 @@ function AIEditModal({ onClose }) {
         />
         <div className="mt-3 grid grid-cols-2 gap-2">
           {['Зроби яскравіше', 'Додай рамку', 'Видали фон', 'Зміни колір'].map((s) => (
-            <button
-              key={s}
-              onClick={() => setPrompt(s)}
-              className="text-xs border border-indigo-200 text-indigo-600 rounded-lg px-3 py-1.5 hover:bg-indigo-50 transition-colors"
-            >
+            <button key={s} onClick={() => setPrompt(s)}
+              className="text-xs border border-indigo-200 text-indigo-600 rounded-lg px-3 py-1.5 hover:bg-indigo-50 transition-colors">
               {s}
             </button>
           ))}
         </div>
         <div className="flex gap-3 mt-5">
-          <button onClick={onClose} className="btn-secondary flex-1 justify-center">
-            Скасувати
-          </button>
-          <button
-            onClick={handleApply}
-            disabled={!prompt.trim() || loading}
-            className="btn-primary flex-1 justify-center"
-          >
+          <button onClick={onClose} className="btn-secondary flex-1 justify-center">Скасувати</button>
+          <button onClick={handleApply} disabled={!prompt.trim() || loading} className="btn-primary flex-1 justify-center">
             {loading ? (
-              <><svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" className="opacity-25"/><path d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" fill="currentColor"/></svg> Застосування...</>
+              <><svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
+                <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" className="opacity-25"/>
+                <path d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" fill="currentColor"/>
+              </svg> Застосування...</>
             ) : 'Застосувати'}
           </button>
         </div>
@@ -79,6 +56,7 @@ function AIEditModal({ onClose }) {
 }
 
 function ChangeProductModal({ current, onSelect, onClose }) {
+  const available = allProducts.slice(0, 6)
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
@@ -91,14 +69,11 @@ function ChangeProductModal({ current, onSelect, onClose }) {
           </button>
         </div>
         <div className="space-y-2">
-          {products.map((p) => (
-            <button
-              key={p.id}
-              onClick={() => { onSelect(p.id); onClose() }}
+          {available.map((p) => (
+            <button key={p.id} onClick={() => { onSelect(p.id); onClose() }}
               className={`w-full flex items-center gap-3 p-3 rounded-xl border-2 transition-colors ${
                 current === p.id ? 'border-indigo-500 bg-indigo-50' : 'border-gray-100 hover:border-gray-200'
-              }`}
-            >
+              }`}>
               <img src={p.image} alt={p.nameUk} className="w-12 h-12 object-cover rounded-lg" />
               <span className="font-medium text-gray-800">{p.nameUk}</span>
               {current === p.id && (
@@ -116,41 +91,36 @@ function ChangeProductModal({ current, onSelect, onClose }) {
   )
 }
 
-export default function DesignPlacement() {
+export default function DesignPlacement({ designData }) {
   const navigate = useNavigate()
-  const [designIndex, setDesignIndex] = useState(0)
-  const [selectedProduct, setSelectedProduct] = useState('hoodie')
+  const [activeTab, setActiveTab] = useState(0)
+  const [selectedProduct, setSelectedProduct] = useState(
+    designData?.selectedProducts?.[0] || 'hoodie'
+  )
   const [showAIEdit, setShowAIEdit] = useState(false)
   const [showChangeProduct, setShowChangeProduct] = useState(false)
-  const [isRegenerating, setIsRegenerating] = useState(false)
 
-  const currentProduct = products.find((p) => p.id === selectedProduct)
-  const currentDesign = mockGeneratedDesigns[designIndex]
+  const generatedDesigns = designData?.generatedDesigns || null
+  const hasTwoDesigns = generatedDesigns && generatedDesigns.length === 2
 
-  const handleRegenerate = async () => {
-    setIsRegenerating(true)
-    await new Promise((r) => setTimeout(r, 1800))
-    setDesignIndex((i) => (i + 1) % mockGeneratedDesigns.length)
-    setIsRegenerating(false)
-  }
+  const currentDesignImage = hasTwoDesigns
+    ? generatedDesigns[activeTab].image
+    : null
 
-  const handleAddToCart = () => {
-    navigate('/orders')
-  }
+  const currentProduct = allProducts.find((p) => p.id === selectedProduct) || allProducts[0]
+
+  const handleAddToCart = () => navigate('/orders')
 
   return (
     <div className="flex-1 overflow-y-auto">
       {/* Header */}
       <div className="bg-white border-b border-gray-100 px-8 py-5 sticky top-0 z-10">
         <div className="flex items-center gap-4">
-          <div className="w-8 h-8 bg-indigo-600 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
-            2
-          </div>
+          <div className="w-8 h-8 bg-indigo-600 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0">2</div>
           <div>
             <h1 className="text-xl font-bold text-gray-900">Розміщення дизайну</h1>
-            <p className="text-sm text-gray-500">Ваш дизайн готовий! Розмістіть його на товарі та налаштуйте.</p>
+            <p className="text-sm text-gray-500">Ваш дизайн готовий! Оберіть варіант та розмістіть на товарі.</p>
           </div>
-          {/* Step indicator */}
           <div className="ml-auto flex items-center gap-2">
             <div className="flex items-center gap-1.5">
               <div className="w-7 h-7 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center text-xs font-semibold">
@@ -170,35 +140,60 @@ export default function DesignPlacement() {
       </div>
 
       <div className="px-8 py-6 max-w-5xl mx-auto">
+
+        {/* Tab switcher — only shown when 2 designs exist */}
+        {hasTwoDesigns && (
+          <div className="flex gap-2 mb-5">
+            {generatedDesigns.map((d, i) => (
+              <button
+                key={i}
+                onClick={() => setActiveTab(i)}
+                className={`px-6 py-2.5 rounded-xl font-semibold text-sm transition-all duration-150 ${
+                  activeTab === i
+                    ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200'
+                    : 'bg-white text-gray-600 border border-gray-200 hover:border-indigo-300'
+                }`}
+              >
+                {d.label}
+                <span className="ml-2 text-xs opacity-70">{i + 1}/2</span>
+              </button>
+            ))}
+          </div>
+        )}
+
         <div className="grid grid-cols-2 gap-5">
           {/* Generated Design panel */}
           <div className="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
-            <div className="px-5 py-4 border-b border-gray-50">
+            <div className="px-5 py-4 border-b border-gray-50 flex items-center justify-between">
               <h2 className="font-semibold text-gray-900">Згенерований дизайн</h2>
+              {hasTwoDesigns && (
+                <span className="text-xs text-indigo-600 font-medium bg-indigo-50 px-2.5 py-1 rounded-full">
+                  {generatedDesigns[activeTab].label}
+                </span>
+              )}
             </div>
             <div className="p-5">
               <div className="bg-gray-50 rounded-xl overflow-hidden aspect-square flex items-center justify-center">
-                {isRegenerating ? (
-                  <div className="flex flex-col items-center gap-3">
-                    <svg className="animate-spin w-10 h-10 text-indigo-400" viewBox="0 0 24 24" fill="none">
-                      <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" className="opacity-25"/>
-                      <path d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" fill="currentColor" className="opacity-75"/>
-                    </svg>
-                    <p className="text-sm text-gray-500">Генеруємо новий дизайн...</p>
-                  </div>
-                ) : (
+                {currentDesignImage ? (
                   <img
-                    src={currentDesign}
+                    src={currentDesignImage}
                     alt="Generated design"
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-contain"
                   />
+                ) : (
+                  <div className="flex flex-col items-center gap-3 text-gray-400">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                      <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/>
+                      <polyline points="21 15 16 10 5 21"/>
+                    </svg>
+                    <p className="text-sm">Завантажте фото та оберіть стиль DAD/ТАТО для генерації</p>
+                  </div>
                 )}
               </div>
 
               <div className="flex gap-3 mt-4">
                 <button
-                  onClick={handleRegenerate}
-                  disabled={isRegenerating}
+                  onClick={() => navigate('/create')}
                   className="btn-secondary flex-1 justify-center"
                 >
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -216,13 +211,28 @@ export default function DesignPlacement() {
                   AI Редагування
                 </button>
               </div>
-              <p className="text-center text-xs text-gray-400 mt-2">
-                ✏️ Не задоволені? Перегенеруйте або відредагуйте за допомогою ШІ.
-              </p>
+
+              {hasTwoDesigns && (
+                <div className="mt-3 flex gap-2">
+                  {generatedDesigns.map((d, i) => (
+                    <button
+                      key={i}
+                      onClick={() => setActiveTab(i)}
+                      className={`flex-1 py-2 rounded-lg text-xs font-medium transition-all ${
+                        activeTab === i
+                          ? 'bg-indigo-600 text-white'
+                          : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                      }`}
+                    >
+                      {d.label}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 
-          {/* Selected Product panel */}
+          {/* Product Preview panel */}
           <div className="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
             <div className="px-5 py-4 border-b border-gray-50 flex items-center justify-between">
               <h2 className="font-semibold text-gray-900">Обраний товар</h2>
@@ -232,7 +242,8 @@ export default function DesignPlacement() {
               >
                 Змінити товар
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
                 </svg>
               </button>
             </div>
@@ -241,17 +252,18 @@ export default function DesignPlacement() {
                 <img
                   src={currentProduct?.image}
                   alt={currentProduct?.nameUk}
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-contain"
                 />
-                {/* Design overlay */}
-                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                  <img
-                    src={currentDesign}
-                    alt="design overlay"
-                    className="w-2/5 opacity-90 mix-blend-multiply rounded-lg"
-                    style={{ filter: 'contrast(1.1)' }}
-                  />
-                </div>
+                {currentDesignImage && (
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                    <img
+                      src={currentDesignImage}
+                      alt="design overlay"
+                      className="w-2/5 opacity-90 mix-blend-multiply rounded-lg"
+                      style={{ filter: 'contrast(1.1)' }}
+                    />
+                  </div>
+                )}
               </div>
 
               <div className="mt-4 space-y-2">
@@ -263,14 +275,18 @@ export default function DesignPlacement() {
                   <span className="text-gray-500">Положення:</span>
                   <span className="font-medium text-gray-800">Центр спереду</span>
                 </div>
+                {hasTwoDesigns && (
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-gray-500">Варіант:</span>
+                    <span className="font-medium text-indigo-600">{generatedDesigns[activeTab].label}</span>
+                  </div>
+                )}
               </div>
 
-              <button
-                onClick={handleAddToCart}
-                className="btn-primary w-full justify-center mt-5"
-              >
+              <button onClick={handleAddToCart} className="btn-primary w-full justify-center mt-5">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>
+                  <circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/>
+                  <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>
                 </svg>
                 Додати до замовлення
               </button>
@@ -278,11 +294,7 @@ export default function DesignPlacement() {
           </div>
         </div>
 
-        {/* Back button */}
-        <button
-          onClick={() => navigate('/create')}
-          className="mt-5 flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700 transition-colors"
-        >
+        <button onClick={() => navigate('/create')} className="mt-5 flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700 transition-colors">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <polyline points="15 18 9 12 15 6"/>
           </svg>
