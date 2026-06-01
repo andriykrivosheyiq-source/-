@@ -63,7 +63,7 @@ async function callGemini(apiKey, modelId, base64, mimeType, prompt) {
         },
       ],
       generationConfig: {
-        responseModalities: ['Image'],
+        responseModalities: ['image', 'text'],
       },
     }),
   })
@@ -74,8 +74,13 @@ async function callGemini(apiKey, modelId, base64, mimeType, prompt) {
   }
 
   const data = await res.json()
+  console.log('[Gemini] response candidates:', JSON.stringify(data.candidates?.[0]?.content?.parts?.map(p => ({ type: p.text ? 'text' : p.inline_data ? 'image' : 'unknown', mimeType: p.inline_data?.mime_type }))))
+
   const part = data.candidates?.[0]?.content?.parts?.find((p) => p.inline_data)
-  if (!part) throw new Error(`Модель ${modelId} не повернула зображення`)
+  if (!part) {
+    const textPart = data.candidates?.[0]?.content?.parts?.find((p) => p.text)
+    throw new Error(`Модель ${modelId} не повернула зображення. ${textPart ? 'Текст: ' + textPart.text.slice(0, 200) : 'Відповідь порожня'}`)
+  }
 
   return `data:${part.inline_data.mime_type};base64,${part.inline_data.data}`
 }
