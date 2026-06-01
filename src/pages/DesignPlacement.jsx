@@ -101,10 +101,11 @@ export default function DesignPlacement({ designData }) {
   const [showChangeProduct, setShowChangeProduct] = useState(false)
 
   const generatedDesigns = designData?.generatedDesigns || null
-  const hasTwoDesigns = generatedDesigns && generatedDesigns.length === 2
+  const hasDesigns = generatedDesigns && generatedDesigns.length > 0
+  const hasTwoDesigns = generatedDesigns && generatedDesigns.length > 1
 
-  const currentDesignImage = hasTwoDesigns
-    ? generatedDesigns[activeTab].image
+  const currentDesignImage = hasDesigns
+    ? generatedDesigns[Math.min(activeTab, generatedDesigns.length - 1)].image
     : null
 
   const currentProduct = allProducts.find((p) => p.id === selectedProduct) || allProducts[0]
@@ -166,9 +167,9 @@ export default function DesignPlacement({ designData }) {
           <div className="px-5 py-4 border-b border-gray-50 flex items-center justify-between">
             <h2 className="font-semibold text-gray-900">Згенерований дизайн</h2>
             <div className="flex items-center gap-3">
-              {hasTwoDesigns && (
+              {hasDesigns && (
                 <span className="text-xs text-indigo-600 font-medium bg-indigo-50 px-2.5 py-1 rounded-full">
-                  {generatedDesigns[activeTab].label}
+                  {generatedDesigns[Math.min(activeTab, generatedDesigns.length - 1)].label}
                 </span>
               )}
             </div>
@@ -266,10 +267,10 @@ export default function DesignPlacement({ designData }) {
                   <span className="text-gray-500">Положення:</span>
                   <span className="font-medium text-gray-800">Центр спереду</span>
                 </div>
-                {hasTwoDesigns && (
+                {hasDesigns && (
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-gray-500">Варіант:</span>
-                    <span className="font-medium text-indigo-600">{generatedDesigns[activeTab].label}</span>
+                    <span className="font-medium text-indigo-600">{generatedDesigns[Math.min(activeTab, generatedDesigns.length - 1)].label}</span>
                   </div>
                 )}
               </div>
