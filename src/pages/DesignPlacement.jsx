@@ -176,18 +176,16 @@ export default function DesignPlacement({ designData }) {
 
           {/* Wide 16:9 design area */}
           <div className="p-5">
-            <div
-              className="w-full bg-gray-50 rounded-xl overflow-hidden flex items-center justify-center"
-              style={{ aspectRatio: '16/9' }}
-            >
+            <div className="w-full bg-gray-50 rounded-xl overflow-hidden flex items-center justify-center min-h-48">
               {currentDesignImage ? (
                 <img
                   src={currentDesignImage}
                   alt="Generated design"
-                  className="w-full h-full object-contain"
+                  className="w-full h-auto block"
+                  style={{ maxHeight: '75vh' }}
                 />
               ) : (
-                <div className="flex flex-col items-center gap-3 text-gray-400">
+                <div className="flex flex-col items-center gap-3 text-gray-400 py-16">
                   <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
                     <rect x="3" y="3" width="18" height="18" rx="2"/>
                     <circle cx="8.5" cy="8.5" r="1.5"/>

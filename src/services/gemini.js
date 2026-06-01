@@ -29,10 +29,26 @@ async function findImageModel(apiKey) {
     )
   }
 
-  // Use the first available model (strip "models/" prefix)
-  const modelId = imageModels[0].name.replace('models/', '')
-  console.log(`[Gemini] Знайдена image модель: ${modelId}`)
   console.log(`[Gemini] Всі image моделі: ${imageModels.map((m) => m.name).join(', ')}`)
+
+  // Prefer newer higher-quality models for better layout adherence
+  const preferenceOrder = [
+    'gemini-3.1-flash-image',
+    'gemini-3-pro-image',
+    'gemini-3.1-flash-image-preview',
+    'gemini-3-pro-image-preview',
+    'gemini-2.5-flash-image',
+  ]
+
+  let selected = null
+  for (const pref of preferenceOrder) {
+    selected = imageModels.find((m) => m.name.includes(pref))
+    if (selected) break
+  }
+  if (!selected) selected = imageModels[0]
+
+  const modelId = selected.name.replace('models/', '')
+  console.log(`[Gemini] Використовую модель: ${modelId}`)
 
   _cachedModel = modelId
   return modelId
