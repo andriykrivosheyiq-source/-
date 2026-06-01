@@ -3,7 +3,7 @@ export const products = [
     id: 'hoodie',
     name: 'Hoodie',
     nameUk: 'Худі',
-    image: 'https://images.unsplash.com/photo-1556821840-3a63f15232d0?w=200&h=200&fit=crop&auto=format',
+    image: '/1ae6b98c-f947-4e34-aced-47be3b5cfab3-removebg-preview.png',
     colors: [
       { id: 'black', name: 'Black', nameUk: 'Чорний', hex: '#1a1a1a' },
       { id: 'white', name: 'White', nameUk: 'Білий', hex: '#f5f5f5', border: true },
@@ -19,7 +19,7 @@ export const products = [
     id: 'tshirt',
     name: 'T-Shirt',
     nameUk: 'Футболка',
-    image: 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=200&h=200&fit=crop&auto=format',
+    image: '/817a41f5-13b9-4242-9997-3375036fc63b-removebg-preview.png',
     colors: [
       { id: 'black', name: 'Black', nameUk: 'Чорний', hex: '#1a1a1a' },
       { id: 'white', name: 'White', nameUk: 'Білий', hex: '#f5f5f5', border: true },
@@ -32,7 +32,7 @@ export const products = [
     id: 'oversized',
     name: 'Oversized T-Shirt',
     nameUk: 'Оверсайз футболка',
-    image: 'https://images.unsplash.com/photo-1618354691373-d851c5c3a990?w=200&h=200&fit=crop&auto=format',
+    image: '/817a41f5-13b9-4242-9997-3375036fc63b-removebg-preview.png',
     colors: [
       { id: 'white', name: 'White', nameUk: 'Білий', hex: '#f5f5f5', border: true },
       { id: 'gray', name: 'Gray', nameUk: 'Сірий', hex: '#9ca3af' },
@@ -44,7 +44,7 @@ export const products = [
     id: 'sweatshirt',
     name: 'Sweatshirt',
     nameUk: 'Світшот',
-    image: 'https://images.unsplash.com/photo-1578587018452-892bacefd3f2?w=200&h=200&fit=crop&auto=format',
+    image: '/023e8239-8aaf-4173-91b9-be8aca746796-removebg-preview.png',
     colors: [
       { id: 'black', name: 'Black', nameUk: 'Чорний', hex: '#1a1a1a' },
       { id: 'gray', name: 'Gray', nameUk: 'Сірий', hex: '#9ca3af' },
@@ -54,21 +54,60 @@ export const products = [
     ],
   },
   {
+    id: 'polo',
+    name: 'Polo',
+    nameUk: 'Поло',
+    image: '/IMG_9813.PNG',
+    colors: [
+      { id: 'white', name: 'White', nameUk: 'Білий', hex: '#f5f5f5', border: true },
+      { id: 'black', name: 'Black', nameUk: 'Чорний', hex: '#1a1a1a' },
+      { id: 'navy', name: 'Navy', nameUk: 'Синій', hex: '#1e3a5f' },
+      { id: 'gray', name: 'Gray', nameUk: 'Сірий', hex: '#9ca3af' },
+      { id: 'beige', name: 'Beige', nameUk: 'Бежевий', hex: '#d4b896' },
+    ],
+  },
+  {
+    id: 'shirt',
+    name: 'Shirt',
+    nameUk: 'Рубашка',
+    image: '/IMG_9815.PNG',
+    colors: [
+      { id: 'white', name: 'White', nameUk: 'Білий', hex: '#f5f5f5', border: true },
+      { id: 'blue', name: 'Blue', nameUk: 'Блакитний', hex: '#5b9bd5' },
+      { id: 'gray', name: 'Gray', nameUk: 'Сірий', hex: '#9ca3af' },
+      { id: 'black', name: 'Black', nameUk: 'Чорний', hex: '#1a1a1a' },
+    ],
+  },
+  {
+    id: 'shortshirt',
+    name: 'Short Sleeve Shirt',
+    nameUk: 'Рубашка коротка',
+    image: '/IMG_9820.PNG',
+    colors: [
+      { id: 'white', name: 'White', nameUk: 'Білий', hex: '#f5f5f5', border: true },
+      { id: 'blue', name: 'Blue', nameUk: 'Блакитний', hex: '#5b9bd5' },
+      { id: 'gray', name: 'Gray', nameUk: 'Сірий', hex: '#9ca3af' },
+      { id: 'black', name: 'Black', nameUk: 'Чорний', hex: '#1a1a1a' },
+      { id: 'beige', name: 'Beige', nameUk: 'Бежевий', hex: '#d4b896' },
+    ],
+  },
+  {
     id: 'cap',
     name: 'Cap',
     nameUk: 'Кепка',
-    image: 'https://images.unsplash.com/photo-1588850561407-ed78c282e89b?w=200&h=200&fit=crop&auto=format',
+    image: '/d530693b-3bd4-4e9c-ab64-da1ce1617d28-removebg-preview.png',
     colors: [
       { id: 'black', name: 'Black', nameUk: 'Чорний', hex: '#1a1a1a' },
       { id: 'navy', name: 'Navy', nameUk: 'Синій', hex: '#1e3a5f' },
       { id: 'gray', name: 'Gray', nameUk: 'Сірий', hex: '#9ca3af' },
+      { id: 'beige', name: 'Beige', nameUk: 'Бежевий', hex: '#d4b896' },
     ],
   },
   {
     id: 'totebag',
     name: 'Tote Bag',
     nameUk: 'Сумка шопер',
-    image: 'https://images.unsplash.com/photo-1622560480605-d83c853bc5c3?w=200&h=200&fit=crop&auto=format',
+    image: '/IMG_9821.PNG',
     colors: [
       { id: 'black', name: 'Black', nameUk: 'Чорний', hex: '#1a1a1a' },
       { id: 'natural', name: 'Natural', nameUk: 'Натуральний', hex: '#e8d5b7', border: true },
@@ -78,6 +117,24 @@ export const products = [
 ]
 
 export const designStyles = [
+  {
+    id: 'pet',
+    name: 'Pet',
+    nameUk: 'Pet',
+    image: '/abdafa93-e9b4-46cc-b9c4-992eac143309.jpg',
+  },
+  {
+    id: 'dad-face',
+    name: 'Dad з рисами',
+    nameUk: 'Dad з рисами обличчя',
+    image: '/dad.png',
+  },
+  {
+    id: 'dad-no-face',
+    name: 'Dad без рис',
+    nameUk: 'Dad без рис обличчя',
+    image: '/1a0ac8a8-3d48-4892-bfa5-b0325a4b0e92-removebg-preview.png',
+  },
   {
     id: 'pet-portrait',
     name: 'Pet Portrait',
@@ -108,24 +165,6 @@ export const designStyles = [
     nameUk: 'Люкс ілюстрація',
     image: 'https://images.unsplash.com/photo-1503376780353-7e6692767b70?w=300&h=300&fit=crop&auto=format',
   },
-  {
-    id: 'vintage',
-    name: 'Vintage',
-    nameUk: 'Вінтаж',
-    image: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=300&h=300&fit=crop&auto=format',
-  },
-  {
-    id: 'minimalist',
-    name: 'Minimalist',
-    nameUk: 'Мінімалізм',
-    image: 'https://images.unsplash.com/photo-1604697964149-c5e577d9a9da?w=300&h=300&fit=crop&auto=format',
-  },
-  {
-    id: 'abstract',
-    name: 'Abstract Art',
-    nameUk: 'Абстракція',
-    image: 'https://images.unsplash.com/photo-1541961017774-22349e4a1262?w=300&h=300&fit=crop&auto=format',
-  },
 ]
 
 export const mockOrders = [
@@ -136,7 +175,7 @@ export const mockOrders = [
     name: 'Худі з собакою',
     date: '31 травня 2024, 10:42',
     colors: ['#1a1a1a', '#9ca3af', '#d4b896', '#8b5e3c'],
-    image: 'https://images.unsplash.com/photo-1556821840-3a63f15232d0?w=100&h=100&fit=crop&auto=format',
+    image: '/1ae6b98c-f947-4e34-aced-47be3b5cfab3-removebg-preview.png',
   },
   {
     id: '#10426',
@@ -145,7 +184,7 @@ export const mockOrders = [
     name: 'Аніме дівчина футболка',
     date: '31 травня 2024, 09:15',
     colors: ['#9ca3af', '#1a1a1a', '#ff6b9d'],
-    image: 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=100&h=100&fit=crop&auto=format',
+    image: '/817a41f5-13b9-4242-9997-3375036fc63b-removebg-preview.png',
   },
   {
     id: '#10427',
@@ -154,7 +193,7 @@ export const mockOrders = [
     name: 'Світшот з квітами',
     date: '31 травня 2024, 08:31',
     colors: ['#f5f5f5', '#1a1a1a', '#9ca3af', '#e8d5b7'],
-    image: 'https://images.unsplash.com/photo-1578587018452-892bacefd3f2?w=100&h=100&fit=crop&auto=format',
+    image: '/023e8239-8aaf-4173-91b9-be8aca746796-removebg-preview.png',
   },
   {
     id: '#10428',
@@ -163,7 +202,7 @@ export const mockOrders = [
     name: 'Кепка з логотипом',
     date: '30 травня 2024, 18:20',
     colors: ['#1a1a1a', '#1e3a5f', '#9ca3af', '#e8d5b7'],
-    image: 'https://images.unsplash.com/photo-1588850561407-ed78c282e89b?w=100&h=100&fit=crop&auto=format',
+    image: '/d530693b-3bd4-4e9c-ab64-da1ce1617d28-removebg-preview.png',
   },
   {
     id: '#10429',
@@ -172,7 +211,7 @@ export const mockOrders = [
     name: 'Сумка шопер з котом',
     date: '30 травня 2024, 17:45',
     colors: ['#1a1a1a', '#1e3a5f', '#9ca3af', '#e8d5b7'],
-    image: 'https://images.unsplash.com/photo-1622560480605-d83c853bc5c3?w=100&h=100&fit=crop&auto=format',
+    image: '/IMG_9821.PNG',
   },
   {
     id: '#10424',
@@ -181,7 +220,7 @@ export const mockOrders = [
     name: 'Худі з левом',
     date: '30 травня 2024, 11:08',
     colors: ['#1a1a1a', '#9ca3af', '#f5f5f5'],
-    image: 'https://images.unsplash.com/photo-1556821840-3a63f15232d0?w=100&h=100&fit=crop&auto=format',
+    image: '/1ae6b98c-f947-4e34-aced-47be3b5cfab3-removebg-preview.png',
   },
   {
     id: '#10430',
@@ -190,16 +229,16 @@ export const mockOrders = [
     name: 'Футболка з ретро авто',
     date: '30 травня 2024, 10:10',
     colors: ['#1a1a1a', '#9ca3af', '#1e3a5f', '#f5f5f5'],
-    image: 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=100&h=100&fit=crop&auto=format',
+    image: '/817a41f5-13b9-4242-9997-3375036fc63b-removebg-preview.png',
   },
   {
-    id: '#10431',
+    id: '/10431',
     status: 'review',
     productId: 'oversized',
     name: 'Оверсайз футболка аніме',
     date: '29 травня 2024, 19:30',
     colors: ['#1a1a1a', '#9ca3af', '#f5f5f5'],
-    image: 'https://images.unsplash.com/photo-1618354691373-d851c5c3a990?w=100&h=100&fit=crop&auto=format',
+    image: '/817a41f5-13b9-4242-9997-3375036fc63b-removebg-preview.png',
   },
   {
     id: '#10422',
@@ -208,7 +247,7 @@ export const mockOrders = [
     name: 'Худі з квітами',
     date: '29 травня 2024, 18:45',
     colors: ['#2d5a27', '#1a1a1a', '#8b5e3c', '#9ca3af'],
-    image: 'https://images.unsplash.com/photo-1578587018452-892bacefd3f2?w=100&h=100&fit=crop&auto=format',
+    image: '/023e8239-8aaf-4173-91b9-be8aca746796-removebg-preview.png',
   },
   {
     id: '#10423',
@@ -217,7 +256,7 @@ export const mockOrders = [
     name: 'Аніме дівчина футболка',
     date: '29 травня 2024, 17:20',
     colors: ['#2d5a27', '#1a1a1a', '#8b5e3c', '#9ca3af'],
-    image: 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=100&h=100&fit=crop&auto=format',
+    image: '/817a41f5-13b9-4242-9997-3375036fc63b-removebg-preview.png',
   },
   {
     id: '#10420',
@@ -226,7 +265,7 @@ export const mockOrders = [
     name: 'Світшот з вишивкою',
     date: '28 травня 2024, 16:15',
     colors: ['#1a1a1a', '#2d5a27', '#9ca3af', '#f5f5f5'],
-    image: 'https://images.unsplash.com/photo-1578587018452-892bacefd3f2?w=100&h=100&fit=crop&auto=format',
+    image: '/023e8239-8aaf-4173-91b9-be8aca746796-removebg-preview.png',
   },
   {
     id: '#10421',
@@ -235,6 +274,6 @@ export const mockOrders = [
     name: 'Сумка шопер з котом',
     date: '28 травня 2024, 15:05',
     colors: ['#1a1a1a', '#8b5e3c', '#e8d5b7', '#9ca3af'],
-    image: 'https://images.unsplash.com/photo-1622560480605-d83c853bc5c3?w=100&h=100&fit=crop&auto=format',
+    image: '/IMG_9821.PNG',
   },
 ]
