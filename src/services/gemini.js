@@ -1,7 +1,7 @@
 import { PROMPTS } from './prompts'
 
 const API_URL =
-  'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp-image-generation:generateContent'
+  'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent'
 
 function fileToBase64(file) {
   return new Promise((resolve, reject) => {
