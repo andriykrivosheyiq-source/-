@@ -136,12 +136,6 @@ export const designStyles = [
     image: '/1a0ac8a8-3d48-4892-bfa5-b0325a4b0e92-removebg-preview.png',
   },
   {
-    id: 'pet-portrait',
-    name: 'Pet Portrait',
-    nameUk: 'Портрет тварини',
-    image: 'https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=300&h=300&fit=crop&auto=format',
-  },
-  {
     id: 'anime-avatar',
     name: 'Anime Avatar',
     nameUk: 'Аніме аватар',
