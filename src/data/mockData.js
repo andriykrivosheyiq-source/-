@@ -133,7 +133,7 @@ export const designStyles = [
     id: 'dad-no-face',
     name: 'Dad без рис',
     nameUk: 'Dad без рис обличчя',
-    image: '/1a0ac8a8-3d48-4892-bfa5-b0325a4b0e92-removebg-preview.png',
+    image: '/dad.png',
   },
   {
     id: 'anime-avatar',
