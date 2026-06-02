@@ -6,6 +6,11 @@ let _cachedModel = null
 // In-memory cache: key = "fileSize-fileLastModified-styleId" → results array
 const _resultsCache = new Map()
 
+// Reference images (base64 JPEG) to guide Gemini's style consistency.
+// Add up to 2 good example outputs here to stabilize the visual style.
+// Leave empty array if no references yet.
+const REFERENCE_IMAGES = []
+
 async function findImageModel(apiKey) {
   if (_cachedModel) return _cachedModel
 
@@ -94,20 +99,27 @@ async function fileToBase64(file) {
 async function callGemini(apiKey, modelId, base64, mimeType, prompt) {
   const url = `${BASE_URL}/models/${modelId}:generateContent?key=${apiKey}`
 
+  // Build parts: prompt text → optional reference examples → user photo
+  const parts = [{ text: prompt }]
+
+  if (REFERENCE_IMAGES.length > 0) {
+    parts.push({ text: 'STYLE REFERENCE EXAMPLES — match this exact visual style:' })
+    for (const refBase64 of REFERENCE_IMAGES) {
+      parts.push({ inline_data: { mime_type: 'image/jpeg', data: refBase64 } })
+    }
+    parts.push({ text: 'Now apply this exact style to the following family photo:' })
+  }
+
+  parts.push({ inline_data: { mime_type: mimeType, data: base64 } })
+
   const res = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      contents: [
-        {
-          parts: [
-            { text: prompt },
-            { inline_data: { mime_type: mimeType, data: base64 } },
-          ],
-        },
-      ],
+      contents: [{ parts }],
       generationConfig: {
         responseModalities: ['image', 'text'],
+        temperature: 0.2,
       },
     }),
   })
@@ -118,13 +130,13 @@ async function callGemini(apiKey, modelId, base64, mimeType, prompt) {
   }
 
   const data = await res.json()
-  const parts = data.candidates?.[0]?.content?.parts || []
-  console.log('[Gemini] parts keys:', parts.map(p => Object.keys(p).join(',')))
+  const resParts = data.candidates?.[0]?.content?.parts || []
+  console.log('[Gemini] parts keys:', resParts.map(p => Object.keys(p).join(',')))
 
   // Support both snake_case (inline_data) and camelCase (inlineData)
-  const part = parts.find((p) => p.inline_data || p.inlineData)
+  const part = resParts.find((p) => p.inline_data || p.inlineData)
   if (!part) {
-    const textPart = parts.find((p) => p.text)
+    const textPart = resParts.find((p) => p.text)
     throw new Error(`Модель ${modelId} не повернула зображення. ${textPart ? 'Текст: ' + textPart.text.slice(0, 200) : 'Відповідь порожня'}`)
   }
 
