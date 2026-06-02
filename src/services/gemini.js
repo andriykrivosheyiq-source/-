@@ -7,8 +7,10 @@ let _cachedRefs = null
 const _resultsCache = new Map()
 
 // Reference image filenames in public/references/
-// Add ref1.jpg, ref2.jpg etc — fetched once and cached
-const REF_FILES = ['ref1.jpg', 'ref2.jpg']
+const REF_FILES = [
+  'image-1780403071670.png',
+  'image-1780403071692.png',
+]
 
 async function loadReferenceImages() {
   if (_cachedRefs !== null) return _cachedRefs
@@ -19,12 +21,13 @@ async function loadReferenceImages() {
       const res = await fetch(`${base}references/${name}`)
       if (!res.ok) continue
       const blob = await res.blob()
+      const mimeType = blob.type || 'image/png'
       const b64 = await new Promise((resolve) => {
         const reader = new FileReader()
         reader.onload = () => resolve(reader.result.split(',')[1])
         reader.readAsDataURL(blob)
       })
-      results.push(b64)
+      results.push({ b64, mimeType })
       console.log(`[Gemini] Reference loaded: ${name}`)
     } catch {
       // file not present — skip silently
@@ -124,8 +127,8 @@ async function callGemini(apiKey, modelId, base64, mimeType, prompt, refs) {
 
   if (refs.length > 0) {
     parts.push({ text: 'STYLE REFERENCE EXAMPLES — your output must match this exact visual style:' })
-    for (const refBase64 of refs) {
-      parts.push({ inline_data: { mime_type: 'image/jpeg', data: refBase64 } })
+    for (const { b64, mimeType: refMime } of refs) {
+      parts.push({ inline_data: { mime_type: refMime, data: b64 } })
     }
     parts.push({ text: 'Now generate the same style for this family photo:' })
   }
