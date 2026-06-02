@@ -279,12 +279,14 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
 // ─── MockupEditorModal ────────────────────────────────────────────────────────
 
 function MockupEditorModal({ designImage, product, onClose }) {
-  const containerRef = useRef(null)
+  const outerRef = useRef(null)
+  const innerRef = useRef(null)
   const dragRef = useRef(null)
   const [overlay, setOverlay] = useState({ x: 50, y: 35, size: 32 })
+  const [viewScale, setViewScale] = useState(1.0)
   const [downloading, setDownloading] = useState(false)
 
-  // Drag & resize
+  // Drag & resize (uses innerRef so coords account for viewScale)
   useEffect(() => {
     const onMove = (e) => {
       const dr = dragRef.current
@@ -292,7 +294,7 @@ function MockupEditorModal({ designImage, product, onClose }) {
       if (e.cancelable) e.preventDefault()
       const clientX = e.touches ? e.touches[0].clientX : e.clientX
       const clientY = e.touches ? e.touches[0].clientY : e.clientY
-      const rect = containerRef.current?.getBoundingClientRect()
+      const rect = innerRef.current?.getBoundingClientRect()
       if (!rect) return
       const dx = (clientX - dr.sx) / rect.width * 100
       const dy = (clientY - dr.sy) / rect.height * 100
@@ -312,14 +314,14 @@ function MockupEditorModal({ designImage, product, onClose }) {
     }
   }, [])
 
-  // Scroll to zoom
+  // Scroll to zoom whole mockup (t-shirt + design together)
   useEffect(() => {
-    const el = containerRef.current
+    const el = outerRef.current
     if (!el) return
     const handler = (e) => {
       e.preventDefault()
-      const delta = e.deltaY < 0 ? 2 : -2
-      setOverlay(prev => ({ ...prev, size: Math.max(8, Math.min(90, prev.size + delta)) }))
+      const delta = e.deltaY < 0 ? 0.12 : -0.12
+      setViewScale(prev => Math.max(0.5, Math.min(3.0, prev + delta)))
     }
     el.addEventListener('wheel', handler, { passive: false })
     return () => el.removeEventListener('wheel', handler)
@@ -375,32 +377,37 @@ function MockupEditorModal({ designImage, product, onClose }) {
         </div>
 
         <div className="px-6 pt-4 pb-2 flex-shrink-0">
-          <p className="text-xs text-gray-400 text-center">Перетягніть дизайн · кут → розмір · скрол → зум</p>
+          <p className="text-xs text-gray-400 text-center">Перетягніть дизайн · кут → розмір · скрол → зум футболки</p>
         </div>
 
         <div className="px-6 pb-4 flex-1 overflow-hidden">
           <div
-            ref={containerRef}
-            style={{ position: 'relative', width: '100%', aspectRatio: '1 / 1', userSelect: 'none', touchAction: 'none', cursor: 'default' }}
+            ref={outerRef}
+            style={{ position: 'relative', width: '100%', aspectRatio: '1 / 1', userSelect: 'none', touchAction: 'none', cursor: 'default', overflow: 'hidden' }}
           >
-            <img src={product?.image} alt={product?.nameUk} style={{ width: '100%', height: '100%', objectFit: 'contain', pointerEvents: 'none', display: 'block' }} />
-            {designImage && (
-              <div
-                onMouseDown={e => startDrag('move', e)}
-                onTouchStart={e => startDrag('move', e)}
-                style={{ position: 'absolute', left: `${overlay.x}%`, top: `${overlay.y}%`, width: `${overlay.size}%`, transform: 'translate(-50%, -50%)', cursor: 'grab', zIndex: 10 }}
-              >
-                <img src={designImage} alt="design" style={{ width: '100%', height: 'auto', display: 'block', pointerEvents: 'none' }} />
+            <div
+              ref={innerRef}
+              style={{ position: 'absolute', inset: 0, transform: `scale(${viewScale})`, transformOrigin: 'center center' }}
+            >
+              <img src={product?.image} alt={product?.nameUk} style={{ width: '100%', height: '100%', objectFit: 'contain', pointerEvents: 'none', display: 'block' }} />
+              {designImage && (
                 <div
-                  onMouseDown={e => startDrag('resize', e)}
-                  onTouchStart={e => startDrag('resize', e)}
-                  onClick={e => e.stopPropagation()}
-                  style={{ position: 'absolute', bottom: '-10px', right: '-10px', width: '22px', height: '22px', background: '#4f46e5', border: '2px solid #fff', borderRadius: '4px', cursor: 'nwse-resize', zIndex: 20, boxShadow: '0 1px 4px rgba(0,0,0,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                  onMouseDown={e => startDrag('move', e)}
+                  onTouchStart={e => startDrag('move', e)}
+                  style={{ position: 'absolute', left: `${overlay.x}%`, top: `${overlay.y}%`, width: `${overlay.size}%`, transform: 'translate(-50%, -50%)', cursor: 'grab', zIndex: 10 }}
                 >
-                  <svg width="8" height="8" viewBox="0 0 8 8" fill="none"><path d="M1 7L7 1M4 7L7 4" stroke="white" strokeWidth="1.5" strokeLinecap="round"/></svg>
+                  <img src={designImage} alt="design" style={{ width: '100%', height: 'auto', display: 'block', pointerEvents: 'none' }} />
+                  <div
+                    onMouseDown={e => startDrag('resize', e)}
+                    onTouchStart={e => startDrag('resize', e)}
+                    onClick={e => e.stopPropagation()}
+                    style={{ position: 'absolute', bottom: '-10px', right: '-10px', width: '22px', height: '22px', background: '#4f46e5', border: '2px solid #fff', borderRadius: '4px', cursor: 'nwse-resize', zIndex: 20, boxShadow: '0 1px 4px rgba(0,0,0,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                  >
+                    <svg width="8" height="8" viewBox="0 0 8 8" fill="none"><path d="M1 7L7 1M4 7L7 4" stroke="white" strokeWidth="1.5" strokeLinecap="round"/></svg>
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </div>
 
