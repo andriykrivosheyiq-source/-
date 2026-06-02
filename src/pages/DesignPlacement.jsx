@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef, useImperativeHandle } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { products as allProducts } from '../data/mockData'
+import { generateDesigns, clearCache } from '../services/gemini'
 
 const D_PATH =
   'M291 123L78 153L88 232L114 229L116 233L148 467L143 471L121 474L132 555L349 526L400 459L360 176Z ' +
@@ -10,7 +11,72 @@ const D_PATH =
 
 const PRESET_COLORS = ['#000000', '#1e3a5f', '#c0392b', '#2d5a27', '#d97706', '#7c3aed', '#9ca3af', '#8b5e3c']
 
-function EstPosterView({ imageUrl, estText }) {
+// ─── Canvas export ────────────────────────────────────────────────────────────
+
+function loadImgEl(src) {
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    img.crossOrigin = 'anonymous'
+    img.onload = () => resolve(img)
+    img.onerror = reject
+    img.src = src
+  })
+}
+
+async function renderEstToCanvas(letters, estEl, estText, imageUrl) {
+  const W = 1600, H = 900
+  const canvas = document.createElement('canvas')
+  canvas.width = W; canvas.height = H
+  const ctx = canvas.getContext('2d')
+
+  ctx.fillStyle = '#ffffff'
+  ctx.fillRect(0, 0, W, H)
+
+  if (imageUrl) {
+    try {
+      const img = await loadImgEl(imageUrl)
+      const areaX = 0.24 * W, areaY = 0.04 * H
+      const areaW = 0.52 * W, areaH = 0.82 * H
+      const sc = Math.min(areaW / img.width, areaH / img.height)
+      const iW = img.width * sc, iH = img.height * sc
+      ctx.save()
+      ctx.globalCompositeOperation = 'multiply'
+      ctx.drawImage(img, areaX + (areaW - iW) / 2, areaY + (areaH - iH) / 2, iW, iH)
+      ctx.restore()
+    } catch { /* skip */ }
+  }
+
+  for (const letter of letters) {
+    const lx = letter.x / 100 * W
+    const ly = letter.y / 100 * H
+    const lw = letter.size / 100 * W
+    const lh = lw * 460 / 360
+    const sc = lw / 360
+    ctx.save()
+    ctx.translate(lx + lw / 2, ly + lh / 2)
+    ctx.rotate(letter.rotation * Math.PI / 180)
+    ctx.translate(-lw / 2, -lh / 2)
+    ctx.scale(sc, sc)
+    ctx.translate(-60, -110)
+    ctx.fillStyle = letter.color
+    ctx.fill(new Path2D(D_PATH), 'evenodd')
+    ctx.restore()
+  }
+
+  const fontPx = estEl.fontSize * W / 100
+  ctx.font = `bold ${fontPx}px Arial, Helvetica, sans-serif`
+  ctx.fillStyle = estEl.color
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  try { ctx.letterSpacing = '6px' } catch { /* older browsers */ }
+  ctx.fillText((estText || 'EST.2025').toUpperCase(), estEl.x / 100 * W, estEl.y / 100 * H)
+
+  return canvas
+}
+
+// ─── EstPosterView ────────────────────────────────────────────────────────────
+
+const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estText }, ref) {
   const containerRef = useRef(null)
   const dragRef = useRef(null)
   const dragMovedRef = useRef(false)
@@ -22,6 +88,10 @@ function EstPosterView({ imageUrl, estText }) {
   ])
   const [estEl, setEstEl] = useState({ x: 50, y: 88, color: '#000000', fontSize: 2.8 })
   const [selected, setSelected] = useState(null)
+
+  useImperativeHandle(ref, () => ({
+    exportToCanvas: () => renderEstToCanvas(letters, estEl, estText, imageUrl),
+  }), [letters, estEl, estText, imageUrl])
 
   useEffect(() => {
     const onMove = (e) => {
@@ -35,11 +105,8 @@ function EstPosterView({ imageUrl, estText }) {
       if (Math.abs(dx) > 0.3 || Math.abs(dy) > 0.3) dragMovedRef.current = true
 
       if (dr.id === 'est') {
-        if (dr.type === 'move') {
-          setEstEl(prev => ({ ...prev, x: dr.ox + dx, y: dr.oy + dy }))
-        } else if (dr.type === 'resize') {
-          setEstEl(prev => ({ ...prev, fontSize: Math.max(1, Math.min(8, dr.os + (dx + dy) * 0.04)) }))
-        }
+        if (dr.type === 'move')   setEstEl(prev => ({ ...prev, x: dr.ox + dx, y: dr.oy + dy }))
+        if (dr.type === 'resize') setEstEl(prev => ({ ...prev, fontSize: Math.max(1, Math.min(8, dr.os + (dx + dy) * 0.04)) }))
       } else {
         setLetters(prev => prev.map(l => {
           if (l.id !== dr.id) return l
@@ -72,141 +139,50 @@ function EstPosterView({ imageUrl, estText }) {
     const rect = containerRef.current.getBoundingClientRect()
     const clientX = e.touches ? e.touches[0].clientX : e.clientX
     const clientY = e.touches ? e.touches[0].clientY : e.clientY
-
     if (id === 'est') {
-      dragRef.current = {
-        id, type,
-        sx: clientX, sy: clientY,
-        ox: estEl.x, oy: estEl.y, os: estEl.fontSize,
-        cw: rect.width, ch: rect.height,
-      }
+      dragRef.current = { id, type, sx: clientX, sy: clientY, ox: estEl.x, oy: estEl.y, os: estEl.fontSize, cw: rect.width, ch: rect.height }
     } else {
       const letter = letters.find(l => l.id === id)
-      dragRef.current = {
-        id, type,
-        sx: clientX, sy: clientY,
-        ox: letter.x, oy: letter.y,
-        os: type === 'rotate' ? letter.rotation : letter.size,
-        cw: rect.width, ch: rect.height,
-      }
+      dragRef.current = { id, type, sx: clientX, sy: clientY, ox: letter.x, oy: letter.y, os: type === 'rotate' ? letter.rotation : letter.size, cw: rect.width, ch: rect.height }
     }
   }
 
   const handleClick = (id, e) => {
     e.stopPropagation()
-    if (wasSelectedRef.current && !dragMovedRef.current) {
-      setSelected(null)
-    }
+    if (wasSelectedRef.current && !dragMovedRef.current) setSelected(null)
   }
 
   const selectedLetter = letters.find(l => l.id === selected)
   const isEstSelected = selected === 'est'
   const currentColor = isEstSelected ? estEl.color : selectedLetter?.color
-
   const setColor = (color) => {
-    if (isEstSelected) {
-      setEstEl(prev => ({ ...prev, color }))
-    } else if (selectedLetter) {
-      setLetters(prev => prev.map(l => l.id === selected ? { ...l, color } : l))
-    }
+    if (isEstSelected) setEstEl(prev => ({ ...prev, color }))
+    else if (selectedLetter) setLetters(prev => prev.map(l => l.id === selected ? { ...l, color } : l))
   }
 
   return (
     <div style={{ background: '#ffffff', width: '100%', borderRadius: '12px' }}>
-      <div
-        ref={containerRef}
-        onClick={() => setSelected(null)}
-        style={{
-          position: 'relative',
-          width: '100%',
-          aspectRatio: '16 / 9',
-          background: '#ffffff',
-          userSelect: 'none',
-          touchAction: 'none',
-          overflow: 'hidden',
-        }}
-      >
+      <div ref={containerRef} onClick={() => setSelected(null)} style={{ position: 'relative', width: '100%', aspectRatio: '16 / 9', background: '#ffffff', userSelect: 'none', touchAction: 'none', overflow: 'hidden' }}>
+
         {/* Illustration */}
-        <div style={{
-          position: 'absolute',
-          top: '4%', bottom: '14%',
-          left: '24%', right: '24%',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}>
+        <div style={{ position: 'absolute', top: '4%', bottom: '14%', left: '24%', right: '24%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           {imageUrl ? (
-            <img
-              src={imageUrl}
-              alt="EST illustration"
-              style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', mixBlendMode: 'multiply' }}
-            />
+            <img src={imageUrl} alt="EST illustration" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', mixBlendMode: 'multiply' }} />
           ) : (
             <div style={{ color: '#9ca3af', textAlign: 'center' }}>
-              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                <rect x="3" y="3" width="18" height="18" rx="2" />
-                <circle cx="8.5" cy="8.5" r="1.5" />
-                <polyline points="21 15 16 10 5 21" />
-              </svg>
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" /></svg>
               <p style={{ fontSize: '12px', marginTop: '8px' }}>Завантажте фото для EST стилю</p>
             </div>
           )}
         </div>
 
-        {/* EST text — interactive */}
-        <div
-          onMouseDown={e => startDrag('est', 'move', e)}
-          onTouchStart={e => startDrag('est', 'move', e)}
-          onClick={e => handleClick('est', e)}
-          style={{
-            position: 'absolute',
-            left: `${estEl.x}%`,
-            top: `${estEl.y}%`,
-            transform: 'translate(-50%, -50%)',
-            fontFamily: 'Arial, Helvetica, sans-serif',
-            fontWeight: 700,
-            fontSize: `${estEl.fontSize}vw`,
-            letterSpacing: '6px',
-            color: estEl.color,
-            cursor: isEstSelected ? 'grab' : 'pointer',
-            zIndex: isEstSelected ? 20 : 10,
-            whiteSpace: 'nowrap',
-          }}
-        >
-          {isEstSelected && (
-            <div style={{
-              position: 'absolute',
-              inset: '-5px',
-              border: '2px dashed #4f46e5',
-              borderRadius: '6px',
-              pointerEvents: 'none',
-            }} />
-          )}
+        {/* EST text */}
+        <div onMouseDown={e => startDrag('est', 'move', e)} onTouchStart={e => startDrag('est', 'move', e)} onClick={e => handleClick('est', e)} style={{ position: 'absolute', left: `${estEl.x}%`, top: `${estEl.y}%`, transform: 'translate(-50%, -50%)', fontFamily: 'Arial, Helvetica, sans-serif', fontWeight: 700, fontSize: `${estEl.fontSize}vw`, letterSpacing: '6px', color: estEl.color, cursor: isEstSelected ? 'grab' : 'pointer', zIndex: isEstSelected ? 20 : 10, whiteSpace: 'nowrap' }}>
+          {isEstSelected && <div style={{ position: 'absolute', inset: '-5px', border: '2px dashed #4f46e5', borderRadius: '6px', pointerEvents: 'none' }} />}
           {(estText || 'EST.2025').toUpperCase()}
           {isEstSelected && (
-            <div
-              onMouseDown={e => startDrag('est', 'resize', e)}
-              onTouchStart={e => startDrag('est', 'resize', e)}
-              onClick={e => e.stopPropagation()}
-              style={{
-                position: 'absolute',
-                bottom: '-10px',
-                right: '-10px',
-                width: '20px', height: '20px',
-                background: '#4f46e5',
-                border: '2px solid #ffffff',
-                borderRadius: '4px',
-                cursor: 'nwse-resize',
-                zIndex: 30,
-                boxShadow: '0 1px 4px rgba(0,0,0,0.25)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
-                <path d="M1 7L7 1M4 7L7 4" stroke="white" strokeWidth="1.5" strokeLinecap="round" />
-              </svg>
+            <div onMouseDown={e => startDrag('est', 'resize', e)} onTouchStart={e => startDrag('est', 'resize', e)} onClick={e => e.stopPropagation()} style={{ position: 'absolute', bottom: '-10px', right: '-10px', width: '20px', height: '20px', background: '#4f46e5', border: '2px solid #fff', borderRadius: '4px', cursor: 'nwse-resize', zIndex: 30, boxShadow: '0 1px 4px rgba(0,0,0,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <svg width="8" height="8" viewBox="0 0 8 8" fill="none"><path d="M1 7L7 1M4 7L7 4" stroke="white" strokeWidth="1.5" strokeLinecap="round" /></svg>
             </div>
           )}
         </div>
@@ -215,114 +191,30 @@ function EstPosterView({ imageUrl, estText }) {
         {letters.map(letter => {
           const isSelected = selected === letter.id
           return (
-            <div
-              key={letter.id}
-              onMouseDown={e => startDrag(letter.id, 'move', e)}
-              onTouchStart={e => startDrag(letter.id, 'move', e)}
-              onClick={e => handleClick(letter.id, e)}
-              style={{
-                position: 'absolute',
-                left: `${letter.x}%`,
-                top: `${letter.y}%`,
-                width: `${letter.size}%`,
-                transform: `rotate(${letter.rotation}deg)`,
-                transformOrigin: 'center center',
-                cursor: isSelected ? 'grab' : 'pointer',
-                zIndex: isSelected ? 20 : 10,
-              }}
-            >
-              {isSelected && (
-                <div style={{
-                  position: 'absolute',
-                  inset: '-5px',
-                  border: '2px dashed #4f46e5',
-                  borderRadius: '6px',
-                  pointerEvents: 'none',
-                }} />
-              )}
+            <div key={letter.id} onMouseDown={e => startDrag(letter.id, 'move', e)} onTouchStart={e => startDrag(letter.id, 'move', e)} onClick={e => handleClick(letter.id, e)} style={{ position: 'absolute', left: `${letter.x}%`, top: `${letter.y}%`, width: `${letter.size}%`, transform: `rotate(${letter.rotation}deg)`, transformOrigin: 'center center', cursor: isSelected ? 'grab' : 'pointer', zIndex: isSelected ? 20 : 10 }}>
+              {isSelected && <div style={{ position: 'absolute', inset: '-5px', border: '2px dashed #4f46e5', borderRadius: '6px', pointerEvents: 'none' }} />}
 
-              {/* Rotation handle — circle at top center */}
+              {/* Rotation handle */}
               {isSelected && (
-                <div
-                  onMouseDown={e => startDrag(letter.id, 'rotate', e)}
-                  onTouchStart={e => startDrag(letter.id, 'rotate', e)}
-                  onClick={e => e.stopPropagation()}
-                  title="Потягніть вліво/вправо щоб повернути"
-                  style={{
-                    position: 'absolute',
-                    top: '-26px',
-                    left: '50%',
-                    transform: 'translateX(-50%)',
-                    width: '20px', height: '20px',
-                    background: '#ffffff',
-                    border: '2px solid #4f46e5',
-                    borderRadius: '50%',
-                    cursor: 'ew-resize',
-                    zIndex: 31,
-                    boxShadow: '0 1px 4px rgba(0,0,0,0.2)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                >
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#4f46e5" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38"/>
-                  </svg>
-                </div>
-              )}
-
-              {/* Rotation angle badge */}
-              {isSelected && (
-                <div
-                  style={{
-                    position: 'absolute',
-                    top: '-24px',
-                    left: 'calc(50% + 14px)',
-                    background: '#4f46e5',
-                    color: '#ffffff',
-                    fontSize: '10px',
-                    fontWeight: 700,
-                    padding: '2px 6px',
-                    borderRadius: '4px',
-                    pointerEvents: 'none',
-                    whiteSpace: 'nowrap',
-                    lineHeight: '16px',
-                  }}
-                >
-                  {Math.round(letter.rotation)}° · {Math.round(letter.size)}%
-                </div>
+                <>
+                  <div onMouseDown={e => startDrag(letter.id, 'rotate', e)} onTouchStart={e => startDrag(letter.id, 'rotate', e)} onClick={e => e.stopPropagation()} title="Вліво/вправо → поворот" style={{ position: 'absolute', top: '-26px', left: '50%', transform: 'translateX(-50%)', width: '20px', height: '20px', background: '#ffffff', border: '2px solid #4f46e5', borderRadius: '50%', cursor: 'ew-resize', zIndex: 31, boxShadow: '0 1px 4px rgba(0,0,0,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#4f46e5" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38"/></svg>
+                  </div>
+                  {/* Angle + size badge */}
+                  <div style={{ position: 'absolute', top: '-24px', left: 'calc(50% + 14px)', background: '#4f46e5', color: '#fff', fontSize: '10px', fontWeight: 700, padding: '2px 6px', borderRadius: '4px', pointerEvents: 'none', whiteSpace: 'nowrap', lineHeight: '16px' }}>
+                    {Math.round(letter.rotation)}° · {Math.round(letter.size)}%
+                  </div>
+                </>
               )}
 
               <svg viewBox="60 110 360 460" style={{ width: '100%', height: 'auto', display: 'block' }}>
                 <path d={D_PATH} fill={letter.color} fillRule="evenodd" />
               </svg>
 
-              {/* Resize handle — bottom right */}
+              {/* Resize handle */}
               {isSelected && (
-                <div
-                  onMouseDown={e => startDrag(letter.id, 'resize', e)}
-                  onTouchStart={e => startDrag(letter.id, 'resize', e)}
-                  onClick={e => e.stopPropagation()}
-                  title="Потягніть щоб змінити розмір"
-                  style={{
-                    position: 'absolute',
-                    bottom: '-10px',
-                    right: '-10px',
-                    width: '20px', height: '20px',
-                    background: '#4f46e5',
-                    border: '2px solid #ffffff',
-                    borderRadius: '4px',
-                    cursor: 'nwse-resize',
-                    zIndex: 30,
-                    boxShadow: '0 1px 4px rgba(0,0,0,0.25)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                >
-                  <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
-                    <path d="M1 7L7 1M4 7L7 4" stroke="white" strokeWidth="1.5" strokeLinecap="round" />
-                  </svg>
+                <div onMouseDown={e => startDrag(letter.id, 'resize', e)} onTouchStart={e => startDrag(letter.id, 'resize', e)} onClick={e => e.stopPropagation()} title="Кут → розмір" style={{ position: 'absolute', bottom: '-10px', right: '-10px', width: '20px', height: '20px', background: '#4f46e5', border: '2px solid #fff', borderRadius: '4px', cursor: 'nwse-resize', zIndex: 30, boxShadow: '0 1px 4px rgba(0,0,0,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <svg width="8" height="8" viewBox="0 0 8 8" fill="none"><path d="M1 7L7 1M4 7L7 4" stroke="white" strokeWidth="1.5" strokeLinecap="round" /></svg>
                 </div>
               )}
             </div>
@@ -332,102 +224,131 @@ function EstPosterView({ imageUrl, estText }) {
 
       {/* Color picker panel */}
       {selected && (selectedLetter || isEstSelected) && (
-        <div style={{
-          padding: '10px 16px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px',
-          borderTop: '1px solid #f3f4f6',
-          background: '#fafafa',
-          borderRadius: '0 0 12px 12px',
-          flexWrap: 'wrap',
-        }}>
-          <span style={{ fontSize: '12px', color: '#6b7280', fontWeight: 500 }}>
-            {isEstSelected ? 'EST текст' : selected === 'left' ? 'Ліва D' : 'Права D'}:
-          </span>
+        <div style={{ padding: '10px 16px', display: 'flex', alignItems: 'center', gap: '8px', borderTop: '1px solid #f3f4f6', background: '#fafafa', borderRadius: '0 0 12px 12px', flexWrap: 'wrap' }}>
+          <span style={{ fontSize: '12px', color: '#6b7280', fontWeight: 500 }}>{isEstSelected ? 'EST текст' : selected === 'left' ? 'Ліва D' : 'Права D'}:</span>
           {PRESET_COLORS.map(color => (
-            <button
-              key={color}
-              onClick={() => setColor(color)}
-              style={{
-                width: '22px', height: '22px',
-                borderRadius: '50%',
-                background: color,
-                border: currentColor === color ? '3px solid #4f46e5' : '2px solid #d1d5db',
-                cursor: 'pointer',
-                padding: 0,
-                flexShrink: 0,
-              }}
-            />
+            <button key={color} onClick={() => setColor(color)} style={{ width: '22px', height: '22px', borderRadius: '50%', background: color, border: currentColor === color ? '3px solid #4f46e5' : '2px solid #d1d5db', cursor: 'pointer', padding: 0, flexShrink: 0 }} />
           ))}
-          <input
-            type="color"
-            value={currentColor || '#000000'}
-            onChange={e => setColor(e.target.value)}
-            style={{ width: '28px', height: '28px', padding: 0, border: '2px solid #d1d5db', cursor: 'pointer', borderRadius: '50%', background: 'none' }}
-            title="Власний колір"
-          />
-          <span style={{ fontSize: '11px', color: '#9ca3af', marginLeft: 'auto', whiteSpace: 'nowrap' }}>
-            {isEstSelected ? 'Тягни • кут → розмір' : 'Тягни • ○ поворот • кут → розмір'}
-          </span>
+          <input type="color" value={currentColor || '#000000'} onChange={e => setColor(e.target.value)} style={{ width: '28px', height: '28px', padding: 0, border: '2px solid #d1d5db', cursor: 'pointer', borderRadius: '50%', background: 'none' }} title="Власний колір" />
+          <span style={{ fontSize: '11px', color: '#9ca3af', marginLeft: 'auto', whiteSpace: 'nowrap' }}>{isEstSelected ? 'Тягни • кут → розмір' : 'Тягни • ○ поворот • кут → розмір'}</span>
         </div>
       )}
     </div>
   )
+})
+
+// ─── MockupEditorModal ────────────────────────────────────────────────────────
+
+function MockupEditorModal({ designImage, product, onClose }) {
+  const containerRef = useRef(null)
+  const dragRef = useRef(null)
+  const [overlay, setOverlay] = useState({ x: 50, y: 35, size: 32 })
+
+  useEffect(() => {
+    const onMove = (e) => {
+      const dr = dragRef.current
+      if (!dr) return
+      if (e.cancelable) e.preventDefault()
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX
+      const clientY = e.touches ? e.touches[0].clientY : e.clientY
+      const rect = containerRef.current?.getBoundingClientRect()
+      if (!rect) return
+      const dx = (clientX - dr.sx) / rect.width * 100
+      const dy = (clientY - dr.sy) / rect.height * 100
+      if (dr.type === 'move')   setOverlay(prev => ({ ...prev, x: dr.ox + dx, y: dr.oy + dy }))
+      if (dr.type === 'resize') setOverlay(prev => ({ ...prev, size: Math.max(10, Math.min(85, dr.os + (dx + dy) * 0.5)) }))
+    }
+    const onUp = () => { dragRef.current = null }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+    window.addEventListener('touchmove', onMove, { passive: false })
+    window.addEventListener('touchend', onUp)
+    return () => {
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+      window.removeEventListener('touchmove', onMove)
+      window.removeEventListener('touchend', onUp)
+    }
+  }, [])
+
+  const startDrag = (type, e) => {
+    e.preventDefault(); e.stopPropagation()
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY
+    dragRef.current = { type, sx: clientX, sy: clientY, ox: overlay.x, oy: overlay.y, os: overlay.size }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col" style={{ maxHeight: '90vh' }}>
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 flex-shrink-0">
+          <h3 className="text-lg font-bold text-gray-900">Мокап товару</h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+          </button>
+        </div>
+
+        <div className="p-6 flex-1 overflow-auto">
+          <p className="text-xs text-gray-400 mb-4 text-center">Перетягніть дизайн · кут → розмір</p>
+          <div ref={containerRef} style={{ position: 'relative', width: '100%', aspectRatio: '1 / 1', userSelect: 'none', touchAction: 'none' }}>
+            <img src={product?.image} alt={product?.nameUk} style={{ width: '100%', height: '100%', objectFit: 'contain', pointerEvents: 'none', display: 'block' }} />
+            {designImage && (
+              <div onMouseDown={e => startDrag('move', e)} onTouchStart={e => startDrag('move', e)} style={{ position: 'absolute', left: `${overlay.x}%`, top: `${overlay.y}%`, width: `${overlay.size}%`, transform: 'translate(-50%, -50%)', cursor: 'grab', zIndex: 10 }}>
+                <img src={designImage} alt="design" style={{ width: '100%', height: 'auto', display: 'block', mixBlendMode: 'multiply', pointerEvents: 'none' }} />
+                <div onMouseDown={e => startDrag('resize', e)} onTouchStart={e => startDrag('resize', e)} onClick={e => e.stopPropagation()} style={{ position: 'absolute', bottom: '-10px', right: '-10px', width: '22px', height: '22px', background: '#4f46e5', border: '2px solid #fff', borderRadius: '4px', cursor: 'nwse-resize', zIndex: 20, boxShadow: '0 1px 4px rgba(0,0,0,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <svg width="8" height="8" viewBox="0 0 8 8" fill="none"><path d="M1 7L7 1M4 7L7 4" stroke="white" strokeWidth="1.5" strokeLinecap="round"/></svg>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="px-5 py-4 border-t border-gray-100 flex justify-end gap-3 flex-shrink-0">
+          <button onClick={onClose} className="btn-secondary">Закрити</button>
+          <button onClick={onClose} className="btn-primary">Готово</button>
+        </div>
+      </div>
+    </div>
+  )
 }
+
+// ─── AIEditModal ──────────────────────────────────────────────────────────────
 
 function AIEditModal({ onClose }) {
   const [prompt, setPrompt] = useState('')
   const [loading, setLoading] = useState(false)
-
   const handleApply = async () => {
     if (!prompt.trim()) return
     setLoading(true)
-    await new Promise((r) => setTimeout(r, 1500))
+    await new Promise(r => setTimeout(r, 1500))
     setLoading(false)
     onClose()
   }
-
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-bold text-gray-900">AI Редагування</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M18 6L6 18M6 6l12 12"/>
-            </svg>
-          </button>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
         </div>
-        <textarea
-          value={prompt}
-          onChange={(e) => setPrompt(e.target.value)}
-          placeholder="Наприклад: зроби фон темнішим..."
-          className="w-full border border-gray-200 rounded-xl p-3 text-sm resize-none h-28 focus:outline-none focus:ring-2 focus:ring-indigo-300"
-        />
+        <textarea value={prompt} onChange={e => setPrompt(e.target.value)} placeholder="Наприклад: зроби фон темнішим..." className="w-full border border-gray-200 rounded-xl p-3 text-sm resize-none h-28 focus:outline-none focus:ring-2 focus:ring-indigo-300" />
         <div className="mt-3 grid grid-cols-2 gap-2">
-          {['Зроби яскравіше', 'Додай рамку', 'Видали фон', 'Зміни колір'].map((s) => (
-            <button key={s} onClick={() => setPrompt(s)}
-              className="text-xs border border-indigo-200 text-indigo-600 rounded-lg px-3 py-1.5 hover:bg-indigo-50 transition-colors">
-              {s}
-            </button>
+          {['Зроби яскравіше', 'Додай рамку', 'Видали фон', 'Зміни колір'].map(s => (
+            <button key={s} onClick={() => setPrompt(s)} className="text-xs border border-indigo-200 text-indigo-600 rounded-lg px-3 py-1.5 hover:bg-indigo-50 transition-colors">{s}</button>
           ))}
         </div>
         <div className="flex gap-3 mt-5">
           <button onClick={onClose} className="btn-secondary flex-1 justify-center">Скасувати</button>
           <button onClick={handleApply} disabled={!prompt.trim() || loading} className="btn-primary flex-1 justify-center">
-            {loading ? (
-              <><svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
-                <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" className="opacity-25"/>
-                <path d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" fill="currentColor"/>
-              </svg> Застосування...</>
-            ) : 'Застосувати'}
+            {loading ? <><svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" className="opacity-25"/><path d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" fill="currentColor"/></svg> Застосування...</> : 'Застосувати'}
           </button>
         </div>
       </div>
     </div>
   )
 }
+
+// ─── ChangeProductModal ───────────────────────────────────────────────────────
 
 function ChangeProductModal({ current, onSelect, onClose }) {
   const available = allProducts.slice(0, 6)
@@ -436,27 +357,14 @@ function ChangeProductModal({ current, onSelect, onClose }) {
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-bold text-gray-900">Змінити товар</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M18 6L6 18M6 6l12 12"/>
-            </svg>
-          </button>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
         </div>
         <div className="space-y-2">
-          {available.map((p) => (
-            <button key={p.id} onClick={() => { onSelect(p.id); onClose() }}
-              className={`w-full flex items-center gap-3 p-3 rounded-xl border-2 transition-colors ${
-                current === p.id ? 'border-indigo-500 bg-indigo-50' : 'border-gray-100 hover:border-gray-200'
-              }`}>
+          {available.map(p => (
+            <button key={p.id} onClick={() => { onSelect(p.id); onClose() }} className={`w-full flex items-center gap-3 p-3 rounded-xl border-2 transition-colors ${current === p.id ? 'border-indigo-500 bg-indigo-50' : 'border-gray-100 hover:border-gray-200'}`}>
               <img src={p.image} alt={p.nameUk} className="w-12 h-12 object-cover rounded-lg" />
               <span className="font-medium text-gray-800">{p.nameUk}</span>
-              {current === p.id && (
-                <span className="ml-auto">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4f46e5" strokeWidth="2.5">
-                    <path d="M20 6L9 17l-5-5"/>
-                  </svg>
-                </span>
-              )}
+              {current === p.id && <span className="ml-auto"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4f46e5" strokeWidth="2.5"><path d="M20 6L9 17l-5-5"/></svg></span>}
             </button>
           ))}
         </div>
@@ -465,32 +373,73 @@ function ChangeProductModal({ current, onSelect, onClose }) {
   )
 }
 
-export default function DesignPlacement({ designData }) {
+// ─── DesignPlacement ──────────────────────────────────────────────────────────
+
+export default function DesignPlacement({ designData, onUpdate }) {
   const navigate = useNavigate()
+  const estPosterRef = useRef(null)
   const [activeTab, setActiveTab] = useState(0)
-  const [selectedProduct, setSelectedProduct] = useState(
-    designData?.selectedProducts?.[0] || 'hoodie'
-  )
+  const [selectedProduct, setSelectedProduct] = useState(designData?.selectedProducts?.[0] || 'hoodie')
   const [showAIEdit, setShowAIEdit] = useState(false)
   const [showChangeProduct, setShowChangeProduct] = useState(false)
+  const [showMockup, setShowMockup] = useState(false)
   const [estText, setEstText] = useState('EST.2025')
+  const [regenerating, setRegenerating] = useState(false)
+  const [regenError, setRegenError] = useState(null)
+  const [downloading, setDownloading] = useState(false)
 
   const isEst = designData?.selectedStyle === 'est-face'
-
   const generatedDesigns = designData?.generatedDesigns || null
   const hasDesigns = generatedDesigns && generatedDesigns.length > 0
   const hasTwoDesigns = generatedDesigns && generatedDesigns.length > 1
+  const currentDesignImage = hasDesigns ? generatedDesigns[Math.min(activeTab, generatedDesigns.length - 1)].image : null
+  const currentProduct = allProducts.find(p => p.id === selectedProduct) || allProducts[0]
 
-  const currentDesignImage = hasDesigns
-    ? generatedDesigns[Math.min(activeTab, generatedDesigns.length - 1)].image
-    : null
+  const handleRegenerate = async () => {
+    if (!designData?.uploadedFile || !designData?.selectedStyle) {
+      navigate('/create')
+      return
+    }
+    setRegenerating(true)
+    setRegenError(null)
+    try {
+      clearCache(designData.uploadedFile, designData.selectedStyle)
+      const newDesigns = await generateDesigns(designData.uploadedFile, designData.selectedStyle)
+      onUpdate?.({ generatedDesigns: newDesigns })
+      setActiveTab(0)
+    } catch (e) {
+      setRegenError(e.message)
+    } finally {
+      setRegenerating(false)
+    }
+  }
 
-  const currentProduct = allProducts.find((p) => p.id === selectedProduct) || allProducts[0]
-
-  const handleAddToCart = () => navigate('/orders')
+  const handleDownload = async () => {
+    setDownloading(true)
+    try {
+      let dataUrl
+      if (isEst && estPosterRef.current) {
+        const canvas = await estPosterRef.current.exportToCanvas()
+        dataUrl = canvas.toDataURL('image/png')
+      } else if (currentDesignImage) {
+        dataUrl = currentDesignImage
+      }
+      if (dataUrl) {
+        const a = document.createElement('a')
+        a.download = 'design.png'
+        a.href = dataUrl
+        a.click()
+      }
+    } catch (e) {
+      console.error('Download error:', e)
+    } finally {
+      setDownloading(false)
+    }
+  }
 
   return (
     <div className="flex-1 overflow-y-auto">
+      {/* Header */}
       <div className="bg-white border-b border-gray-100 px-8 py-5 sticky top-0 z-10">
         <div className="flex items-center gap-4">
           <div className="w-8 h-8 bg-indigo-600 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0">2</div>
@@ -501,9 +450,7 @@ export default function DesignPlacement({ designData }) {
           <div className="ml-auto flex items-center gap-2">
             <div className="flex items-center gap-1.5">
               <div className="w-7 h-7 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center text-xs font-semibold">
-                <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
-                  <path d="M3 8l3.5 3.5L13 5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
+                <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M3 8l3.5 3.5L13 5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
               </div>
               <span className="text-sm text-gray-400">Створити дизайн</span>
             </div>
@@ -520,117 +467,127 @@ export default function DesignPlacement({ designData }) {
         {hasTwoDesigns && (
           <div className="flex gap-2 mb-5">
             {generatedDesigns.map((d, i) => (
-              <button
-                key={i}
-                onClick={() => setActiveTab(i)}
-                className={`px-6 py-2.5 rounded-xl font-semibold text-sm transition-all duration-150 ${
-                  activeTab === i
-                    ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200'
-                    : 'bg-white text-gray-600 border border-gray-200 hover:border-indigo-300'
-                }`}
-              >
-                {d.label}
-                <span className="ml-2 text-xs opacity-70">{i + 1}/2</span>
+              <button key={i} onClick={() => setActiveTab(i)} className={`px-6 py-2.5 rounded-xl font-semibold text-sm transition-all duration-150 ${activeTab === i ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200' : 'bg-white text-gray-600 border border-gray-200 hover:border-indigo-300'}`}>
+                {d.label}<span className="ml-2 text-xs opacity-70">{i + 1}/2</span>
               </button>
             ))}
           </div>
         )}
 
+        {/* Design card */}
         <div className="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden mb-5">
           <div className="px-5 py-4 border-b border-gray-50 flex items-center justify-between">
             <h2 className="font-semibold text-gray-900">Згенерований дизайн</h2>
-            {hasDesigns && (
-              <span className="text-xs text-indigo-600 font-medium bg-indigo-50 px-2.5 py-1 rounded-full">
-                {generatedDesigns[Math.min(activeTab, generatedDesigns.length - 1)].label}
-              </span>
-            )}
+            <div className="flex items-center gap-2">
+              {hasDesigns && (
+                <span className="text-xs text-indigo-600 font-medium bg-indigo-50 px-2.5 py-1 rounded-full">
+                  {generatedDesigns[Math.min(activeTab, generatedDesigns.length - 1)].label}
+                </span>
+              )}
+            </div>
           </div>
 
           <div className="p-5">
-            <div className="w-full bg-gray-50 rounded-xl overflow-hidden">
-              {isEst ? (
-                <EstPosterView imageUrl={currentDesignImage} estText={estText} />
-              ) : currentDesignImage ? (
-                <img src={currentDesignImage} alt="Generated design" className="w-full h-auto block" style={{ maxHeight: '80vh' }} />
-              ) : (
-                <div className="flex flex-col items-center gap-3 text-gray-400 py-20">
-                  <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                    <rect x="3" y="3" width="18" height="18" rx="2"/>
-                    <circle cx="8.5" cy="8.5" r="1.5"/>
-                    <polyline points="21 15 16 10 5 21"/>
-                  </svg>
-                  <p className="text-sm text-center max-w-xs">Завантажте фото та оберіть стиль для генерації</p>
-                </div>
-              )}
-            </div>
+            {/* Loading overlay for regen */}
+            {regenerating && (
+              <div className="w-full bg-gray-50 rounded-xl flex flex-col items-center justify-center py-20 gap-4">
+                <svg className="animate-spin w-10 h-10 text-indigo-500" viewBox="0 0 24 24" fill="none">
+                  <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" className="opacity-25"/>
+                  <path d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" fill="currentColor"/>
+                </svg>
+                <p className="text-sm text-gray-500 font-medium">Генерую новий дизайн... (15–30 сек)</p>
+              </div>
+            )}
 
-            {isEst && (
+            {!regenerating && (
+              <div className="w-full bg-gray-50 rounded-xl overflow-hidden">
+                {isEst ? (
+                  <EstPosterView ref={estPosterRef} imageUrl={currentDesignImage} estText={estText} />
+                ) : currentDesignImage ? (
+                  <img src={currentDesignImage} alt="Generated design" className="w-full h-auto block" style={{ maxHeight: '80vh' }} />
+                ) : (
+                  <div className="flex flex-col items-center gap-3 text-gray-400 py-20">
+                    <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                    <p className="text-sm text-center max-w-xs">Завантажте фото та оберіть стиль для генерації</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {regenError && (
+              <div className="mt-3 px-4 py-2 bg-red-50 border border-red-200 rounded-xl text-sm text-red-600">{regenError}</div>
+            )}
+
+            {isEst && !regenerating && (
               <div className="mt-4 flex items-center gap-3">
                 <label className="text-sm font-medium text-gray-700 whitespace-nowrap">EST текст:</label>
-                <input
-                  type="text"
-                  value={estText}
-                  onChange={(e) => setEstText(e.target.value)}
-                  placeholder="EST.2025"
-                  className="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
-                  style={{ textTransform: 'uppercase' }}
-                />
+                <input type="text" value={estText} onChange={e => setEstText(e.target.value)} placeholder="EST.2025" className="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300" style={{ textTransform: 'uppercase' }} />
               </div>
             )}
 
             <div className="flex gap-3 mt-4">
-              <button onClick={() => navigate('/create')} className="btn-secondary flex-1 justify-center">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
-                </svg>
-                Перегенерувати
+              {/* Regenerate — stays on page */}
+              <button onClick={handleRegenerate} disabled={regenerating} className="btn-secondary flex-1 justify-center">
+                {regenerating ? (
+                  <><svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" className="opacity-25"/><path d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" fill="currentColor"/></svg> Генерація...</>
+                ) : (
+                  <><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg> Перегенерувати</>
+                )}
               </button>
+
+              {/* Download */}
+              {(hasDesigns || isEst) && (
+                <button onClick={handleDownload} disabled={downloading} className="btn-secondary justify-center" style={{ minWidth: '52px' }} title="Завантажити зображення">
+                  {downloading ? (
+                    <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" className="opacity-25"/><path d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" fill="currentColor"/></svg>
+                  ) : (
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                  )}
+                </button>
+              )}
             </div>
           </div>
         </div>
 
+        {/* Product card */}
         <div className="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
           <div className="px-5 py-4 border-b border-gray-50 flex items-center justify-between">
             <h2 className="font-semibold text-gray-900">Обраний товар</h2>
             <button onClick={() => setShowChangeProduct(true)} className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-indigo-600 transition-colors">
               Змінити товар
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
-              </svg>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
             </button>
           </div>
           <div className="p-5 flex gap-6 items-center">
-            <div className="relative w-48 h-48 flex-shrink-0 bg-gray-50 rounded-xl overflow-hidden flex items-center justify-center">
+            {/* Clickable product preview → mockup editor */}
+            <button onClick={() => setShowMockup(true)} className="relative w-48 h-48 flex-shrink-0 bg-gray-50 rounded-xl overflow-hidden flex items-center justify-center hover:ring-2 hover:ring-indigo-400 transition-all group" title="Редагувати мокап">
               <img src={currentProduct?.image} alt={currentProduct?.nameUk} className="w-full h-full object-contain" />
               {currentDesignImage && (
                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                   <img src={currentDesignImage} alt="design overlay" className="w-2/5 opacity-90 mix-blend-multiply rounded-lg" style={{ filter: 'contrast(1.1)' }} />
                 </div>
               )}
-            </div>
+              <div className="absolute inset-0 bg-indigo-600/0 group-hover:bg-indigo-600/10 transition-all flex items-center justify-center">
+                <span className="opacity-0 group-hover:opacity-100 bg-indigo-600 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-all">
+                  Редагувати
+                </span>
+              </div>
+            </button>
+
             <div className="flex-1">
               <div className="space-y-3 mb-5">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-gray-500">Товар:</span>
-                  <span className="font-medium text-gray-800">{currentProduct?.nameUk}</span>
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-gray-500">Положення:</span>
-                  <span className="font-medium text-gray-800">Центр спереду</span>
-                </div>
+                <div className="flex items-center justify-between text-sm"><span className="text-gray-500">Товар:</span><span className="font-medium text-gray-800">{currentProduct?.nameUk}</span></div>
+                <div className="flex items-center justify-between text-sm"><span className="text-gray-500">Положення:</span><span className="font-medium text-gray-800">Центр спереду</span></div>
                 {hasDesigns && (
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-gray-500">Варіант:</span>
-                    <span className="font-medium text-indigo-600">{generatedDesigns[Math.min(activeTab, generatedDesigns.length - 1)].label}</span>
-                  </div>
+                  <div className="flex items-center justify-between text-sm"><span className="text-gray-500">Варіант:</span><span className="font-medium text-indigo-600">{generatedDesigns[Math.min(activeTab, generatedDesigns.length - 1)].label}</span></div>
                 )}
               </div>
-              <button onClick={handleAddToCart} className="btn-primary w-full justify-center">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/>
-                  <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>
-                </svg>
+              <button onClick={() => setShowMockup(true)} className="w-full mb-3 flex items-center justify-center gap-2 border border-indigo-300 text-indigo-600 hover:bg-indigo-50 rounded-xl py-2.5 text-sm font-semibold transition-colors">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                Редагувати на товарі
+              </button>
+              <button onClick={() => navigate('/orders')} className="btn-primary w-full justify-center">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
                 Додати до замовлення
               </button>
             </div>
@@ -638,17 +595,14 @@ export default function DesignPlacement({ designData }) {
         </div>
 
         <button onClick={() => navigate('/create')} className="mt-5 flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700 transition-colors">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="15 18 9 12 15 6"/>
-          </svg>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
           Повернутись до налаштувань
         </button>
       </div>
 
       {showAIEdit && <AIEditModal onClose={() => setShowAIEdit(false)} />}
-      {showChangeProduct && (
-        <ChangeProductModal current={selectedProduct} onSelect={setSelectedProduct} onClose={() => setShowChangeProduct(false)} />
-      )}
+      {showChangeProduct && <ChangeProductModal current={selectedProduct} onSelect={setSelectedProduct} onClose={() => setShowChangeProduct(false)} />}
+      {showMockup && <MockupEditorModal designImage={currentDesignImage} product={currentProduct} onClose={() => setShowMockup(false)} />}
     </div>
   )
 }

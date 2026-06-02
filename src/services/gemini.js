@@ -199,3 +199,8 @@ export async function generateDesigns(photoFile, styleId) {
 }
 
 export const GENERATIVE_STYLES = ['dad-face', 'est-face']
+
+export function clearCache(photoFile, styleId) {
+  const cacheKey = `${photoFile.size}-${photoFile.lastModified}-${styleId}`
+  _resultsCache.delete(cacheKey)
+}

@@ -18,7 +18,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Navigate to="/create" replace />} />
           <Route path="/create" element={<CreateDesign onGenerate={setDesignData} />} />
-          <Route path="/placement" element={<DesignPlacement designData={designData} />} />
+          <Route path="/placement" element={<DesignPlacement designData={designData} onUpdate={(upd) => setDesignData(prev => ({ ...prev, ...upd }))} />} />
           <Route path="/orders" element={<MyOrders />} />
           <Route path="/templates" element={<Templates />} />
           <Route path="/favorites" element={<Favorites />} />
