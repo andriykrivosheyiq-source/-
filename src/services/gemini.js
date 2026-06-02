@@ -3,13 +3,36 @@ import { PROMPTS } from './prompts'
 const BASE_URL = 'https://generativelanguage.googleapis.com/v1beta'
 
 let _cachedModel = null
-// In-memory cache: key = "fileSize-fileLastModified-styleId" → results array
+let _cachedRefs = null
 const _resultsCache = new Map()
 
-// Reference images (base64 JPEG) to guide Gemini's style consistency.
-// Add up to 2 good example outputs here to stabilize the visual style.
-// Leave empty array if no references yet.
-const REFERENCE_IMAGES = []
+// Reference image filenames in public/references/
+// Add ref1.jpg, ref2.jpg etc — fetched once and cached
+const REF_FILES = ['ref1.jpg', 'ref2.jpg']
+
+async function loadReferenceImages() {
+  if (_cachedRefs !== null) return _cachedRefs
+  const base = import.meta.env.BASE_URL || '/'
+  const results = []
+  for (const name of REF_FILES) {
+    try {
+      const res = await fetch(`${base}references/${name}`)
+      if (!res.ok) continue
+      const blob = await res.blob()
+      const b64 = await new Promise((resolve) => {
+        const reader = new FileReader()
+        reader.onload = () => resolve(reader.result.split(',')[1])
+        reader.readAsDataURL(blob)
+      })
+      results.push(b64)
+      console.log(`[Gemini] Reference loaded: ${name}`)
+    } catch {
+      // file not present — skip silently
+    }
+  }
+  _cachedRefs = results
+  return results
+}
 
 async function findImageModel(apiKey) {
   if (_cachedModel) return _cachedModel
@@ -20,7 +43,6 @@ async function findImageModel(apiKey) {
   const data = await res.json()
   const models = data.models || []
 
-  // Filter models that support generateContent AND have "image" in the name
   const imageModels = models.filter((m) => {
     const name = (m.name || '').toLowerCase()
     const methods = m.supportedGenerationMethods || []
@@ -38,7 +60,6 @@ async function findImageModel(apiKey) {
 
   console.log(`[Gemini] Всі image моделі: ${imageModels.map((m) => m.name).join(', ')}`)
 
-  // Prefer pro models first for quality, then fall back to flash
   const preferenceOrder = [
     'gemini-2.5-pro-image',
     'gemini-2.5-pro-preview-image',
@@ -96,18 +117,17 @@ async function fileToBase64(file) {
   })
 }
 
-async function callGemini(apiKey, modelId, base64, mimeType, prompt) {
+async function callGemini(apiKey, modelId, base64, mimeType, prompt, refs) {
   const url = `${BASE_URL}/models/${modelId}:generateContent?key=${apiKey}`
 
-  // Build parts: prompt text → optional reference examples → user photo
   const parts = [{ text: prompt }]
 
-  if (REFERENCE_IMAGES.length > 0) {
-    parts.push({ text: 'STYLE REFERENCE EXAMPLES — match this exact visual style:' })
-    for (const refBase64 of REFERENCE_IMAGES) {
+  if (refs.length > 0) {
+    parts.push({ text: 'STYLE REFERENCE EXAMPLES — your output must match this exact visual style:' })
+    for (const refBase64 of refs) {
       parts.push({ inline_data: { mime_type: 'image/jpeg', data: refBase64 } })
     }
-    parts.push({ text: 'Now apply this exact style to the following family photo:' })
+    parts.push({ text: 'Now generate the same style for this family photo:' })
   }
 
   parts.push({ inline_data: { mime_type: mimeType, data: base64 } })
@@ -133,7 +153,6 @@ async function callGemini(apiKey, modelId, base64, mimeType, prompt) {
   const resParts = data.candidates?.[0]?.content?.parts || []
   console.log('[Gemini] parts keys:', resParts.map(p => Object.keys(p).join(',')))
 
-  // Support both snake_case (inline_data) and camelCase (inlineData)
   const part = resParts.find((p) => p.inline_data || p.inlineData)
   if (!part) {
     const textPart = resParts.find((p) => p.text)
@@ -148,16 +167,16 @@ export async function generateDesigns(photoFile, styleId) {
   const apiKey = import.meta.env.VITE_GEMINI_API_KEY
   if (!apiKey) throw new Error('API ключ не налаштований (VITE_GEMINI_API_KEY)')
 
-  // Return cached result if same photo+style was already generated this session
   const cacheKey = `${photoFile.size}-${photoFile.lastModified}-${styleId}`
   if (_resultsCache.has(cacheKey)) {
     console.log('[Gemini] Повертаю кешований результат')
     return _resultsCache.get(cacheKey)
   }
 
-  const [base64, modelId] = await Promise.all([
+  const [base64, modelId, refs] = await Promise.all([
     fileToBase64(photoFile),
     findImageModel(apiKey),
+    loadReferenceImages(),
   ])
 
   const mimeType = 'image/jpeg'
@@ -166,7 +185,7 @@ export async function generateDesigns(photoFile, styleId) {
 
   const results = await Promise.all(
     pair.map((p) =>
-      callGemini(apiKey, modelId, base64, mimeType, p.prompt).then((image) => ({
+      callGemini(apiKey, modelId, base64, mimeType, p.prompt, refs).then((image) => ({
         label: p.label,
         image,
       }))
