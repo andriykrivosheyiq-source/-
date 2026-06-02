@@ -30,7 +30,8 @@ FACES — include simple flat vector features on every person:
 
 HAIR:
 • Simplified solid-fill shapes
-• Preserve recognizable hair color and general style
+• CRITICALLY important: match the EXACT hair color from the uploaded photo
+• If hair is dark brown — use dark brown. If black — use black. Do NOT lighten hair color.
 • No texture, no gradient
 
 OUTPUT QUALITY:

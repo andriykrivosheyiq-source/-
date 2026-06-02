@@ -18,7 +18,7 @@ async function composeDADPoster(illustrationSrc) {
   ctx.fillRect(0, 0, CANVAS_W, CANVAS_H)
 
   const fontSize = Math.round(CANVAS_H * 0.62)
-  ctx.font = `900 ${fontSize}px "Black Ops One", Impact, "Arial Black", sans-serif`
+  ctx.font = `900 ${fontSize}px Impact, "Arial Black", Arial, sans-serif`
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
 
@@ -27,17 +27,16 @@ async function composeDADPoster(illustrationSrc) {
     ctx.translate(x, CANVAS_H * 0.5)
     ctx.rotate((rotationDeg * Math.PI) / 180)
 
-    // Outer border: thin enough to see white inside (15px each side)
-    ctx.lineWidth = Math.round(fontSize * 0.055)
+    // Outer border
+    ctx.lineWidth = Math.round(fontSize * 0.058)
     ctx.strokeStyle = '#000000'
-    ctx.lineJoin = 'miter'
-    ctx.miterLimit = 2
+    ctx.lineJoin = 'round'
     ctx.strokeText(letter, 0, 0)
-    // White fill — covers inner half of outer stroke, creates white interior
+    // White fill — covers inner half of outer stroke
     ctx.fillStyle = '#ffffff'
     ctx.fillText(letter, 0, 0)
-    // Inner thin border on top of white fill (collegiate double-outline)
-    ctx.lineWidth = Math.round(fontSize * 0.024)
+    // Inner thin border (collegiate double-outline)
+    ctx.lineWidth = Math.round(fontSize * 0.022)
     ctx.strokeStyle = '#000000'
     ctx.strokeText(letter, 0, 0)
 
