@@ -41,25 +41,23 @@ Do not shift elements based on image composition.
 ────────────────────────
 LEFT & RIGHT LETTERS
 ────────────────────────
-Both side letters are bold capital "D" letters.
+Both side letters are identical collegiate "D" letters.
 
 STYLE:
-• Large bold capital letter D — like Impact or Arial Black font
-• Simple filled shape: solid white interior with ONE thick black border
-• The inside of the letter D must be COMPLETELY PLAIN WHITE — nothing else
-• ONE single black stroke around the outer edge only
-• ZERO inner lines, ZERO inner contour, ZERO inner border
-• ZERO secondary outlines of any kind
+• Varsity / athletic block letter
+• Thick chunky angular shape
+• White fill (#FFFFFF)
+• SINGLE thick black outline only
+• NO double outline
+• NO inner border
 • NO decorative details
 • NO gradients
 • NO shadows
 • NO textures
-• Think of it as: stroke the path of letter D once, fill it white. That is all.
 
 OUTLINE:
-• Exactly ONE clean thick black stroke on the outer edge only
+• One clean thick black stroke only
 • Approximately 18–22px thickness
-• Nothing inside the letter except solid white fill
 
 SIZE:
 • Letter height ≈ 70–75% of canvas height
@@ -194,9 +192,7 @@ ABSOLUTE RESTRICTIONS
 • No painterly effects
 • No background objects
 • No decorative elements
-• No double outlines on letters — letters have ONE stroke only
-• No inner border or inner contour on any letter
-• No inner shadow or inner decoration inside the letter D
+• No double outlines on letters
 • No frame around illustration
 • No texture overlays
 
