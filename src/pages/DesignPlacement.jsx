@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { products as allProducts } from '../data/mockData'
 
@@ -8,67 +8,231 @@ const D_PATH =
   'M262 198L191 207L227 470L298 461L317 436L288 221L285 215Z ' +
   'M259 209L277 224L306 433L291 451L238 458L235 453L203 218L205 216Z'
 
-function DLetter({ rotation }) {
-  return (
-    <svg
-      viewBox="60 110 360 460"
-      style={{ width: '100%', height: 'auto', display: 'block', transform: `rotate(${rotation}deg)` }}
-    >
-      <path d={D_PATH} fill="black" fillRule="evenodd" />
-    </svg>
-  )
-}
+const PRESET_COLORS = ['#000000', '#1e3a5f', '#c0392b', '#2d5a27', '#d97706', '#7c3aed', '#9ca3af', '#8b5e3c']
 
 function EstPosterView({ imageUrl, estText }) {
+  const containerRef = useRef(null)
+  const dragRef = useRef(null)
+
+  const [letters, setLetters] = useState([
+    { id: 'left',  x: 1,  y: 5, size: 28, rotation: -12, color: '#000000' },
+    { id: 'right', x: 71, y: 5, size: 28, rotation: 12,  color: '#000000' },
+  ])
+  const [selected, setSelected] = useState(null)
+
+  useEffect(() => {
+    const onMove = (e) => {
+      const dr = dragRef.current
+      if (!dr) return
+      if (e.cancelable) e.preventDefault()
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX
+      const clientY = e.touches ? e.touches[0].clientY : e.clientY
+      const dx = (clientX - dr.sx) / dr.cw * 100
+      const dy = (clientY - dr.sy) / dr.ch * 100
+      setLetters(prev => prev.map(l => {
+        if (l.id !== dr.id) return l
+        if (dr.type === 'move') return { ...l, x: dr.ox + dx, y: dr.oy + dy }
+        if (dr.type === 'resize') return { ...l, size: Math.max(8, Math.min(55, dr.os + (dx - dy) * 0.6)) }
+        return l
+      }))
+    }
+    const onUp = () => { dragRef.current = null }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+    window.addEventListener('touchmove', onMove, { passive: false })
+    window.addEventListener('touchend', onUp)
+    return () => {
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+      window.removeEventListener('touchmove', onMove)
+      window.removeEventListener('touchend', onUp)
+    }
+  }, [])
+
+  const startDrag = (id, type, e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (type === 'move') setSelected(id)
+    const rect = containerRef.current.getBoundingClientRect()
+    const letter = letters.find(l => l.id === id)
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY
+    dragRef.current = {
+      id, type,
+      sx: clientX, sy: clientY,
+      ox: letter.x, oy: letter.y, os: letter.size,
+      cw: rect.width, ch: rect.height,
+    }
+  }
+
+  const selectedLetter = letters.find(l => l.id === selected)
+
   return (
-    <div style={{ background: '#ffffff', width: '100%', borderRadius: '12px', overflow: 'hidden' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '24px 24px 8px' }}>
-        <div style={{ flex: '0 0 18%', maxWidth: '18%' }}>
-          <DLetter rotation={-12} />
-        </div>
-        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '280px' }}>
+    <div style={{ background: '#ffffff', width: '100%', borderRadius: '12px' }}>
+      {/* Poster canvas */}
+      <div
+        ref={containerRef}
+        onClick={() => setSelected(null)}
+        style={{
+          position: 'relative',
+          width: '100%',
+          aspectRatio: '16 / 9',
+          background: '#ffffff',
+          userSelect: 'none',
+          touchAction: 'none',
+          overflow: 'hidden',
+        }}
+      >
+        {/* Centered illustration */}
+        <div style={{
+          position: 'absolute',
+          top: '5%', bottom: '14%',
+          left: '30%', right: '30%',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}>
           {imageUrl ? (
             <img
               src={imageUrl}
               alt="EST illustration"
-              style={{
-                maxWidth: '100%',
-                maxHeight: '480px',
-                objectFit: 'contain',
-                mixBlendMode: 'multiply',
-                display: 'block',
-              }}
+              style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', mixBlendMode: 'multiply' }}
             />
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', color: '#9ca3af' }}>
-              <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+            <div style={{ color: '#9ca3af', textAlign: 'center' }}>
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
                 <rect x="3" y="3" width="18" height="18" rx="2" />
                 <circle cx="8.5" cy="8.5" r="1.5" />
                 <polyline points="21 15 16 10 5 21" />
               </svg>
-              <p style={{ fontSize: '14px', textAlign: 'center', maxWidth: '200px' }}>
-                Завантажте фото та оберіть EST стиль для генерації
-              </p>
+              <p style={{ fontSize: '12px', marginTop: '8px' }}>Завантажте фото для EST стилю</p>
             </div>
           )}
         </div>
-        <div style={{ flex: '0 0 18%', maxWidth: '18%' }}>
-          <DLetter rotation={12} />
-        </div>
-      </div>
-      <div
-        style={{
+
+        {/* EST text */}
+        <div style={{
+          position: 'absolute',
+          bottom: '3%',
+          left: 0, right: 0,
           textAlign: 'center',
           fontFamily: 'Arial, Helvetica, sans-serif',
           fontWeight: 700,
-          fontSize: 'clamp(18px, 3vw, 52px)',
+          fontSize: 'clamp(14px, 2.8vw, 48px)',
           letterSpacing: '6px',
-          padding: '8px 24px 24px',
-          color: '#000000',
-        }}
-      >
-        {(estText || 'EST.2025').toUpperCase()}
+          color: '#000',
+          pointerEvents: 'none',
+        }}>
+          {(estText || 'EST.2025').toUpperCase()}
+        </div>
+
+        {/* D Letters */}
+        {letters.map(letter => (
+          <div
+            key={letter.id}
+            onMouseDown={e => startDrag(letter.id, 'move', e)}
+            onTouchStart={e => startDrag(letter.id, 'move', e)}
+            onClick={e => { e.stopPropagation(); setSelected(prev => prev === letter.id ? null : letter.id) }}
+            style={{
+              position: 'absolute',
+              left: `${letter.x}%`,
+              top: `${letter.y}%`,
+              width: `${letter.size}%`,
+              transform: `rotate(${letter.rotation}deg)`,
+              transformOrigin: 'center center',
+              cursor: 'grab',
+              zIndex: selected === letter.id ? 20 : 10,
+            }}
+          >
+            {/* Selection outline */}
+            {selected === letter.id && (
+              <div style={{
+                position: 'absolute',
+                inset: '-5px',
+                border: '2px dashed #4f46e5',
+                borderRadius: '6px',
+                pointerEvents: 'none',
+              }} />
+            )}
+
+            <svg viewBox="60 110 360 460" style={{ width: '100%', height: 'auto', display: 'block' }}>
+              <path d={D_PATH} fill={letter.color} fillRule="evenodd" />
+            </svg>
+
+            {/* Resize handle */}
+            {selected === letter.id && (
+              <div
+                onMouseDown={e => startDrag(letter.id, 'resize', e)}
+                onTouchStart={e => startDrag(letter.id, 'resize', e)}
+                onClick={e => e.stopPropagation()}
+                title="Потягніть щоб змінити розмір"
+                style={{
+                  position: 'absolute',
+                  bottom: '-10px',
+                  right: '-10px',
+                  width: '20px', height: '20px',
+                  background: '#4f46e5',
+                  border: '2px solid #ffffff',
+                  borderRadius: '4px',
+                  cursor: 'nwse-resize',
+                  zIndex: 30,
+                  boxShadow: '0 1px 4px rgba(0,0,0,0.25)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
+                  <path d="M1 7L7 1M4 7L7 4" stroke="white" strokeWidth="1.5" strokeLinecap="round" />
+                </svg>
+              </div>
+            )}
+          </div>
+        ))}
       </div>
+
+      {/* Color picker — shown when a letter is selected */}
+      {selected && selectedLetter && (
+        <div style={{
+          padding: '10px 16px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          borderTop: '1px solid #f3f4f6',
+          background: '#fafafa',
+          borderRadius: '0 0 12px 12px',
+          flexWrap: 'wrap',
+        }}>
+          <span style={{ fontSize: '12px', color: '#6b7280', fontWeight: 500 }}>
+            {selected === 'left' ? 'Ліва D' : 'Права D'}:
+          </span>
+          {PRESET_COLORS.map(color => (
+            <button
+              key={color}
+              onClick={() => setLetters(prev => prev.map(l => l.id === selected ? { ...l, color } : l))}
+              style={{
+                width: '22px', height: '22px',
+                borderRadius: '50%',
+                background: color,
+                border: selectedLetter.color === color ? '3px solid #4f46e5' : '2px solid #d1d5db',
+                cursor: 'pointer',
+                padding: 0,
+                flexShrink: 0,
+              }}
+            />
+          ))}
+          <input
+            type="color"
+            value={selectedLetter.color}
+            onChange={e => setLetters(prev => prev.map(l => l.id === selected ? { ...l, color: e.target.value } : l))}
+            style={{ width: '28px', height: '28px', padding: 0, border: '2px solid #d1d5db', cursor: 'pointer', borderRadius: '50%', background: 'none' }}
+            title="Власний колір"
+          />
+          <span style={{ fontSize: '11px', color: '#9ca3af', marginLeft: 'auto', whiteSpace: 'nowrap' }}>
+            Перетягніть літеру • кут → розмір
+          </span>
+        </div>
+      )}
     </div>
   )
 }
@@ -267,7 +431,7 @@ export default function DesignPlacement({ designData }) {
                     <circle cx="8.5" cy="8.5" r="1.5"/>
                     <polyline points="21 15 16 10 5 21"/>
                   </svg>
-                  <p className="text-sm text-center max-w-xs">Завантажте фото та оберіть стиль DAD/ТАТО для генерації</p>
+                  <p className="text-sm text-center max-w-xs">Завантажте фото та оберіть стиль для генерації</p>
                 </div>
               )}
             </div>
