@@ -2,6 +2,77 @@ import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { products as allProducts } from '../data/mockData'
 
+const D_PATH =
+  'M291 123L78 153L88 232L114 229L116 233L148 467L143 471L121 474L132 555L349 526L400 459L360 176Z ' +
+  'M289 135L350 183L388 456L343 515L142 542L140 537L133 484L159 480L160 476L125 219L124 217L102 220L98 219L90 163L115 158Z ' +
+  'M262 198L191 207L227 470L298 461L317 436L288 221L285 215Z ' +
+  'M259 209L277 224L306 433L291 451L238 458L235 453L203 218L205 216Z'
+
+function DLetter({ rotation }) {
+  return (
+    <svg
+      viewBox="60 110 360 460"
+      style={{ width: '100%', height: 'auto', display: 'block', transform: `rotate(${rotation}deg)` }}
+    >
+      <path d={D_PATH} fill="black" fillRule="evenodd" />
+    </svg>
+  )
+}
+
+function EstPosterView({ imageUrl, estText }) {
+  return (
+    <div style={{ background: '#ffffff', width: '100%', borderRadius: '12px', overflow: 'hidden' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '24px 24px 8px' }}>
+        <div style={{ flex: '0 0 18%', maxWidth: '18%' }}>
+          <DLetter rotation={-12} />
+        </div>
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '280px' }}>
+          {imageUrl ? (
+            <img
+              src={imageUrl}
+              alt="EST illustration"
+              style={{
+                maxWidth: '100%',
+                maxHeight: '480px',
+                objectFit: 'contain',
+                mixBlendMode: 'multiply',
+                display: 'block',
+              }}
+            />
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', color: '#9ca3af' }}>
+              <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <rect x="3" y="3" width="18" height="18" rx="2" />
+                <circle cx="8.5" cy="8.5" r="1.5" />
+                <polyline points="21 15 16 10 5 21" />
+              </svg>
+              <p style={{ fontSize: '14px', textAlign: 'center', maxWidth: '200px' }}>
+                Завантажте фото та оберіть EST стиль для генерації
+              </p>
+            </div>
+          )}
+        </div>
+        <div style={{ flex: '0 0 18%', maxWidth: '18%' }}>
+          <DLetter rotation={12} />
+        </div>
+      </div>
+      <div
+        style={{
+          textAlign: 'center',
+          fontFamily: 'Arial, Helvetica, sans-serif',
+          fontWeight: 700,
+          fontSize: 'clamp(18px, 3vw, 52px)',
+          letterSpacing: '6px',
+          padding: '8px 24px 24px',
+          color: '#000000',
+        }}
+      >
+        {(estText || 'EST.2025').toUpperCase()}
+      </div>
+    </div>
+  )
+}
+
 function AIEditModal({ onClose }) {
   const [prompt, setPrompt] = useState('')
   const [loading, setLoading] = useState(false)
@@ -99,6 +170,9 @@ export default function DesignPlacement({ designData }) {
   )
   const [showAIEdit, setShowAIEdit] = useState(false)
   const [showChangeProduct, setShowChangeProduct] = useState(false)
+  const [estText, setEstText] = useState('EST.2025')
+
+  const isEst = designData?.selectedStyle === 'est-face'
 
   const generatedDesigns = designData?.generatedDesigns || null
   const hasDesigns = generatedDesigns && generatedDesigns.length > 0
@@ -162,7 +236,7 @@ export default function DesignPlacement({ designData }) {
           </div>
         )}
 
-        {/* Generated Design — full width, wide */}
+        {/* Generated Design */}
         <div className="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden mb-5">
           <div className="px-5 py-4 border-b border-gray-50 flex items-center justify-between">
             <h2 className="font-semibold text-gray-900">Згенерований дизайн</h2>
@@ -175,10 +249,11 @@ export default function DesignPlacement({ designData }) {
             </div>
           </div>
 
-          {/* Wide 16:9 design area */}
           <div className="p-5">
             <div className="w-full bg-gray-50 rounded-xl overflow-hidden">
-              {currentDesignImage ? (
+              {isEst ? (
+                <EstPosterView imageUrl={currentDesignImage} estText={estText} />
+              ) : currentDesignImage ? (
                 <img
                   src={currentDesignImage}
                   alt="Generated design"
@@ -197,6 +272,20 @@ export default function DesignPlacement({ designData }) {
               )}
             </div>
 
+            {isEst && (
+              <div className="mt-4 flex items-center gap-3">
+                <label className="text-sm font-medium text-gray-700 whitespace-nowrap">EST текст:</label>
+                <input
+                  type="text"
+                  value={estText}
+                  onChange={(e) => setEstText(e.target.value)}
+                  placeholder="EST.2025"
+                  className="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                  style={{ textTransform: 'uppercase' }}
+                />
+              </div>
+            )}
+
             <div className="flex gap-3 mt-4">
               <button
                 onClick={() => navigate('/create')}
@@ -211,7 +300,7 @@ export default function DesignPlacement({ designData }) {
           </div>
         </div>
 
-        {/* Product preview — below, horizontal layout */}
+        {/* Product preview */}
         <div className="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
           <div className="px-5 py-4 border-b border-gray-50 flex items-center justify-between">
             <h2 className="font-semibold text-gray-900">Обраний товар</h2>

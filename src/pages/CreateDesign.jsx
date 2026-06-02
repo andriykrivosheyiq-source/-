@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { products, designStyles } from '../data/mockData'
 import { generateDesigns, GENERATIVE_STYLES } from '../services/gemini'
 
-// ─── Product Selector ────────────────────────────────────────────────────────
+// ─── Product Selector ────────────────────────────────────────────
 function ProductSelector({ selected, onChange }) {
   const toggle = (id) => {
     if (selected.includes(id)) {
@@ -51,7 +51,7 @@ function ProductSelector({ selected, onChange }) {
   )
 }
 
-// ─── Style Selector ──────────────────────────────────────────────────────────
+// ─── Style Selector ────────────────────────────────────────────
 function StyleSelector({ selected, onChange, showAll, onToggleAll }) {
   const visible = showAll ? designStyles : designStyles.slice(0, 5)
 
@@ -95,7 +95,7 @@ function StyleSelector({ selected, onChange, showAll, onToggleAll }) {
   )
 }
 
-// ─── Color Selector ──────────────────────────────────────────────────────────
+// ─── Color Selector ────────────────────────────────────────────
 function ColorSelector({ selectedProducts, productColors, onChange }) {
   if (selectedProducts.length === 0) return null
 
@@ -118,8 +118,6 @@ function ColorSelector({ selectedProducts, productColors, onChange }) {
     const current = productColors[productId] || {}
     onChange(productId, { ...current, [colorId]: !current[colorId] })
   }
-
-  const removeProduct = () => {}
 
   const ColorGroup = ({ product, isSecondary }) => (
     <div className="p-4 rounded-xl bg-gray-50 border border-gray-100">
@@ -169,13 +167,11 @@ function ColorSelector({ selectedProducts, productColors, onChange }) {
       </div>
 
       <div className="flex gap-5">
-        {/* Left: color groups */}
         <div className="flex-1 space-y-3">
           {mainProduct && <ColorGroup product={mainProduct} isSecondary={false} />}
           {otherProducts.map((p) => p && <ColorGroup key={p.id} product={p} isSecondary={true} />)}
         </div>
 
-        {/* Right: selections summary */}
         <div className="w-56 shrink-0">
           <h3 className="text-sm font-semibold text-gray-700 mb-3">Ваш вибір</h3>
           <div className="space-y-3">
@@ -214,7 +210,7 @@ function ColorSelector({ selectedProducts, productColors, onChange }) {
   )
 }
 
-// ─── Photo Upload ─────────────────────────────────────────────────────────────
+// ─── Photo Upload ─────────────────────────────────────────────────
 function PhotoUpload({ file, onChange }) {
   const inputRef = useRef()
   const [dragOver, setDragOver] = useState(false)
@@ -241,7 +237,6 @@ function PhotoUpload({ file, onChange }) {
     <div className="step-section">
       <h2 className="section-title mb-4">4. Завантажте фото</h2>
       <div className="flex gap-4">
-        {/* Uploaded file preview */}
         {file && (
           <div className="flex items-center gap-3 bg-gray-50 border border-gray-200 rounded-xl p-3 min-w-0 max-w-xs">
             <img
@@ -264,7 +259,6 @@ function PhotoUpload({ file, onChange }) {
           </div>
         )}
 
-        {/* Drop zone */}
         <div
           className={`drop-zone flex-1 min-h-[120px] ${dragOver ? 'drag-over' : ''}`}
           onClick={() => inputRef.current?.click()}
@@ -291,7 +285,6 @@ function PhotoUpload({ file, onChange }) {
           />
         </div>
 
-        {/* Tips */}
         <div className="bg-gray-50 border border-gray-100 rounded-xl p-4 w-52 shrink-0">
           <p className="text-sm font-semibold text-gray-700 mb-2">Поради для кращого результату</p>
           <ul className="space-y-1.5">
@@ -314,7 +307,7 @@ function PhotoUpload({ file, onChange }) {
   )
 }
 
-// ─── Main Page ────────────────────────────────────────────────────────────────
+// ─── Main Page ──────────────────────────────────────────────────────
 export default function CreateDesign({ onGenerate }) {
   const navigate = useNavigate()
   const [selectedProducts, setSelectedProducts] = useState(['hoodie'])
@@ -354,6 +347,16 @@ export default function CreateDesign({ onGenerate }) {
 
   const canGenerate = selectedProducts.length > 0 && selectedStyle
 
+  const getHintText = () => {
+    if (!GENERATIVE_STYLES.includes(selectedStyle) || !uploadedFile) {
+      return 'Наш ШІ згенерує унікальні дизайни для обраних товарів.'
+    }
+    if (selectedStyle === 'est-face') {
+      return 'Gemini згенерує EST ілюстрацію (бл. 15–30 сек)'
+    }
+    return 'Gemini згенерує 2 варіанти: DAD та ТАТО (бл. 15–30 сек)'
+  }
+
   return (
     <div className="flex-1 overflow-y-auto">
       {/* Page header */}
@@ -366,7 +369,6 @@ export default function CreateDesign({ onGenerate }) {
             <h1 className="text-xl font-bold text-gray-900">Створити дизайн</h1>
             <p className="text-sm text-gray-500">Оберіть товар, стиль та завантажте фото. Наш ШІ створить унікальний дизайн.</p>
           </div>
-          {/* Step indicator */}
           <div className="ml-auto flex items-center gap-2">
             <div className="flex items-center gap-1.5">
               <div className="w-7 h-7 bg-indigo-600 text-white rounded-full flex items-center justify-center text-xs font-semibold">1</div>
@@ -430,9 +432,7 @@ export default function CreateDesign({ onGenerate }) {
           )}
           {!generationError && (
             <p className="text-center text-xs text-gray-400 mt-2">
-              {GENERATIVE_STYLES.includes(selectedStyle) && uploadedFile
-                ? 'Gemini згенерує 2 варіанти: DAD та ТАТО (~15–30 сек)'
-                : 'Наш ШІ згенерує унікальні дизайни для обраних товарів.'}
+              {getHintText()}
             </p>
           )}
         </div>
