@@ -31,13 +31,13 @@ async function findImageModel(apiKey) {
 
   console.log(`[Gemini] Всі image моделі: ${imageModels.map((m) => m.name).join(', ')}`)
 
-  // Prefer newer higher-quality models for better layout adherence
+  // Prefer cheapest model first — flash is cheaper than pro
   const preferenceOrder = [
+    'gemini-2.5-flash-image',
     'gemini-3.1-flash-image',
-    'gemini-3-pro-image',
     'gemini-3.1-flash-image-preview',
     'gemini-3-pro-image-preview',
-    'gemini-2.5-flash-image',
+    'gemini-3-pro-image',
   ]
 
   let selected = null
@@ -54,12 +54,34 @@ async function findImageModel(apiKey) {
   return modelId
 }
 
-function fileToBase64(file) {
+function resizeToBlob(file, maxPx = 768) {
+  return new Promise((resolve) => {
+    const img = new Image()
+    const url = URL.createObjectURL(file)
+    img.onload = () => {
+      let { width, height } = img
+      if (width > maxPx || height > maxPx) {
+        if (width >= height) { height = Math.round(height * maxPx / width); width = maxPx }
+        else { width = Math.round(width * maxPx / height); height = maxPx }
+      }
+      const canvas = document.createElement('canvas')
+      canvas.width = width
+      canvas.height = height
+      canvas.getContext('2d').drawImage(img, 0, 0, width, height)
+      URL.revokeObjectURL(url)
+      canvas.toBlob(resolve, 'image/jpeg', 0.85)
+    }
+    img.src = url
+  })
+}
+
+async function fileToBase64(file) {
+  const blob = await resizeToBlob(file)
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
     reader.onload = () => resolve(reader.result.split(',')[1])
     reader.onerror = reject
-    reader.readAsDataURL(file)
+    reader.readAsDataURL(blob)
   })
 }
 
@@ -113,7 +135,7 @@ export async function generateDesigns(photoFile, styleId) {
     findImageModel(apiKey),
   ])
 
-  const mimeType = photoFile.type
+  const mimeType = 'image/jpeg'
   const pair = PROMPTS[styleId]
   if (!pair) throw new Error(`Немає промпту для стилю: ${styleId}`)
 
