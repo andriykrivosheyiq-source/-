@@ -14,7 +14,7 @@ function composeDADPoster(illustrationSrc, onDone) {
   ctx.fillStyle = '#ffffff'
   ctx.fillRect(0, 0, CANVAS_W, CANVAS_H)
 
-  const fontSize = Math.round(CANVAS_H * 0.72)
+  const fontSize = Math.round(CANVAS_H * 0.58)
   ctx.font = `900 ${fontSize}px Impact, "Arial Black", Arial, sans-serif`
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
@@ -25,28 +25,29 @@ function composeDADPoster(illustrationSrc, onDone) {
     ctx.rotate((rotationDeg * Math.PI) / 180)
 
     // Outer thick black stroke
-    ctx.lineWidth = Math.round(fontSize * 0.09)
+    ctx.lineWidth = Math.round(fontSize * 0.10)
     ctx.strokeStyle = '#000000'
     ctx.lineJoin = 'miter'
+    ctx.miterLimit = 3
     ctx.strokeText(letter, 0, 0)
     // White fill
     ctx.fillStyle = '#ffffff'
     ctx.fillText(letter, 0, 0)
     // Inner thin black border (collegiate double-outline)
-    ctx.lineWidth = Math.round(fontSize * 0.024)
+    ctx.lineWidth = Math.round(fontSize * 0.028)
     ctx.strokeStyle = '#000000'
     ctx.strokeText(letter, 0, 0)
 
     ctx.restore()
   }
 
-  drawLetter('D', CANVAS_W * 0.145, -12)  // Left D — counter-clockwise tilt
-  drawLetter('D', CANVAS_W * 0.855, 12)   // Right D — clockwise tilt
+  drawLetter('D', CANVAS_W * 0.19, -12)  // Left D — counter-clockwise tilt
+  drawLetter('D', CANVAS_W * 0.81, 12)   // Right D — clockwise tilt
 
   const img = new Image()
   img.onload = () => {
-    const maxH = CANVAS_H * 0.88
-    const maxW = CANVAS_W * 0.52
+    const maxH = CANVAS_H * 0.90
+    const maxW = CANVAS_W * 0.48
     const scale = Math.min(maxW / img.naturalWidth, maxH / img.naturalHeight)
     const dw = img.naturalWidth * scale
     const dh = img.naturalHeight * scale
