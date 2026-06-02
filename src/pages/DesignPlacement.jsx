@@ -1,132 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { products as allProducts } from '../data/mockData'
-
-const CANVAS_W = 1200
-const CANVAS_H = 800
-
-async function composeDADPoster(illustrationSrc) {
-  const canvas = document.createElement('canvas')
-  canvas.width = CANVAS_W
-  canvas.height = CANVAS_H
-  const ctx = canvas.getContext('2d')
-
-  ctx.fillStyle = '#ffffff'
-  ctx.fillRect(0, 0, CANVAS_W, CANVAS_H)
-
-  // Varsity D drawn as polygon (no ellipse) — angular collegiate style
-  const drawVarsityD = (cx, cy, w, h, tiltDeg) => {
-    ctx.save()
-    ctx.translate(cx, cy)
-    ctx.rotate((tiltDeg * Math.PI) / 180)
-
-    const x = -w / 2, y = -h / 2
-
-    const outer = () => {
-      ctx.beginPath()
-      ctx.moveTo(x, y + h * 0.08)
-      ctx.lineTo(x + w * 0.78, y)
-      ctx.lineTo(x + w, y + h * 0.18)
-      ctx.lineTo(x + w, y + h * 0.82)
-      ctx.lineTo(x + w * 0.78, y + h)
-      ctx.lineTo(x, y + h * 0.92)
-      ctx.lineTo(x, y + h * 0.65)
-      ctx.lineTo(x + w * 0.16, y + h * 0.65)
-      ctx.lineTo(x + w * 0.16, y + h * 0.35)
-      ctx.lineTo(x, y + h * 0.35)
-      ctx.closePath()
-    }
-
-    const inner = () => {
-      ctx.beginPath()
-      ctx.moveTo(x + w * 0.36, y + h * 0.28)
-      ctx.lineTo(x + w * 0.63, y + h * 0.30)
-      ctx.lineTo(x + w * 0.75, y + h * 0.40)
-      ctx.lineTo(x + w * 0.75, y + h * 0.60)
-      ctx.lineTo(x + w * 0.63, y + h * 0.70)
-      ctx.lineTo(x + w * 0.36, y + h * 0.72)
-      ctx.closePath()
-    }
-
-    ctx.lineJoin = 'miter'
-    ctx.lineCap = 'butt'
-    ctx.miterLimit = 4
-
-    const outerBorder = Math.round(h * 0.065)
-    const innerBorder = Math.round(h * 0.025)
-
-    // Thick outer stroke → border
-    outer(); ctx.lineWidth = outerBorder; ctx.strokeStyle = '#000'; ctx.stroke()
-    // White fill → covers inner half of outer stroke
-    outer(); ctx.fillStyle = '#fff'; ctx.fill()
-    // Thin inner stroke → collegiate double outline
-    outer(); ctx.lineWidth = innerBorder; ctx.strokeStyle = '#000'; ctx.stroke()
-    // Inner hole border
-    inner(); ctx.lineWidth = innerBorder; ctx.stroke()
-
-    ctx.restore()
-  }
-
-  const dW = Math.round(CANVAS_W * 0.215)
-  const dH = Math.round(CANVAS_H * 0.72)
-  drawVarsityD(CANVAS_W * 0.185, CANVAS_H * 0.5, dW, dH, -11)
-  drawVarsityD(CANVAS_W * 0.815, CANVAS_H * 0.5, dW, dH, 11)
-
-  return new Promise((resolve) => {
-    const img = new Image()
-    img.onload = () => {
-      // Remove white background
-      const tmpCanvas = document.createElement('canvas')
-      tmpCanvas.width = img.naturalWidth
-      tmpCanvas.height = img.naturalHeight
-      const tmpCtx = tmpCanvas.getContext('2d')
-      tmpCtx.drawImage(img, 0, 0)
-      const imgData = tmpCtx.getImageData(0, 0, tmpCanvas.width, tmpCanvas.height)
-      const px = imgData.data
-      for (let i = 0; i < px.length; i += 4) {
-        if (px[i] > 245 && px[i + 1] > 245 && px[i + 2] > 245) px[i + 3] = 0
-      }
-      tmpCtx.putImageData(imgData, 0, 0)
-
-      // Crop to bounding box of non-transparent pixels (removes extra whitespace)
-      let minX = tmpCanvas.width, maxX = 0, minY = tmpCanvas.height, maxY = 0
-      for (let y = 0; y < tmpCanvas.height; y++) {
-        for (let x = 0; x < tmpCanvas.width; x++) {
-          if (px[((y * tmpCanvas.width) + x) * 4 + 3] > 10) {
-            if (x < minX) minX = x
-            if (x > maxX) maxX = x
-            if (y < minY) minY = y
-            if (y > maxY) maxY = y
-          }
-        }
-      }
-
-      const pad = 8
-      minX = Math.max(0, minX - pad)
-      minY = Math.max(0, minY - pad)
-      maxX = Math.min(tmpCanvas.width - 1, maxX + pad)
-      maxY = Math.min(tmpCanvas.height - 1, maxY + pad)
-      const cropW = maxX - minX
-      const cropH = maxY - minY
-
-      const cropCanvas = document.createElement('canvas')
-      cropCanvas.width = cropW
-      cropCanvas.height = cropH
-      cropCanvas.getContext('2d').drawImage(tmpCanvas, minX, minY, cropW, cropH, 0, 0, cropW, cropH)
-
-      // Scale cropped illustration to fit center zone
-      const maxH = CANVAS_H * 0.88
-      const maxW = CANVAS_W * 0.46
-      const scale = Math.min(maxW / cropW, maxH / cropH)
-      const dw = cropW * scale
-      const dh = cropH * scale
-      ctx.drawImage(cropCanvas, (CANVAS_W - dw) / 2, (CANVAS_H - dh) / 2, dw, dh)
-      resolve(canvas.toDataURL('image/png'))
-    }
-    img.onerror = () => resolve(illustrationSrc)
-    img.src = illustrationSrc
-  })
-}
 
 function AIEditModal({ onClose }) {
   const [prompt, setPrompt] = useState('')
@@ -225,24 +99,14 @@ export default function DesignPlacement({ designData }) {
   )
   const [showAIEdit, setShowAIEdit] = useState(false)
   const [showChangeProduct, setShowChangeProduct] = useState(false)
-  const [composited, setComposited] = useState(null)
 
   const generatedDesigns = designData?.generatedDesigns || null
   const hasDesigns = generatedDesigns && generatedDesigns.length > 0
   const hasTwoDesigns = generatedDesigns && generatedDesigns.length > 1
 
-  const rawIllustration = hasDesigns
+  const currentDesignImage = hasDesigns
     ? generatedDesigns[Math.min(activeTab, generatedDesigns.length - 1)].image
     : null
-
-  // Compose illustration + D letters whenever the raw illustration changes
-  useEffect(() => {
-    setComposited(null)
-    if (!rawIllustration) return
-    composeDADPoster(rawIllustration).then(setComposited)
-  }, [rawIllustration])
-
-  const currentDesignImage = composited || rawIllustration
 
   const currentProduct = allProducts.find((p) => p.id === selectedProduct) || allProducts[0]
 
@@ -343,18 +207,6 @@ export default function DesignPlacement({ designData }) {
                 </svg>
                 Перегенерувати
               </button>
-              {composited && (
-                <a
-                  href={composited}
-                  download="dad-design.png"
-                  className="flex-1 flex items-center justify-center gap-2 bg-green-50 hover:bg-green-100 text-green-700 font-medium px-5 py-2.5 rounded-xl border border-green-200 transition-colors duration-200"
-                >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
-                  </svg>
-                  Завантажити PNG
-                </a>
-              )}
             </div>
           </div>
         </div>
@@ -376,7 +228,6 @@ export default function DesignPlacement({ designData }) {
           </div>
 
           <div className="p-5 flex gap-6 items-center">
-            {/* Product image with design overlay */}
             <div className="relative w-48 h-48 flex-shrink-0 bg-gray-50 rounded-xl overflow-hidden flex items-center justify-center">
               <img
                 src={currentProduct?.image}
@@ -395,7 +246,6 @@ export default function DesignPlacement({ designData }) {
               )}
             </div>
 
-            {/* Product info */}
             <div className="flex-1">
               <div className="space-y-3 mb-5">
                 <div className="flex items-center justify-between text-sm">
