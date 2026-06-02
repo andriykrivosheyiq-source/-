@@ -790,7 +790,7 @@ export default function DesignPlacement({ designData, onUpdate }) {
       </div>{/* end left scroll */}
 
       {/* ── Right sidebar ── */}
-      <div className="w-72 flex-shrink-0 border-l border-gray-100 bg-white overflow-y-auto">
+      <div className="w-96 flex-shrink-0 border-l border-gray-100 bg-white overflow-y-auto">
         <div className="p-5 space-y-6">
 
           {/* File name */}
