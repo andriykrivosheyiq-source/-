@@ -84,11 +84,15 @@ async function renderEstToCanvas(letters, estEl, estText, imageUrl, illus) {
       const img = await loadImgEl(imageUrl)
       const iW = illus.size / 100 * W
       const iH = iW * img.height / img.width
+      const cropFrac = (illus.cropTop || 0) / 100
+      const srcY = img.height * cropFrac
+      const srcH = img.height * (1 - cropFrac)
+      const destH = iH * (1 - cropFrac)
       const iX = illus.x / 100 * W - iW / 2
-      const iY = illus.y / 100 * H - iH / 2
+      const iY = illus.y / 100 * H - iH / 2 + iH * cropFrac
       ctx.save()
       ctx.globalCompositeOperation = 'multiply'
-      ctx.drawImage(img, iX, iY, iW, iH)
+      ctx.drawImage(img, 0, srcY, img.width, srcH, iX, iY, iW, destH)
       ctx.restore()
     } catch { /* skip */ }
   }
@@ -111,9 +115,13 @@ async function renderEstTransparent(letters, estEl, estText, imageUrl, illus) {
       const cleaned = removeWhiteBg(img)
       const iW = illus.size / 100 * W
       const iH = iW * cleaned.height / cleaned.width
+      const cropFrac = (illus.cropTop || 0) / 100
+      const srcY = cleaned.height * cropFrac
+      const srcH = cleaned.height * (1 - cropFrac)
+      const destH = iH * (1 - cropFrac)
       const iX = illus.x / 100 * W - iW / 2
-      const iY = illus.y / 100 * H - iH / 2
-      ctx.drawImage(cleaned, iX, iY, iW, iH)
+      const iY = illus.y / 100 * H - iH / 2 + iH * cropFrac
+      ctx.drawImage(cleaned, 0, srcY, cleaned.width, srcH, iX, iY, iW, destH)
     } catch { /* skip */ }
   }
 
@@ -126,6 +134,7 @@ async function renderEstTransparent(letters, estEl, estText, imageUrl, illus) {
 
 const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estText }, ref) {
   const containerRef = useRef(null)
+  const illusImgRef = useRef(null)
   const dragRef = useRef(null)
   const dragMovedRef = useRef(false)
   const wasSelectedRef = useRef(false)
@@ -135,8 +144,25 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
     { id: 'right', x: 77, y: 15, size: 22, rotation: 19,  color: '#000000' },
   ])
   const [estEl, setEstEl] = useState({ x: 50, y: 88, color: '#000000', fontSize: 2.8 })
-  const [illus, setIllus] = useState({ x: 50, y: 45, size: 52 })
+  const [illus, setIllus] = useState({ x: 50, y: 45, size: 52, cropTop: 0 })
+  const [cleanedUrl, setCleanedUrl] = useState(null)
   const [selected, setSelected] = useState(null)
+
+  // Pre-process illustration: remove white background for transparent preview
+  useEffect(() => {
+    if (!imageUrl) { setCleanedUrl(null); return }
+    let active = true
+    loadImgEl(imageUrl).then(img => {
+      if (!active) return
+      const c = removeWhiteBg(img)
+      c.toBlob(blob => {
+        if (!active) return
+        const url = URL.createObjectURL(blob)
+        setCleanedUrl(prev => { if (prev) URL.revokeObjectURL(prev); return url })
+      }, 'image/png')
+    }).catch(() => { if (active) setCleanedUrl(imageUrl) })
+    return () => { active = false }
+  }, [imageUrl])
 
   useImperativeHandle(ref, () => ({
     exportToCanvas:      () => renderEstToCanvas(letters, estEl, estText, imageUrl, illus),
@@ -158,8 +184,13 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
         if (dr.type === 'move')   setEstEl(prev => ({ ...prev, x: dr.ox + dx, y: dr.oy + dy }))
         if (dr.type === 'resize') setEstEl(prev => ({ ...prev, fontSize: Math.max(1, Math.min(8, dr.os + (dx + dy) * 0.04)) }))
       } else if (dr.id === 'illus') {
-        if (dr.type === 'move')   setIllus(prev => ({ ...prev, x: dr.ox + dx, y: dr.oy + dy }))
-        if (dr.type === 'resize') setIllus(prev => ({ ...prev, size: Math.max(10, Math.min(100, dr.os + (dx + dy) * 0.5)) }))
+        if (dr.type === 'move')    setIllus(prev => ({ ...prev, x: dr.ox + dx, y: dr.oy + dy }))
+        if (dr.type === 'resize')  setIllus(prev => ({ ...prev, size: Math.max(10, Math.min(100, dr.os + (dx + dy) * 0.5)) }))
+        if (dr.type === 'cropTop') {
+          const pixelDy = dr.sy - clientY  // positive = dragging up = more crop
+          const newCropPx = dr.os / 100 * dr.imgH + pixelDy
+          setIllus(prev => ({ ...prev, cropTop: Math.max(0, Math.min(80, newCropPx / dr.imgH * 100)) }))
+        }
       } else {
         setLetters(prev => prev.map(l => {
           if (l.id !== dr.id) return l
@@ -194,7 +225,9 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
     if (id === 'est') {
       dragRef.current = { id, type, sx: clientX, sy: clientY, ox: estEl.x, oy: estEl.y, os: estEl.fontSize, cw: rect.width, ch: rect.height }
     } else if (id === 'illus') {
-      dragRef.current = { id, type, sx: clientX, sy: clientY, ox: illus.x, oy: illus.y, os: illus.size, cw: rect.width, ch: rect.height }
+      const imgH = illusImgRef.current?.getBoundingClientRect().height || 100
+      const os = type === 'cropTop' ? illus.cropTop : illus.size
+      dragRef.current = { id, type, sx: clientX, sy: clientY, ox: illus.x, oy: illus.y, os, imgH, cw: rect.width, ch: rect.height }
     } else {
       const letter = letters.find(l => l.id === id)
       dragRef.current = { id, type, sx: clientX, sy: clientY, ox: letter.x, oy: letter.y, os: type === 'rotate' ? letter.rotation : letter.size, cw: rect.width, ch: rect.height }
@@ -235,11 +268,21 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
             onClick={e => handleClick('illus', e)}
             style={{ position: 'absolute', left: `${illus.x}%`, top: `${illus.y}%`, width: `${illus.size}%`, transform: 'translate(-50%, -50%)', cursor: selected === 'illus' ? 'grab' : 'pointer', zIndex: selected === 'illus' ? 15 : 5 }}
           >
-            {selected === 'illus' && <div style={{ position: 'absolute', inset: '-5px', border: '2px dashed #4f46e5', borderRadius: '6px', pointerEvents: 'none' }} />}
-            <img src={imageUrl} alt="EST illustration" style={{ width: '100%', height: 'auto', display: 'block', pointerEvents: 'none', mixBlendMode: 'multiply' }} />
+            {/* Clip wrapper: clips from top (cropTop%), dashed border inside clips too */}
+            <div style={{ clipPath: illus.cropTop > 0 ? `inset(${illus.cropTop}% 0 0 0)` : undefined }}>
+              {selected === 'illus' && <div style={{ position: 'absolute', inset: '-5px', border: '2px dashed #4f46e5', borderRadius: '6px', pointerEvents: 'none' }} />}
+              <img ref={illusImgRef} src={cleanedUrl || imageUrl} alt="EST illustration" style={{ width: '100%', height: 'auto', display: 'block', pointerEvents: 'none' }} />
+            </div>
+            {/* Resize handle — outside clip, always at visual bottom-right */}
             {selected === 'illus' && (
               <div onMouseDown={e => startDrag('illus', 'resize', e)} onTouchStart={e => startDrag('illus', 'resize', e)} onClick={e => e.stopPropagation()} style={{ position: 'absolute', bottom: '-10px', right: '-10px', width: '20px', height: '20px', background: '#4f46e5', border: '2px solid #fff', borderRadius: '4px', cursor: 'nwse-resize', zIndex: 30, boxShadow: '0 1px 4px rgba(0,0,0,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <svg width="8" height="8" viewBox="0 0 8 8" fill="none"><path d="M1 7L7 1M4 7L7 4" stroke="white" strokeWidth="1.5" strokeLinecap="round" /></svg>
+              </div>
+            )}
+            {/* Crop-top handle — sits at the crop boundary line */}
+            {selected === 'illus' && (
+              <div onMouseDown={e => startDrag('illus', 'cropTop', e)} onTouchStart={e => startDrag('illus', 'cropTop', e)} onClick={e => e.stopPropagation()} style={{ position: 'absolute', top: `${illus.cropTop}%`, left: '50%', transform: 'translate(-50%, -50%)', width: '28px', height: '14px', background: '#4f46e5', border: '2px solid #fff', borderRadius: '4px', cursor: 'ns-resize', zIndex: 31, boxShadow: '0 1px 4px rgba(0,0,0,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <svg width="10" height="8" viewBox="0 0 10 8" fill="none"><path d="M5 1L2 4M5 1L8 4" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/><line x1="1" y1="7" x2="9" y2="7" stroke="white" strokeWidth="1.5" strokeLinecap="round"/></svg>
               </div>
             )}
           </div>
@@ -288,8 +331,9 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
           {isIllusSelected ? (
             <>
               <span style={{ fontSize: '12px', color: '#6b7280', fontWeight: 500 }}>Ескіз:</span>
-              <span style={{ fontSize: '11px', color: '#9ca3af' }}>{Math.round(illus.size)}% ширини</span>
-              <span style={{ fontSize: '11px', color: '#9ca3af', marginLeft: 'auto', whiteSpace: 'nowrap' }}>Тягни · кут → розмір</span>
+              <span style={{ fontSize: '11px', color: '#9ca3af' }}>{Math.round(illus.size)}% розмір</span>
+              {illus.cropTop > 0 && <span style={{ fontSize: '11px', color: '#4f46e5', fontWeight: 600 }}>обрізано зверху {Math.round(illus.cropTop)}%</span>}
+              <span style={{ fontSize: '11px', color: '#9ca3af', marginLeft: 'auto', whiteSpace: 'nowrap' }}>Тягни · ↕ обрізання · кут → розмір</span>
             </>
           ) : (
             <>
