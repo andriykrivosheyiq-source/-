@@ -71,7 +71,7 @@ function drawEstText(ctx, estEl, estText, W, H) {
 }
 
 // Full composite with white background (for regular download)
-async function renderEstToCanvas(letters, estEl, estText, imageUrl) {
+async function renderEstToCanvas(letters, estEl, estText, imageUrl, illus) {
   const W = 1600, H = 900
   const canvas = document.createElement('canvas')
   canvas.width = W; canvas.height = H
@@ -82,13 +82,13 @@ async function renderEstToCanvas(letters, estEl, estText, imageUrl) {
   if (imageUrl) {
     try {
       const img = await loadImgEl(imageUrl)
-      const areaX = 0.24 * W, areaY = 0.04 * H
-      const areaW = 0.52 * W, areaH = 0.82 * H
-      const sc = Math.min(areaW / img.width, areaH / img.height)
-      const iW = img.width * sc, iH = img.height * sc
+      const iW = illus.size / 100 * W
+      const iH = iW * img.height / img.width
+      const iX = illus.x / 100 * W - iW / 2
+      const iY = illus.y / 100 * H - iH / 2
       ctx.save()
       ctx.globalCompositeOperation = 'multiply'
-      ctx.drawImage(img, areaX + (areaW - iW) / 2, areaY + (areaH - iH) / 2, iW, iH)
+      ctx.drawImage(img, iX, iY, iW, iH)
       ctx.restore()
     } catch { /* skip */ }
   }
@@ -99,22 +99,21 @@ async function renderEstToCanvas(letters, estEl, estText, imageUrl) {
 }
 
 // Transparent composite for mockup (no white fill, illustration bg removed)
-async function renderEstTransparent(letters, estEl, estText, imageUrl) {
+async function renderEstTransparent(letters, estEl, estText, imageUrl, illus) {
   const W = 1600, H = 900
   const canvas = document.createElement('canvas')
   canvas.width = W; canvas.height = H
   const ctx = canvas.getContext('2d')
-  // transparent background
 
   if (imageUrl) {
     try {
       const img = await loadImgEl(imageUrl)
       const cleaned = removeWhiteBg(img)
-      const areaX = 0.24 * W, areaY = 0.04 * H
-      const areaW = 0.52 * W, areaH = 0.82 * H
-      const sc = Math.min(areaW / cleaned.width, areaH / cleaned.height)
-      const iW = cleaned.width * sc, iH = cleaned.height * sc
-      ctx.drawImage(cleaned, areaX + (areaW - iW) / 2, areaY + (areaH - iH) / 2, iW, iH)
+      const iW = illus.size / 100 * W
+      const iH = iW * cleaned.height / cleaned.width
+      const iX = illus.x / 100 * W - iW / 2
+      const iY = illus.y / 100 * H - iH / 2
+      ctx.drawImage(cleaned, iX, iY, iW, iH)
     } catch { /* skip */ }
   }
 
@@ -136,12 +135,13 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
     { id: 'right', x: 77, y: 15, size: 22, rotation: 19,  color: '#000000' },
   ])
   const [estEl, setEstEl] = useState({ x: 50, y: 88, color: '#000000', fontSize: 2.8 })
+  const [illus, setIllus] = useState({ x: 50, y: 45, size: 52 })
   const [selected, setSelected] = useState(null)
 
   useImperativeHandle(ref, () => ({
-    exportToCanvas:      () => renderEstToCanvas(letters, estEl, estText, imageUrl),
-    exportTransparent:   () => renderEstTransparent(letters, estEl, estText, imageUrl),
-  }), [letters, estEl, estText, imageUrl])
+    exportToCanvas:      () => renderEstToCanvas(letters, estEl, estText, imageUrl, illus),
+    exportTransparent:   () => renderEstTransparent(letters, estEl, estText, imageUrl, illus),
+  }), [letters, estEl, estText, imageUrl, illus])
 
   useEffect(() => {
     const onMove = (e) => {
@@ -157,6 +157,9 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
       if (dr.id === 'est') {
         if (dr.type === 'move')   setEstEl(prev => ({ ...prev, x: dr.ox + dx, y: dr.oy + dy }))
         if (dr.type === 'resize') setEstEl(prev => ({ ...prev, fontSize: Math.max(1, Math.min(8, dr.os + (dx + dy) * 0.04)) }))
+      } else if (dr.id === 'illus') {
+        if (dr.type === 'move')   setIllus(prev => ({ ...prev, x: dr.ox + dx, y: dr.oy + dy }))
+        if (dr.type === 'resize') setIllus(prev => ({ ...prev, size: Math.max(10, Math.min(100, dr.os + (dx + dy) * 0.5)) }))
       } else {
         setLetters(prev => prev.map(l => {
           if (l.id !== dr.id) return l
@@ -190,6 +193,8 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
     const clientY = e.touches ? e.touches[0].clientY : e.clientY
     if (id === 'est') {
       dragRef.current = { id, type, sx: clientX, sy: clientY, ox: estEl.x, oy: estEl.y, os: estEl.fontSize, cw: rect.width, ch: rect.height }
+    } else if (id === 'illus') {
+      dragRef.current = { id, type, sx: clientX, sy: clientY, ox: illus.x, oy: illus.y, os: illus.size, cw: rect.width, ch: rect.height }
     } else {
       const letter = letters.find(l => l.id === id)
       dragRef.current = { id, type, sx: clientX, sy: clientY, ox: letter.x, oy: letter.y, os: type === 'rotate' ? letter.rotation : letter.size, cw: rect.width, ch: rect.height }
@@ -203,6 +208,7 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
 
   const selectedLetter = letters.find(l => l.id === selected)
   const isEstSelected = selected === 'est'
+  const isIllusSelected = selected === 'illus'
   const currentColor = isEstSelected ? estEl.color : selectedLetter?.color
   const setColor = (color) => {
     if (isEstSelected) setEstEl(prev => ({ ...prev, color }))
@@ -213,16 +219,31 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
     <div style={{ background: '#ffffff', width: '100%', borderRadius: '12px' }}>
       <div ref={containerRef} onClick={() => setSelected(null)} style={{ position: 'relative', width: '100%', aspectRatio: '16 / 9', background: '#ffffff', userSelect: 'none', touchAction: 'none', overflow: 'hidden' }}>
 
-        <div style={{ position: 'absolute', top: '4%', bottom: '14%', left: '24%', right: '24%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          {imageUrl ? (
-            <img src={imageUrl} alt="EST illustration" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', mixBlendMode: 'multiply' }} />
-          ) : (
+        {!imageUrl && (
+          <div style={{ position: 'absolute', top: '4%', bottom: '14%', left: '24%', right: '24%', display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
             <div style={{ color: '#9ca3af', textAlign: 'center' }}>
               <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" /></svg>
               <p style={{ fontSize: '12px', marginTop: '8px' }}>Завантажте фото для EST стилю</p>
             </div>
-          )}
-        </div>
+          </div>
+        )}
+
+        {imageUrl && (
+          <div
+            onMouseDown={e => startDrag('illus', 'move', e)}
+            onTouchStart={e => startDrag('illus', 'move', e)}
+            onClick={e => handleClick('illus', e)}
+            style={{ position: 'absolute', left: `${illus.x}%`, top: `${illus.y}%`, width: `${illus.size}%`, transform: 'translate(-50%, -50%)', cursor: selected === 'illus' ? 'grab' : 'pointer', zIndex: selected === 'illus' ? 15 : 5 }}
+          >
+            {selected === 'illus' && <div style={{ position: 'absolute', inset: '-5px', border: '2px dashed #4f46e5', borderRadius: '6px', pointerEvents: 'none' }} />}
+            <img src={imageUrl} alt="EST illustration" style={{ width: '100%', height: 'auto', display: 'block', pointerEvents: 'none', mixBlendMode: 'multiply' }} />
+            {selected === 'illus' && (
+              <div onMouseDown={e => startDrag('illus', 'resize', e)} onTouchStart={e => startDrag('illus', 'resize', e)} onClick={e => e.stopPropagation()} style={{ position: 'absolute', bottom: '-10px', right: '-10px', width: '20px', height: '20px', background: '#4f46e5', border: '2px solid #fff', borderRadius: '4px', cursor: 'nwse-resize', zIndex: 30, boxShadow: '0 1px 4px rgba(0,0,0,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <svg width="8" height="8" viewBox="0 0 8 8" fill="none"><path d="M1 7L7 1M4 7L7 4" stroke="white" strokeWidth="1.5" strokeLinecap="round" /></svg>
+              </div>
+            )}
+          </div>
+        )}
 
         <div onMouseDown={e => startDrag('est', 'move', e)} onTouchStart={e => startDrag('est', 'move', e)} onClick={e => handleClick('est', e)} style={{ position: 'absolute', left: `${estEl.x}%`, top: `${estEl.y}%`, transform: 'translate(-50%, -50%)', fontFamily: 'Arial, Helvetica, sans-serif', fontWeight: 700, fontSize: `${estEl.fontSize}vw`, letterSpacing: '6px', color: estEl.color, cursor: isEstSelected ? 'grab' : 'pointer', zIndex: isEstSelected ? 20 : 10, whiteSpace: 'nowrap' }}>
           {isEstSelected && <div style={{ position: 'absolute', inset: '-5px', border: '2px dashed #4f46e5', borderRadius: '6px', pointerEvents: 'none' }} />}
@@ -262,14 +283,24 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
         })}
       </div>
 
-      {selected && (selectedLetter || isEstSelected) && (
+      {selected && (selectedLetter || isEstSelected || isIllusSelected) && (
         <div style={{ padding: '10px 16px', display: 'flex', alignItems: 'center', gap: '8px', borderTop: '1px solid #f3f4f6', background: '#fafafa', borderRadius: '0 0 12px 12px', flexWrap: 'wrap' }}>
-          <span style={{ fontSize: '12px', color: '#6b7280', fontWeight: 500 }}>{isEstSelected ? 'EST текст' : selected === 'left' ? 'Ліва D' : 'Права D'}:</span>
-          {PRESET_COLORS.map(color => (
-            <button key={color} onClick={() => setColor(color)} style={{ width: '22px', height: '22px', borderRadius: '50%', background: color, border: currentColor === color ? '3px solid #4f46e5' : '2px solid #d1d5db', cursor: 'pointer', padding: 0, flexShrink: 0 }} />
-          ))}
-          <input type="color" value={currentColor || '#000000'} onChange={e => setColor(e.target.value)} style={{ width: '28px', height: '28px', padding: 0, border: '2px solid #d1d5db', cursor: 'pointer', borderRadius: '50%', background: 'none' }} title="Власний колір" />
-          <span style={{ fontSize: '11px', color: '#9ca3af', marginLeft: 'auto', whiteSpace: 'nowrap' }}>{isEstSelected ? 'Тягни • кут → розмір' : 'Тягни • ○ поворот • кут → розмір'}</span>
+          {isIllusSelected ? (
+            <>
+              <span style={{ fontSize: '12px', color: '#6b7280', fontWeight: 500 }}>Ескіз:</span>
+              <span style={{ fontSize: '11px', color: '#9ca3af' }}>{Math.round(illus.size)}% ширини</span>
+              <span style={{ fontSize: '11px', color: '#9ca3af', marginLeft: 'auto', whiteSpace: 'nowrap' }}>Тягни · кут → розмір</span>
+            </>
+          ) : (
+            <>
+              <span style={{ fontSize: '12px', color: '#6b7280', fontWeight: 500 }}>{isEstSelected ? 'EST текст' : selected === 'left' ? 'Ліва D' : 'Права D'}:</span>
+              {PRESET_COLORS.map(color => (
+                <button key={color} onClick={() => setColor(color)} style={{ width: '22px', height: '22px', borderRadius: '50%', background: color, border: currentColor === color ? '3px solid #4f46e5' : '2px solid #d1d5db', cursor: 'pointer', padding: 0, flexShrink: 0 }} />
+              ))}
+              <input type="color" value={currentColor || '#000000'} onChange={e => setColor(e.target.value)} style={{ width: '28px', height: '28px', padding: 0, border: '2px solid #d1d5db', cursor: 'pointer', borderRadius: '50%', background: 'none' }} title="Власний колір" />
+              <span style={{ fontSize: '11px', color: '#9ca3af', marginLeft: 'auto', whiteSpace: 'nowrap' }}>{isEstSelected ? 'Тягни • кут → розмір' : 'Тягни • ○ поворот • кут → розмір'}</span>
+            </>
+          )}
         </div>
       )}
     </div>
