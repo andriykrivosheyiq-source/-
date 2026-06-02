@@ -55,7 +55,21 @@ async function composeDADPoster(illustrationSrc) {
       const scale = Math.min(maxW / img.naturalWidth, maxH / img.naturalHeight)
       const dw = img.naturalWidth * scale
       const dh = img.naturalHeight * scale
-      ctx.drawImage(img, (CANVAS_W - dw) / 2, (CANVAS_H - dh) / 2, dw, dh)
+
+      // Remove white background from illustration so D letters show through
+      const tmpCanvas = document.createElement('canvas')
+      tmpCanvas.width = img.naturalWidth
+      tmpCanvas.height = img.naturalHeight
+      const tmpCtx = tmpCanvas.getContext('2d')
+      tmpCtx.drawImage(img, 0, 0)
+      const imgData = tmpCtx.getImageData(0, 0, tmpCanvas.width, tmpCanvas.height)
+      const d = imgData.data
+      for (let i = 0; i < d.length; i += 4) {
+        if (d[i] > 245 && d[i + 1] > 245 && d[i + 2] > 245) d[i + 3] = 0
+      }
+      tmpCtx.putImageData(imgData, 0, 0)
+
+      ctx.drawImage(tmpCanvas, (CANVAS_W - dw) / 2, (CANVAS_H - dh) / 2, dw, dh)
       resolve(canvas.toDataURL('image/png'))
     }
     img.onerror = () => resolve(illustrationSrc)
