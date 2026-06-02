@@ -5,7 +5,10 @@ import { products as allProducts } from '../data/mockData'
 const CANVAS_W = 1200
 const CANVAS_H = 800
 
-function composeDADPoster(illustrationSrc, onDone) {
+async function composeDADPoster(illustrationSrc) {
+  // Load collegiate font before drawing
+  try { await document.fonts.load(`900 100px "Black Ops One"`) } catch (_) {}
+
   const canvas = document.createElement('canvas')
   canvas.width = CANVAS_W
   canvas.height = CANVAS_H
@@ -14,8 +17,8 @@ function composeDADPoster(illustrationSrc, onDone) {
   ctx.fillStyle = '#ffffff'
   ctx.fillRect(0, 0, CANVAS_W, CANVAS_H)
 
-  const fontSize = Math.round(CANVAS_H * 0.58)
-  ctx.font = `900 ${fontSize}px Impact, "Arial Black", Arial, sans-serif`
+  const fontSize = Math.round(CANVAS_H * 0.62)
+  ctx.font = `900 ${fontSize}px "Black Ops One", Impact, "Arial Black", sans-serif`
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
 
@@ -24,40 +27,40 @@ function composeDADPoster(illustrationSrc, onDone) {
     ctx.translate(x, CANVAS_H * 0.5)
     ctx.rotate((rotationDeg * Math.PI) / 180)
 
-    // Outer thick black stroke
-    ctx.lineWidth = Math.round(fontSize * 0.10)
+    // Outer border: thin enough to see white inside (15px each side)
+    ctx.lineWidth = Math.round(fontSize * 0.055)
     ctx.strokeStyle = '#000000'
     ctx.lineJoin = 'miter'
-    ctx.miterLimit = 3
+    ctx.miterLimit = 2
     ctx.strokeText(letter, 0, 0)
-    // White fill
+    // White fill — covers inner half of outer stroke, creates white interior
     ctx.fillStyle = '#ffffff'
     ctx.fillText(letter, 0, 0)
-    // Inner thin black border (collegiate double-outline)
-    ctx.lineWidth = Math.round(fontSize * 0.028)
+    // Inner thin border on top of white fill (collegiate double-outline)
+    ctx.lineWidth = Math.round(fontSize * 0.024)
     ctx.strokeStyle = '#000000'
     ctx.strokeText(letter, 0, 0)
 
     ctx.restore()
   }
 
-  drawLetter('D', CANVAS_W * 0.19, -12)  // Left D — counter-clockwise tilt
-  drawLetter('D', CANVAS_W * 0.81, 12)   // Right D — clockwise tilt
+  drawLetter('D', CANVAS_W * 0.185, -12)
+  drawLetter('D', CANVAS_W * 0.815, 12)
 
-  const img = new Image()
-  img.onload = () => {
-    const maxH = CANVAS_H * 0.90
-    const maxW = CANVAS_W * 0.48
-    const scale = Math.min(maxW / img.naturalWidth, maxH / img.naturalHeight)
-    const dw = img.naturalWidth * scale
-    const dh = img.naturalHeight * scale
-    const dx = (CANVAS_W - dw) / 2
-    const dy = (CANVAS_H - dh) / 2
-    ctx.drawImage(img, dx, dy, dw, dh)
-    onDone(canvas.toDataURL('image/png'))
-  }
-  img.onerror = () => onDone(illustrationSrc)
-  img.src = illustrationSrc
+  return new Promise((resolve) => {
+    const img = new Image()
+    img.onload = () => {
+      const maxH = CANVAS_H * 0.90
+      const maxW = CANVAS_W * 0.48
+      const scale = Math.min(maxW / img.naturalWidth, maxH / img.naturalHeight)
+      const dw = img.naturalWidth * scale
+      const dh = img.naturalHeight * scale
+      ctx.drawImage(img, (CANVAS_W - dw) / 2, (CANVAS_H - dh) / 2, dw, dh)
+      resolve(canvas.toDataURL('image/png'))
+    }
+    img.onerror = () => resolve(illustrationSrc)
+    img.src = illustrationSrc
+  })
 }
 
 function AIEditModal({ onClose }) {
@@ -171,7 +174,7 @@ export default function DesignPlacement({ designData }) {
   useEffect(() => {
     setComposited(null)
     if (!rawIllustration) return
-    composeDADPoster(rawIllustration, setComposited)
+    composeDADPoster(rawIllustration).then(setComposited)
   }, [rawIllustration])
 
   const currentDesignImage = composited || rawIllustration
