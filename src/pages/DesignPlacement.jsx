@@ -14,57 +14,63 @@ async function composeDADPoster(illustrationSrc) {
   ctx.fillStyle = '#ffffff'
   ctx.fillRect(0, 0, CANVAS_W, CANVAS_H)
 
-  // Draw collegiate D: vertical bar + serifs at top/bottom + smooth arc
-  const drawD = (cx, cy, H, tiltDeg) => {
-    const W = H * 0.62
-    const barW = W * 0.26
-    const serifLen = W * 0.11   // serif horizontal extension
-    const serifH = H * 0.085   // serif cap height
-
-    const left = -W / 2
-    const right = W / 2
-    const top = -H / 2
-    const bot = H / 2
-    const barRight = left + barW
-    const arcRx = right - barRight
-    const arcRy = H / 2 - serifH
-
-    // D shape with serifs
-    const p = new Path2D()
-    p.moveTo(left, top)
-    p.lineTo(barRight + serifLen, top)          // top serif →
-    p.lineTo(barRight + serifLen, top + serifH) // serif down
-    p.lineTo(barRight, top + serifH)            // ← to bar edge
-    p.ellipse(barRight, 0, arcRx, arcRy, 0, -Math.PI / 2, Math.PI / 2) // right arc
-    p.lineTo(barRight + serifLen, bot - serifH) // serif start bottom
-    p.lineTo(barRight + serifLen, bot)          // serif down →
-    p.lineTo(left, bot)                         // bottom-left
-    p.closePath()
-
+  // Varsity D drawn as polygon (no ellipse) — angular collegiate style
+  const drawVarsityD = (cx, cy, w, h, tiltDeg) => {
     ctx.save()
     ctx.translate(cx, cy)
     ctx.rotate((tiltDeg * Math.PI) / 180)
-    ctx.lineJoin = 'miter'
-    ctx.miterLimit = 3
 
-    // Outer thick stroke → visible border
-    ctx.lineWidth = Math.round(H * 0.068)
-    ctx.strokeStyle = '#000000'
-    ctx.stroke(p)
+    const x = -w / 2, y = -h / 2
+
+    const outer = () => {
+      ctx.beginPath()
+      ctx.moveTo(x, y + h * 0.08)
+      ctx.lineTo(x + w * 0.78, y)
+      ctx.lineTo(x + w, y + h * 0.18)
+      ctx.lineTo(x + w, y + h * 0.82)
+      ctx.lineTo(x + w * 0.78, y + h)
+      ctx.lineTo(x, y + h * 0.92)
+      ctx.lineTo(x, y + h * 0.65)
+      ctx.lineTo(x + w * 0.16, y + h * 0.65)
+      ctx.lineTo(x + w * 0.16, y + h * 0.35)
+      ctx.lineTo(x, y + h * 0.35)
+      ctx.closePath()
+    }
+
+    const inner = () => {
+      ctx.beginPath()
+      ctx.moveTo(x + w * 0.36, y + h * 0.28)
+      ctx.lineTo(x + w * 0.63, y + h * 0.30)
+      ctx.lineTo(x + w * 0.75, y + h * 0.40)
+      ctx.lineTo(x + w * 0.75, y + h * 0.60)
+      ctx.lineTo(x + w * 0.63, y + h * 0.70)
+      ctx.lineTo(x + w * 0.36, y + h * 0.72)
+      ctx.closePath()
+    }
+
+    ctx.lineJoin = 'miter'
+    ctx.lineCap = 'butt'
+    ctx.miterLimit = 4
+
+    const outerBorder = Math.round(h * 0.065)
+    const innerBorder = Math.round(h * 0.025)
+
+    // Thick outer stroke → border
+    outer(); ctx.lineWidth = outerBorder; ctx.strokeStyle = '#000'; ctx.stroke()
     // White fill → covers inner half of outer stroke
-    ctx.fillStyle = '#ffffff'
-    ctx.fill(p)
-    // Inner thin stroke → collegiate double outline
-    ctx.lineWidth = Math.round(H * 0.026)
-    ctx.strokeStyle = '#000000'
-    ctx.stroke(p)
+    outer(); ctx.fillStyle = '#fff'; ctx.fill()
+    // Thin inner stroke → collegiate double outline
+    outer(); ctx.lineWidth = innerBorder; ctx.strokeStyle = '#000'; ctx.stroke()
+    // Inner hole border
+    inner(); ctx.lineWidth = innerBorder; ctx.stroke()
 
     ctx.restore()
   }
 
-  const dH = CANVAS_H * 0.60
-  drawD(CANVAS_W * 0.185, CANVAS_H * 0.5, dH, -11)
-  drawD(CANVAS_W * 0.815, CANVAS_H * 0.5, dH, 11)
+  const dW = Math.round(CANVAS_W * 0.215)
+  const dH = Math.round(CANVAS_H * 0.72)
+  drawVarsityD(CANVAS_W * 0.185, CANVAS_H * 0.5, dW, dH, -11)
+  drawVarsityD(CANVAS_W * 0.815, CANVAS_H * 0.5, dW, dH, 11)
 
   return new Promise((resolve) => {
     const img = new Image()
