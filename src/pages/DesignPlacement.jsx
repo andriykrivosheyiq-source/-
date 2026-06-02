@@ -14,29 +14,54 @@ async function composeDADPoster(illustrationSrc) {
   ctx.fillStyle = '#ffffff'
   ctx.fillRect(0, 0, CANVAS_W, CANVAS_H)
 
-  const fontSize = Math.round(CANVAS_H * 0.62)
-  ctx.font = `900 ${fontSize}px Impact, "Arial Black", Arial, sans-serif`
-  ctx.textAlign = 'center'
-  ctx.textBaseline = 'middle'
+  // Draw D as geometric path: vertical bar + right-facing ellipse arc
+  const drawD = (cx, cy, H, tiltDeg) => {
+    const W = H * 0.60
+    const barW = W * 0.28          // left vertical bar width
+    const left = -W / 2
+    const barRight = left + barW   // where the arc starts
+    const arcRx = W / 2 - barW / 2 // horizontal radius of the D curve
+    const arcRy = H / 2            // vertical radius
 
-  const drawLetter = (letter, x, rotDeg) => {
+    const dPath = () => {
+      ctx.beginPath()
+      ctx.moveTo(left, -H / 2)           // top-left
+      ctx.lineTo(barRight, -H / 2)       // top of arc
+      ctx.ellipse(barRight, 0, arcRx, arcRy, 0, -Math.PI / 2, Math.PI / 2)
+      ctx.lineTo(left, H / 2)            // bottom-left
+      ctx.closePath()
+    }
+
     ctx.save()
-    ctx.translate(x, CANVAS_H * 0.5)
-    ctx.rotate((rotDeg * Math.PI) / 180)
-    ctx.lineWidth = Math.round(fontSize * 0.058)
+    ctx.translate(cx, cy)
+    ctx.rotate((tiltDeg * Math.PI) / 180)
+
+    // 1. Scale-up black fill → creates outer border
+    ctx.save()
+    ctx.scale(1.075, 1.075)
+    dPath()
+    ctx.fillStyle = '#000000'
+    ctx.fill()
+    ctx.restore()
+
+    // 2. Normal white fill → interior + white gap
+    dPath()
+    ctx.fillStyle = '#ffffff'
+    ctx.fill()
+
+    // 3. Thin inner black stroke → collegiate double outline
+    dPath()
+    ctx.lineWidth = Math.round(H * 0.024)
     ctx.strokeStyle = '#000000'
     ctx.lineJoin = 'round'
-    ctx.strokeText(letter, 0, 0)
-    ctx.fillStyle = '#ffffff'
-    ctx.fillText(letter, 0, 0)
-    ctx.lineWidth = Math.round(fontSize * 0.022)
-    ctx.strokeStyle = '#000000'
-    ctx.strokeText(letter, 0, 0)
+    ctx.stroke()
+
     ctx.restore()
   }
 
-  drawLetter('D', CANVAS_W * 0.185, -11)
-  drawLetter('D', CANVAS_W * 0.815, 11)
+  const dH = CANVAS_H * 0.68
+  drawD(CANVAS_W * 0.185, CANVAS_H * 0.5, dH, -11)
+  drawD(CANVAS_W * 0.815, CANVAS_H * 0.5, dH, 11)
 
   return new Promise((resolve) => {
     const img = new Image()
