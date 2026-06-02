@@ -310,6 +310,7 @@ function PhotoUpload({ file, onChange }) {
 // ─── Main Page ──────────────────────────────────────────────────────
 export default function CreateDesign({ onGenerate }) {
   const navigate = useNavigate()
+  const [fileName, setFileName] = useState('')
   const [selectedProducts, setSelectedProducts] = useState(['hoodie'])
   const [selectedStyle, setSelectedStyle] = useState('dad-face')
   const [showAllStyles, setShowAllStyles] = useState(false)
@@ -336,7 +337,7 @@ export default function CreateDesign({ onGenerate }) {
         generatedDesigns = await generateDesigns(uploadedFile, selectedStyle)
       }
 
-      onGenerate?.({ selectedProducts, selectedStyle, productColors, uploadedFile, generatedDesigns })
+      onGenerate?.({ selectedProducts, selectedStyle, productColors, uploadedFile, generatedDesigns, fileName })
       navigate('/placement')
     } catch (err) {
       setGenerationError(err.message || 'Помилка генерації. Спробуйте ще раз.')
@@ -384,6 +385,21 @@ export default function CreateDesign({ onGenerate }) {
       </div>
 
       <div className="px-8 py-6 space-y-5 max-w-5xl mx-auto">
+        {/* File name */}
+        <div className="step-section">
+          <h2 className="section-title mb-4">Назва файлу</h2>
+          <div className="flex items-center gap-3">
+            <input
+              type="text"
+              value={fileName}
+              onChange={e => setFileName(e.target.value)}
+              placeholder="Напишіть назву файлу"
+              className="flex-1 border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+            />
+            <span className="text-sm text-gray-400 font-medium flex-shrink-0">.png</span>
+          </div>
+        </div>
+
         <ProductSelector selected={selectedProducts} onChange={setSelectedProducts} />
         <StyleSelector
           selected={selectedStyle}

@@ -351,7 +351,7 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
 
 // ─── MockupEditorModal ────────────────────────────────────────────────────────
 
-function MockupEditorModal({ designImage, product, onClose }) {
+function MockupEditorModal({ designImage, product, fileName, onClose }) {
   const outerRef = useRef(null)
   const innerRef = useRef(null)
   const dragRef = useRef(null)
@@ -429,7 +429,7 @@ function MockupEditorModal({ designImage, product, onClose }) {
       }
 
       const link = document.createElement('a')
-      link.download = 'mockup.png'
+      link.download = `${fileName || 'mockup'}.mokap.png`
       link.href = canvas.toDataURL('image/png')
       link.click()
     } catch (e) {
@@ -582,6 +582,7 @@ export default function DesignPlacement({ designData, onUpdate }) {
   const [preparingMockup, setPreparingMockup] = useState(false)
   const [originalImageUrl, setOriginalImageUrl] = useState(null)
   const [fileName, setFileName] = useState(() => {
+    if (designData?.fileName) return designData.fileName
     const year = new Date().getFullYear()
     const style = designData?.selectedStyle
     if (style === 'dad-face') return `Dad_Est_${year}_Design`
@@ -823,7 +824,7 @@ export default function DesignPlacement({ designData, onUpdate }) {
 
       {showAIEdit && <AIEditModal onClose={() => setShowAIEdit(false)} />}
       {showChangeProduct && <ChangeProductModal current={selectedProduct} onSelect={setSelectedProduct} onClose={() => setShowChangeProduct(false)} />}
-      {showMockup && <MockupEditorModal designImage={mockupDesignUrl} product={currentProduct} onClose={() => setShowMockup(false)} />}
+      {showMockup && <MockupEditorModal designImage={mockupDesignUrl} product={currentProduct} fileName={fileName} onClose={() => setShowMockup(false)} />}
     </div>
   )
 }
