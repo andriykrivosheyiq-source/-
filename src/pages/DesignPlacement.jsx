@@ -17,8 +17,8 @@ function EstPosterView({ imageUrl, estText }) {
   const wasSelectedRef = useRef(false)
 
   const [letters, setLetters] = useState([
-    { id: 'left',  x: 1,  y: 5, size: 22, rotation: -12, color: '#000000' },
-    { id: 'right', x: 77, y: 5, size: 22, rotation: 12,  color: '#000000' },
+    { id: 'left',  x: 1,  y: 15, size: 22, rotation: -4,  color: '#000000' },
+    { id: 'right', x: 77, y: 15, size: 22, rotation: 19,  color: '#000000' },
   ])
   const [estEl, setEstEl] = useState({ x: 50, y: 88, color: '#000000', fontSize: 2.8 })
   const [selected, setSelected] = useState(null)
@@ -289,7 +289,7 @@ function EstPosterView({ imageUrl, estText }) {
                     lineHeight: '16px',
                   }}
                 >
-                  {Math.round(letter.rotation)}°
+                  {Math.round(letter.rotation)}° · {Math.round(letter.size)}%
                 </div>
               )}
 
