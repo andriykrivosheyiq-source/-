@@ -580,6 +580,21 @@ export default function DesignPlacement({ designData, onUpdate }) {
   const [regenError, setRegenError] = useState(null)
   const [downloading, setDownloading] = useState(false)
   const [preparingMockup, setPreparingMockup] = useState(false)
+  const [originalImageUrl, setOriginalImageUrl] = useState(null)
+  const [fileName, setFileName] = useState(() => {
+    const year = new Date().getFullYear()
+    const style = designData?.selectedStyle
+    if (style === 'dad-face') return `Dad_Est_${year}_Design`
+    if (style === 'est-face') return `Est_${year}_Design`
+    return `Design_${year}`
+  })
+
+  useEffect(() => {
+    if (!designData?.uploadedFile) return
+    const url = URL.createObjectURL(designData.uploadedFile)
+    setOriginalImageUrl(url)
+    return () => URL.revokeObjectURL(url)
+  }, [designData?.uploadedFile])
 
   const isEst = designData?.selectedStyle === 'est-face'
   const generatedDesigns = designData?.generatedDesigns || null
@@ -613,7 +628,7 @@ export default function DesignPlacement({ designData, onUpdate }) {
       } else if (currentDesignImage) {
         dataUrl = currentDesignImage
       }
-      if (dataUrl) { const a = document.createElement('a'); a.download = 'design.png'; a.href = dataUrl; a.click() }
+      if (dataUrl) { const a = document.createElement('a'); a.download = `${fileName || 'design'}.png`; a.href = dataUrl; a.click() }
     } catch (e) { console.error(e) } finally { setDownloading(false) }
   }
 
@@ -636,8 +651,8 @@ export default function DesignPlacement({ designData, onUpdate }) {
   }
 
   return (
-    <div className="flex-1 overflow-y-auto">
-      <div className="bg-white border-b border-gray-100 px-8 py-5 sticky top-0 z-10">
+    <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="bg-white border-b border-gray-100 px-8 py-5 flex-shrink-0 z-10">
         <div className="flex items-center gap-4">
           <div className="w-8 h-8 bg-indigo-600 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0">2</div>
           <div>
@@ -660,7 +675,10 @@ export default function DesignPlacement({ designData, onUpdate }) {
         </div>
       </div>
 
-      <div className="px-8 py-6 max-w-6xl mx-auto">
+      <div className="flex-1 flex overflow-hidden">
+      {/* ── Left: main design area ── */}
+      <div className="flex-1 overflow-y-auto">
+      <div className="px-8 py-6">
         {hasTwoDesigns && (
           <div className="flex gap-2 mb-5">
             {generatedDesigns.map((d, i) => (
@@ -769,6 +787,39 @@ export default function DesignPlacement({ designData, onUpdate }) {
           Повернутись до налаштувань
         </button>
       </div>
+      </div>{/* end left scroll */}
+
+      {/* ── Right sidebar ── */}
+      <div className="w-72 flex-shrink-0 border-l border-gray-100 bg-white overflow-y-auto">
+        <div className="p-5 space-y-6">
+
+          {/* File name */}
+          <div>
+            <h3 className="text-sm font-semibold text-gray-800 mb-3">Назва файлу</h3>
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={fileName}
+                onChange={e => setFileName(e.target.value)}
+                className="flex-1 min-w-0 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+              />
+              <span className="text-sm text-gray-400 font-medium flex-shrink-0">.png</span>
+            </div>
+          </div>
+
+          {/* Original uploaded photo */}
+          {originalImageUrl && (
+            <div>
+              <h3 className="text-sm font-semibold text-gray-800 mb-3">Приклад початкового зображення</h3>
+              <div className="rounded-xl overflow-hidden border border-gray-100 bg-gray-50">
+                <img src={originalImageUrl} alt="Оригінальне фото" className="w-full h-auto block object-cover" />
+              </div>
+            </div>
+          )}
+
+        </div>
+      </div>
+      </div>{/* end flex row */}
 
       {showAIEdit && <AIEditModal onClose={() => setShowAIEdit(false)} />}
       {showChangeProduct && <ChangeProductModal current={selectedProduct} onSelect={setSelectedProduct} onClose={() => setShowChangeProduct(false)} />}
