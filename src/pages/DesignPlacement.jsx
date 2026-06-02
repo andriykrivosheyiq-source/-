@@ -14,52 +14,55 @@ async function composeDADPoster(illustrationSrc) {
   ctx.fillStyle = '#ffffff'
   ctx.fillRect(0, 0, CANVAS_W, CANVAS_H)
 
-  // Draw D as geometric path: vertical bar + right-facing ellipse arc
+  // Draw collegiate D: vertical bar + serifs at top/bottom + smooth arc
   const drawD = (cx, cy, H, tiltDeg) => {
-    const W = H * 0.60
-    const barW = W * 0.28          // left vertical bar width
-    const left = -W / 2
-    const barRight = left + barW   // where the arc starts
-    const arcRx = W / 2 - barW / 2 // horizontal radius of the D curve
-    const arcRy = H / 2            // vertical radius
+    const W = H * 0.62
+    const barW = W * 0.26
+    const serifLen = W * 0.11   // serif horizontal extension
+    const serifH = H * 0.085   // serif cap height
 
-    const dPath = () => {
-      ctx.beginPath()
-      ctx.moveTo(left, -H / 2)           // top-left
-      ctx.lineTo(barRight, -H / 2)       // top of arc
-      ctx.ellipse(barRight, 0, arcRx, arcRy, 0, -Math.PI / 2, Math.PI / 2)
-      ctx.lineTo(left, H / 2)            // bottom-left
-      ctx.closePath()
-    }
+    const left = -W / 2
+    const right = W / 2
+    const top = -H / 2
+    const bot = H / 2
+    const barRight = left + barW
+    const arcRx = right - barRight
+    const arcRy = H / 2 - serifH
+
+    // D shape with serifs
+    const p = new Path2D()
+    p.moveTo(left, top)
+    p.lineTo(barRight + serifLen, top)          // top serif →
+    p.lineTo(barRight + serifLen, top + serifH) // serif down
+    p.lineTo(barRight, top + serifH)            // ← to bar edge
+    p.ellipse(barRight, 0, arcRx, arcRy, 0, -Math.PI / 2, Math.PI / 2) // right arc
+    p.lineTo(barRight + serifLen, bot - serifH) // serif start bottom
+    p.lineTo(barRight + serifLen, bot)          // serif down →
+    p.lineTo(left, bot)                         // bottom-left
+    p.closePath()
 
     ctx.save()
     ctx.translate(cx, cy)
     ctx.rotate((tiltDeg * Math.PI) / 180)
+    ctx.lineJoin = 'miter'
+    ctx.miterLimit = 3
 
-    // 1. Scale-up black fill → creates outer border
-    ctx.save()
-    ctx.scale(1.075, 1.075)
-    dPath()
-    ctx.fillStyle = '#000000'
-    ctx.fill()
-    ctx.restore()
-
-    // 2. Normal white fill → interior + white gap
-    dPath()
-    ctx.fillStyle = '#ffffff'
-    ctx.fill()
-
-    // 3. Thin inner black stroke → collegiate double outline
-    dPath()
-    ctx.lineWidth = Math.round(H * 0.024)
+    // Outer thick stroke → visible border
+    ctx.lineWidth = Math.round(H * 0.068)
     ctx.strokeStyle = '#000000'
-    ctx.lineJoin = 'round'
-    ctx.stroke()
+    ctx.stroke(p)
+    // White fill → covers inner half of outer stroke
+    ctx.fillStyle = '#ffffff'
+    ctx.fill(p)
+    // Inner thin stroke → collegiate double outline
+    ctx.lineWidth = Math.round(H * 0.026)
+    ctx.strokeStyle = '#000000'
+    ctx.stroke(p)
 
     ctx.restore()
   }
 
-  const dH = CANVAS_H * 0.68
+  const dH = CANVAS_H * 0.60
   drawD(CANVAS_W * 0.185, CANVAS_H * 0.5, dH, -11)
   drawD(CANVAS_W * 0.815, CANVAS_H * 0.5, dH, 11)
 
