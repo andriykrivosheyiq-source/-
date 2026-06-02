@@ -54,7 +54,7 @@ async function findImageModel(apiKey) {
   return modelId
 }
 
-function resizeToBlob(file, maxPx = 768) {
+function resizeToBlob(file, maxPx = 1024) {
   return new Promise((resolve) => {
     const img = new Image()
     const url = URL.createObjectURL(file)
