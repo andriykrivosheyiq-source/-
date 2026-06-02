@@ -17,9 +17,11 @@ function EstPosterView({ imageUrl, estText }) {
   const wasSelectedRef = useRef(false)
 
   const [letters, setLetters] = useState([
-    { id: 'left',  x: 1,  y: 5, size: 22, rotation: -12, color: '#000000' },
-    { id: 'right', x: 77, y: 5, size: 22, rotation: 12,  color: '#000000' },
+    { id: 'left',  x: 1,  y: 5, size: 22, color: '#000000' },
+    { id: 'right', x: 77, y: 5, size: 22, color: '#000000' },
   ])
+  const [rotationAbs, setRotationAbs] = useState(12)
+  const [estEl, setEstEl] = useState({ x: 50, y: 88, color: '#000000', fontSize: 2.8 })
   const [selected, setSelected] = useState(null)
 
   useEffect(() => {
@@ -32,12 +34,23 @@ function EstPosterView({ imageUrl, estText }) {
       const dx = (clientX - dr.sx) / dr.cw * 100
       const dy = (clientY - dr.sy) / dr.ch * 100
       if (Math.abs(dx) > 0.3 || Math.abs(dy) > 0.3) dragMovedRef.current = true
-      setLetters(prev => prev.map(l => {
-        if (l.id !== dr.id) return l
-        if (dr.type === 'move') return { ...l, x: dr.ox + dx, y: dr.oy + dy }
-        if (dr.type === 'resize') return { ...l, size: Math.max(8, Math.min(55, dr.os + (dx - dy) * 0.6)) }
-        return l
-      }))
+
+      if (dr.id === 'est') {
+        if (dr.type === 'move') {
+          setEstEl(prev => ({ ...prev, x: dr.ox + dx, y: dr.oy + dy }))
+        } else if (dr.type === 'resize') {
+          setEstEl(prev => ({ ...prev, fontSize: Math.max(1, Math.min(8, dr.os + (dx - dy) * 0.04)) }))
+        }
+      } else if (dr.type === 'rotate') {
+        setRotationAbs(Math.max(0, Math.min(45, dr.os + dx * 0.4)))
+      } else {
+        setLetters(prev => prev.map(l => {
+          if (l.id !== dr.id) return l
+          if (dr.type === 'move') return { ...l, x: dr.ox + dx, y: dr.oy + dy }
+          if (dr.type === 'resize') return { ...l, size: Math.max(8, Math.min(55, dr.os + (dx - dy) * 0.6)) }
+          return l
+        }))
+      }
     }
     const onUp = () => { dragRef.current = null }
     window.addEventListener('mousemove', onMove)
@@ -59,19 +72,29 @@ function EstPosterView({ imageUrl, estText }) {
     wasSelectedRef.current = selected === id
     setSelected(id)
     const rect = containerRef.current.getBoundingClientRect()
-    const letter = letters.find(l => l.id === id)
     const clientX = e.touches ? e.touches[0].clientX : e.clientX
     const clientY = e.touches ? e.touches[0].clientY : e.clientY
-    dragRef.current = {
-      id, type,
-      sx: clientX, sy: clientY,
-      ox: letter.x, oy: letter.y, os: letter.size,
-      cw: rect.width, ch: rect.height,
+
+    if (id === 'est') {
+      dragRef.current = {
+        id, type,
+        sx: clientX, sy: clientY,
+        ox: estEl.x, oy: estEl.y, os: estEl.fontSize,
+        cw: rect.width, ch: rect.height,
+      }
+    } else {
+      const letter = letters.find(l => l.id === id)
+      dragRef.current = {
+        id, type,
+        sx: clientX, sy: clientY,
+        ox: letter.x, oy: letter.y,
+        os: type === 'rotate' ? rotationAbs : letter.size,
+        cw: rect.width, ch: rect.height,
+      }
     }
   }
 
-  // click toggles off only if: was already selected AND no drag occurred
-  const handleLetterClick = (id, e) => {
+  const handleClick = (id, e) => {
     e.stopPropagation()
     if (wasSelectedRef.current && !dragMovedRef.current) {
       setSelected(null)
@@ -79,6 +102,16 @@ function EstPosterView({ imageUrl, estText }) {
   }
 
   const selectedLetter = letters.find(l => l.id === selected)
+  const isEstSelected = selected === 'est'
+  const currentColor = isEstSelected ? estEl.color : selectedLetter?.color
+
+  const setColor = (color) => {
+    if (isEstSelected) {
+      setEstEl(prev => ({ ...prev, color }))
+    } else if (selectedLetter) {
+      setLetters(prev => prev.map(l => l.id === selected ? { ...l, color } : l))
+    }
+  }
 
   return (
     <div style={{ background: '#ffffff', width: '100%', borderRadius: '12px' }}>
@@ -95,7 +128,7 @@ function EstPosterView({ imageUrl, estText }) {
           overflow: 'hidden',
         }}
       >
-        {/* Illustration — wider area so it matches the generated 16:9 image */}
+        {/* Illustration */}
         <div style={{
           position: 'absolute',
           top: '4%', bottom: '14%',
@@ -122,87 +155,164 @@ function EstPosterView({ imageUrl, estText }) {
           )}
         </div>
 
-        {/* EST text */}
-        <div style={{
-          position: 'absolute',
-          bottom: '3%',
-          left: 0, right: 0,
-          textAlign: 'center',
-          fontFamily: 'Arial, Helvetica, sans-serif',
-          fontWeight: 700,
-          fontSize: 'clamp(14px, 2.8vw, 48px)',
-          letterSpacing: '6px',
-          color: '#000',
-          pointerEvents: 'none',
-        }}>
+        {/* EST text — interactive */}
+        <div
+          onMouseDown={e => startDrag('est', 'move', e)}
+          onTouchStart={e => startDrag('est', 'move', e)}
+          onClick={e => handleClick('est', e)}
+          style={{
+            position: 'absolute',
+            left: `${estEl.x}%`,
+            top: `${estEl.y}%`,
+            transform: 'translate(-50%, -50%)',
+            fontFamily: 'Arial, Helvetica, sans-serif',
+            fontWeight: 700,
+            fontSize: `${estEl.fontSize}vw`,
+            letterSpacing: '6px',
+            color: estEl.color,
+            cursor: isEstSelected ? 'grab' : 'pointer',
+            zIndex: isEstSelected ? 20 : 10,
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {isEstSelected && (
+            <div style={{
+              position: 'absolute',
+              inset: '-5px',
+              border: '2px dashed #4f46e5',
+              borderRadius: '6px',
+              pointerEvents: 'none',
+            }} />
+          )}
           {(estText || 'EST.2025').toUpperCase()}
+          {isEstSelected && (
+            <div
+              onMouseDown={e => startDrag('est', 'resize', e)}
+              onTouchStart={e => startDrag('est', 'resize', e)}
+              onClick={e => e.stopPropagation()}
+              style={{
+                position: 'absolute',
+                bottom: '-10px',
+                right: '-10px',
+                width: '20px', height: '20px',
+                background: '#4f46e5',
+                border: '2px solid #ffffff',
+                borderRadius: '4px',
+                cursor: 'nwse-resize',
+                zIndex: 30,
+                boxShadow: '0 1px 4px rgba(0,0,0,0.25)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
+                <path d="M1 7L7 1M4 7L7 4" stroke="white" strokeWidth="1.5" strokeLinecap="round" />
+              </svg>
+            </div>
+          )}
         </div>
 
         {/* D Letters */}
-        {letters.map(letter => (
-          <div
-            key={letter.id}
-            onMouseDown={e => startDrag(letter.id, 'move', e)}
-            onTouchStart={e => startDrag(letter.id, 'move', e)}
-            onClick={e => handleLetterClick(letter.id, e)}
-            style={{
-              position: 'absolute',
-              left: `${letter.x}%`,
-              top: `${letter.y}%`,
-              width: `${letter.size}%`,
-              transform: `rotate(${letter.rotation}deg)`,
-              transformOrigin: 'center center',
-              cursor: selected === letter.id ? 'grab' : 'pointer',
-              zIndex: selected === letter.id ? 20 : 10,
-            }}
-          >
-            {selected === letter.id && (
-              <div style={{
+        {letters.map(letter => {
+          const rotation = letter.id === 'left' ? -rotationAbs : rotationAbs
+          const isSelected = selected === letter.id
+          return (
+            <div
+              key={letter.id}
+              onMouseDown={e => startDrag(letter.id, 'move', e)}
+              onTouchStart={e => startDrag(letter.id, 'move', e)}
+              onClick={e => handleClick(letter.id, e)}
+              style={{
                 position: 'absolute',
-                inset: '-5px',
-                border: '2px dashed #4f46e5',
-                borderRadius: '6px',
-                pointerEvents: 'none',
-              }} />
-            )}
-
-            <svg viewBox="60 110 360 460" style={{ width: '100%', height: 'auto', display: 'block' }}>
-              <path d={D_PATH} fill={letter.color} fillRule="evenodd" />
-            </svg>
-
-            {selected === letter.id && (
-              <div
-                onMouseDown={e => startDrag(letter.id, 'resize', e)}
-                onTouchStart={e => startDrag(letter.id, 'resize', e)}
-                onClick={e => e.stopPropagation()}
-                title="Потягніть щоб змінити розмір"
-                style={{
+                left: `${letter.x}%`,
+                top: `${letter.y}%`,
+                width: `${letter.size}%`,
+                transform: `rotate(${rotation}deg)`,
+                transformOrigin: 'center center',
+                cursor: isSelected ? 'grab' : 'pointer',
+                zIndex: isSelected ? 20 : 10,
+              }}
+            >
+              {isSelected && (
+                <div style={{
                   position: 'absolute',
-                  bottom: '-10px',
-                  right: '-10px',
-                  width: '20px', height: '20px',
-                  background: '#4f46e5',
-                  border: '2px solid #ffffff',
-                  borderRadius: '4px',
-                  cursor: 'nwse-resize',
-                  zIndex: 30,
-                  boxShadow: '0 1px 4px rgba(0,0,0,0.25)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
-                  <path d="M1 7L7 1M4 7L7 4" stroke="white" strokeWidth="1.5" strokeLinecap="round" />
-                </svg>
-              </div>
-            )}
-          </div>
-        ))}
+                  inset: '-5px',
+                  border: '2px dashed #4f46e5',
+                  borderRadius: '6px',
+                  pointerEvents: 'none',
+                }} />
+              )}
+
+              {/* Rotation handle — circle at top center */}
+              {isSelected && (
+                <div
+                  onMouseDown={e => startDrag(letter.id, 'rotate', e)}
+                  onTouchStart={e => startDrag(letter.id, 'rotate', e)}
+                  onClick={e => e.stopPropagation()}
+                  title="Потягніть вліво/вправо щоб повернути"
+                  style={{
+                    position: 'absolute',
+                    top: '-26px',
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    width: '20px', height: '20px',
+                    background: '#ffffff',
+                    border: '2px solid #4f46e5',
+                    borderRadius: '50%',
+                    cursor: 'ew-resize',
+                    zIndex: 31,
+                    boxShadow: '0 1px 4px rgba(0,0,0,0.2)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#4f46e5" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38"/>
+                  </svg>
+                </div>
+              )}
+
+              <svg viewBox="60 110 360 460" style={{ width: '100%', height: 'auto', display: 'block' }}>
+                <path d={D_PATH} fill={letter.color} fillRule="evenodd" />
+              </svg>
+
+              {/* Resize handle — bottom right */}
+              {isSelected && (
+                <div
+                  onMouseDown={e => startDrag(letter.id, 'resize', e)}
+                  onTouchStart={e => startDrag(letter.id, 'resize', e)}
+                  onClick={e => e.stopPropagation()}
+                  title="Потягніть щоб змінити розмір"
+                  style={{
+                    position: 'absolute',
+                    bottom: '-10px',
+                    right: '-10px',
+                    width: '20px', height: '20px',
+                    background: '#4f46e5',
+                    border: '2px solid #ffffff',
+                    borderRadius: '4px',
+                    cursor: 'nwse-resize',
+                    zIndex: 30,
+                    boxShadow: '0 1px 4px rgba(0,0,0,0.25)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
+                    <path d="M1 7L7 1M4 7L7 4" stroke="white" strokeWidth="1.5" strokeLinecap="round" />
+                  </svg>
+                </div>
+              )}
+            </div>
+          )
+        })}
       </div>
 
-      {/* Color picker — shown when letter selected */}
-      {selected && selectedLetter && (
+      {/* Color picker panel */}
+      {selected && (selectedLetter || isEstSelected) && (
         <div style={{
           padding: '10px 16px',
           display: 'flex',
@@ -214,17 +324,17 @@ function EstPosterView({ imageUrl, estText }) {
           flexWrap: 'wrap',
         }}>
           <span style={{ fontSize: '12px', color: '#6b7280', fontWeight: 500 }}>
-            {selected === 'left' ? 'Ліва D' : 'Права D'}:
+            {isEstSelected ? 'EST текст' : selected === 'left' ? 'Ліва D' : 'Права D'}:
           </span>
           {PRESET_COLORS.map(color => (
             <button
               key={color}
-              onClick={() => setLetters(prev => prev.map(l => l.id === selected ? { ...l, color } : l))}
+              onClick={() => setColor(color)}
               style={{
                 width: '22px', height: '22px',
                 borderRadius: '50%',
                 background: color,
-                border: selectedLetter.color === color ? '3px solid #4f46e5' : '2px solid #d1d5db',
+                border: currentColor === color ? '3px solid #4f46e5' : '2px solid #d1d5db',
                 cursor: 'pointer',
                 padding: 0,
                 flexShrink: 0,
@@ -233,13 +343,13 @@ function EstPosterView({ imageUrl, estText }) {
           ))}
           <input
             type="color"
-            value={selectedLetter.color}
-            onChange={e => setLetters(prev => prev.map(l => l.id === selected ? { ...l, color: e.target.value } : l))}
+            value={currentColor || '#000000'}
+            onChange={e => setColor(e.target.value)}
             style={{ width: '28px', height: '28px', padding: 0, border: '2px solid #d1d5db', cursor: 'pointer', borderRadius: '50%', background: 'none' }}
             title="Власний колір"
           />
           <span style={{ fontSize: '11px', color: '#9ca3af', marginLeft: 'auto', whiteSpace: 'nowrap' }}>
-            Перетягніть літеру • кут → розмір
+            {isEstSelected ? 'Тягни • кут → розмір' : 'Тягни • ○ поворот • кут → розмір'}
           </span>
         </div>
       )}
