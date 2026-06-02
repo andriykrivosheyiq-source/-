@@ -6,9 +6,6 @@ const CANVAS_W = 1200
 const CANVAS_H = 800
 
 async function composeDADPoster(illustrationSrc) {
-  // Load collegiate font before drawing
-  try { await document.fonts.load(`900 100px "Black Ops One"`) } catch (_) {}
-
   const canvas = document.createElement('canvas')
   canvas.width = CANVAS_W
   canvas.height = CANVAS_H
@@ -17,58 +14,129 @@ async function composeDADPoster(illustrationSrc) {
   ctx.fillStyle = '#ffffff'
   ctx.fillRect(0, 0, CANVAS_W, CANVAS_H)
 
-  const fontSize = Math.round(CANVAS_H * 0.62)
-  ctx.font = `900 ${fontSize}px Impact, "Arial Black", Arial, sans-serif`
-  ctx.textAlign = 'center'
-  ctx.textBaseline = 'middle'
-
-  const drawLetter = (letter, x, rotationDeg) => {
+  // Draw a proper collegiate varsity D using canvas paths (no font dependency)
+  const drawCollegiateD = (cx, cy, letterH, tiltDeg) => {
     ctx.save()
-    ctx.translate(x, CANVAS_H * 0.5)
-    ctx.rotate((rotationDeg * Math.PI) / 180)
+    ctx.translate(cx, cy)
+    ctx.rotate((tiltDeg * Math.PI) / 180)
 
-    // Outer border
-    ctx.lineWidth = Math.round(fontSize * 0.058)
-    ctx.strokeStyle = '#000000'
-    ctx.lineJoin = 'round'
-    ctx.strokeText(letter, 0, 0)
-    // White fill — covers inner half of outer stroke
+    const H = letterH
+    const W = H * 0.68
+    const barW = H * 0.20       // vertical bar width
+    const serifH = H * 0.09     // serif height at top/bottom
+    const serifOverhang = H * 0.06  // how much serif sticks out beyond bar
+    const rx = W - barW         // horizontal radius of the D curve
+    const ry = (H - serifH * 2) / 2  // vertical radius
+
+    const buildDPath = () => {
+      const left = -W / 2
+      const top = -H / 2
+      const barRight = left + barW
+      const cx_curve = barRight
+      const cy_curve = 0  // center
+      const right = left + W
+
+      ctx.beginPath()
+      // Top-left corner
+      ctx.moveTo(left, top)
+      // Top-right of top serif (extends right)
+      ctx.lineTo(barRight + serifOverhang, top)
+      // Down to where curve starts
+      ctx.lineTo(barRight + serifOverhang, top + serifH)
+      ctx.lineTo(barRight, top + serifH)
+      // D curve (right side) — smooth arc
+      ctx.bezierCurveTo(
+        barRight + rx * 1.5, top + serifH,
+        barRight + rx * 1.5, -top - serifH,
+        barRight, -top - serifH
+      )
+      // Bottom serif
+      ctx.lineTo(barRight + serifOverhang, -top - serifH)
+      ctx.lineTo(barRight + serifOverhang, -top)
+      // Bottom-left corner
+      ctx.lineTo(left, -top)
+      ctx.closePath()
+    }
+
+    const outerPad = H * 0.048
+    const innerBorderW = H * 0.022
+
+    // 1. Outer black fill (slightly scaled up) — creates outer border
+    ctx.save()
+    ctx.scale(1 + outerPad * 2 / H, 1 + outerPad * 2 / H)
+    buildDPath()
+    ctx.fillStyle = '#000000'
+    ctx.fill()
+    ctx.restore()
+
+    // 2. White fill — normal size, creates white interior + white gap
+    buildDPath()
     ctx.fillStyle = '#ffffff'
-    ctx.fillText(letter, 0, 0)
-    // Inner thin border (collegiate double-outline)
-    ctx.lineWidth = Math.round(fontSize * 0.022)
+    ctx.fill()
+
+    // 3. Inner thin black stroke — collegiate double outline
+    buildDPath()
+    ctx.lineWidth = innerBorderW
     ctx.strokeStyle = '#000000'
-    ctx.strokeText(letter, 0, 0)
+    ctx.lineJoin = 'miter'
+    ctx.stroke()
 
     ctx.restore()
   }
 
-  drawLetter('D', CANVAS_W * 0.185, -12)
-  drawLetter('D', CANVAS_W * 0.815, 12)
+  const letterH = CANVAS_H * 0.68
+  drawCollegiateD(CANVAS_W * 0.185, CANVAS_H * 0.5, letterH, -11)
+  drawCollegiateD(CANVAS_W * 0.815, CANVAS_H * 0.5, letterH, 11)
 
   return new Promise((resolve) => {
     const img = new Image()
     img.onload = () => {
-      const maxH = CANVAS_H * 0.90
-      const maxW = CANVAS_W * 0.48
-      const scale = Math.min(maxW / img.naturalWidth, maxH / img.naturalHeight)
-      const dw = img.naturalWidth * scale
-      const dh = img.naturalHeight * scale
-
-      // Remove white background from illustration so D letters show through
+      // Remove white background
       const tmpCanvas = document.createElement('canvas')
       tmpCanvas.width = img.naturalWidth
       tmpCanvas.height = img.naturalHeight
       const tmpCtx = tmpCanvas.getContext('2d')
       tmpCtx.drawImage(img, 0, 0)
       const imgData = tmpCtx.getImageData(0, 0, tmpCanvas.width, tmpCanvas.height)
-      const d = imgData.data
-      for (let i = 0; i < d.length; i += 4) {
-        if (d[i] > 245 && d[i + 1] > 245 && d[i + 2] > 245) d[i + 3] = 0
+      const px = imgData.data
+      for (let i = 0; i < px.length; i += 4) {
+        if (px[i] > 245 && px[i + 1] > 245 && px[i + 2] > 245) px[i + 3] = 0
       }
       tmpCtx.putImageData(imgData, 0, 0)
 
-      ctx.drawImage(tmpCanvas, (CANVAS_W - dw) / 2, (CANVAS_H - dh) / 2, dw, dh)
+      // Crop to bounding box of non-transparent pixels (removes extra whitespace)
+      let minX = tmpCanvas.width, maxX = 0, minY = tmpCanvas.height, maxY = 0
+      for (let y = 0; y < tmpCanvas.height; y++) {
+        for (let x = 0; x < tmpCanvas.width; x++) {
+          if (px[((y * tmpCanvas.width) + x) * 4 + 3] > 10) {
+            if (x < minX) minX = x
+            if (x > maxX) maxX = x
+            if (y < minY) minY = y
+            if (y > maxY) maxY = y
+          }
+        }
+      }
+
+      const pad = 8
+      minX = Math.max(0, minX - pad)
+      minY = Math.max(0, minY - pad)
+      maxX = Math.min(tmpCanvas.width - 1, maxX + pad)
+      maxY = Math.min(tmpCanvas.height - 1, maxY + pad)
+      const cropW = maxX - minX
+      const cropH = maxY - minY
+
+      const cropCanvas = document.createElement('canvas')
+      cropCanvas.width = cropW
+      cropCanvas.height = cropH
+      cropCanvas.getContext('2d').drawImage(tmpCanvas, minX, minY, cropW, cropH, 0, 0, cropW, cropH)
+
+      // Scale cropped illustration to fit center zone
+      const maxH = CANVAS_H * 0.88
+      const maxW = CANVAS_W * 0.46
+      const scale = Math.min(maxW / cropW, maxH / cropH)
+      const dw = cropW * scale
+      const dh = cropH * scale
+      ctx.drawImage(cropCanvas, (CANVAS_W - dw) / 2, (CANVAS_H - dh) / 2, dw, dh)
       resolve(canvas.toDataURL('image/png'))
     }
     img.onerror = () => resolve(illustrationSrc)
