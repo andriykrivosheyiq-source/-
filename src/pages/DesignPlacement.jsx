@@ -17,10 +17,9 @@ function EstPosterView({ imageUrl, estText }) {
   const wasSelectedRef = useRef(false)
 
   const [letters, setLetters] = useState([
-    { id: 'left',  x: 1,  y: 5, size: 22, color: '#000000' },
-    { id: 'right', x: 77, y: 5, size: 22, color: '#000000' },
+    { id: 'left',  x: 1,  y: 5, size: 22, rotation: -12, color: '#000000' },
+    { id: 'right', x: 77, y: 5, size: 22, rotation: 12,  color: '#000000' },
   ])
-  const [rotationAbs, setRotationAbs] = useState(12)
   const [estEl, setEstEl] = useState({ x: 50, y: 88, color: '#000000', fontSize: 2.8 })
   const [selected, setSelected] = useState(null)
 
@@ -41,13 +40,12 @@ function EstPosterView({ imageUrl, estText }) {
         } else if (dr.type === 'resize') {
           setEstEl(prev => ({ ...prev, fontSize: Math.max(1, Math.min(8, dr.os + (dx - dy) * 0.04)) }))
         }
-      } else if (dr.type === 'rotate') {
-        setRotationAbs(Math.max(0, Math.min(45, dr.os + dx * 0.4)))
       } else {
         setLetters(prev => prev.map(l => {
           if (l.id !== dr.id) return l
-          if (dr.type === 'move') return { ...l, x: dr.ox + dx, y: dr.oy + dy }
+          if (dr.type === 'move')   return { ...l, x: dr.ox + dx, y: dr.oy + dy }
           if (dr.type === 'resize') return { ...l, size: Math.max(8, Math.min(55, dr.os + (dx - dy) * 0.6)) }
+          if (dr.type === 'rotate') return { ...l, rotation: dr.os + dx * 0.4 }
           return l
         }))
       }
@@ -88,7 +86,7 @@ function EstPosterView({ imageUrl, estText }) {
         id, type,
         sx: clientX, sy: clientY,
         ox: letter.x, oy: letter.y,
-        os: type === 'rotate' ? rotationAbs : letter.size,
+        os: type === 'rotate' ? letter.rotation : letter.size,
         cw: rect.width, ch: rect.height,
       }
     }
@@ -215,7 +213,6 @@ function EstPosterView({ imageUrl, estText }) {
 
         {/* D Letters */}
         {letters.map(letter => {
-          const rotation = letter.id === 'left' ? -rotationAbs : rotationAbs
           const isSelected = selected === letter.id
           return (
             <div
@@ -228,7 +225,7 @@ function EstPosterView({ imageUrl, estText }) {
                 left: `${letter.x}%`,
                 top: `${letter.y}%`,
                 width: `${letter.size}%`,
-                transform: `rotate(${rotation}deg)`,
+                transform: `rotate(${letter.rotation}deg)`,
                 transformOrigin: 'center center',
                 cursor: isSelected ? 'grab' : 'pointer',
                 zIndex: isSelected ? 20 : 10,
