@@ -38,13 +38,13 @@ function EstPosterView({ imageUrl, estText }) {
         if (dr.type === 'move') {
           setEstEl(prev => ({ ...prev, x: dr.ox + dx, y: dr.oy + dy }))
         } else if (dr.type === 'resize') {
-          setEstEl(prev => ({ ...prev, fontSize: Math.max(1, Math.min(8, dr.os + (dx - dy) * 0.04)) }))
+          setEstEl(prev => ({ ...prev, fontSize: Math.max(1, Math.min(8, dr.os + (dx + dy) * 0.04)) }))
         }
       } else {
         setLetters(prev => prev.map(l => {
           if (l.id !== dr.id) return l
           if (dr.type === 'move')   return { ...l, x: dr.ox + dx, y: dr.oy + dy }
-          if (dr.type === 'resize') return { ...l, size: Math.max(8, Math.min(55, dr.os + (dx - dy) * 0.6)) }
+          if (dr.type === 'resize') return { ...l, size: Math.max(8, Math.min(55, dr.os + (dx + dy) * 0.5)) }
           if (dr.type === 'rotate') return { ...l, rotation: dr.os + dx * 0.4 }
           return l
         }))
@@ -268,6 +268,28 @@ function EstPosterView({ imageUrl, estText }) {
                   <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#4f46e5" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38"/>
                   </svg>
+                </div>
+              )}
+
+              {/* Rotation angle badge */}
+              {isSelected && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    top: '-24px',
+                    left: 'calc(50% + 14px)',
+                    background: '#4f46e5',
+                    color: '#ffffff',
+                    fontSize: '10px',
+                    fontWeight: 700,
+                    padding: '2px 6px',
+                    borderRadius: '4px',
+                    pointerEvents: 'none',
+                    whiteSpace: 'nowrap',
+                    lineHeight: '16px',
+                  }}
+                >
+                  {Math.round(letter.rotation)}°
                 </div>
               )}
 
