@@ -212,8 +212,403 @@ NOT:
 • painterly illustration
 • semi-realistic art`
 
+const EST_FACE = `You are a professional graphic designer specializing in minimalist family portrait poster design and premium flat vector apparel graphics.
+
+TASK:
+Take the uploaded photo and create a premium minimalist family portrait poster.
+
+IMPORTANT:
+Convert the uploaded photo into a FLAT VECTOR ILLUSTRATION in a clean modern apparel-design style similar to high-end custom family sweatshirt artwork, Etsy premium vector portraits, and embroidery-ready illustrations.
+
+The prompt must work correctly for:
+• 1 person
+• 2 people
+• families
+• parents with children
+• babies
+• any group size
+
+────────────────────────
+CANVAS SPECIFICATIONS
+────────────────────────
+• Size: 1920x1080px
+• Landscape orientation
+• Background: pure white #FFFFFF only
+• No texture
+• No gradients
+• No shadows
+• No decorative elements
+
+────────────────────────
+LAYOUT
+────────────────────────
+CENTER ILLUSTRATION CENTER:
+X = 960px
+
+• Center the entire illustration at X = 960px
+• Vertically centered
+• Preserve original proportions
+• Do not shift based on composition
+
+────────────────────────
+CENTER ELEMENT — VECTOR ILLUSTRATION
+────────────────────────
+Transform the uploaded photo into a flat vector illustration.
+
+STYLE REQUIREMENTS:
+• Flat vector illustration
+• Premium apparel-design style
+• Inspired by custom embroidery artwork
+• Inspired by premium Etsy family vector portraits
+• Strong clean black contour outlines
+• Smooth professional vector lines
+• Solid color fills only
+• NO gradients
+• NO shading
+• NO shadows
+• NO highlights
+• NO 3D effects
+• NO texture
+
+────────────────────────
+PORTRAIT LIKENESS — CRITICAL
+────────────────────────
+Maintain strong facial resemblance to the source photo.
+
+Preserve:
+
+• head shape
+• jawline
+• eye spacing
+• eyebrow angle
+• nose shape
+• mouth shape
+• hairstyle silhouette
+• facial proportions
+
+Do not replace facial features with generic symbols.
+
+Do not create generic cartoon faces.
+
+The final artwork must clearly resemble the original people.
+
+────────────────────────
+IDENTITY PRESERVATION — CRITICAL
+────────────────────────
+Maintain visual differences between all individuals.
+
+Preserve:
+
+• hairstyle
+• hair color
+• eyebrow color
+• clothing color
+• clothing type
+• accessories
+• pose
+• composition
+
+Only skin color should be standardized.
+
+Everything else must remain faithful to the original photo.
+
+────────────────────────
+VECTOR SIMPLIFICATION — CRITICAL
+────────────────────────
+The illustration must be simplified while preserving likeness.
+
+Target style:
+
+• premium custom family vector portrait
+• embroidery-ready vector art
+• Cricut-ready SVG artwork
+• sweatshirt graphic illustration
+• Etsy premium family portrait
+
+Reduce:
+
+• clothing folds by 80%
+• hair strand details by 90%
+• fabric texture by 100%
+• skin texture by 100%
+
+Use large clean vector shapes.
+
+Avoid excessive internal line work.
+
+Simplify details without reducing recognizability.
+
+────────────────────────
+FACES — CRITICAL RULE
+────────────────────────
+ALL people must use EXACTLY the same skin color:
+
+#D3B385
+
+Apply identically to:
+
+• adults
+• children
+• babies
+
+Use this color for:
+
+• face
+• ears
+• neck
+• hands
+• arms
+• all visible skin
+
+NO exceptions.
+
+────────────────────────
+FACIAL FEATURES
+────────────────────────
+Facial features must remain recognizable while simplified.
+
+Required:
+
+• eyes
+• eyebrows
+• nose
+• mouth
+
+Eyes:
+• clean almond or oval shapes
+• solid dark fill
+• maintain original eye placement
+
+Eyebrows:
+• simplified but preserve original shape and angle
+
+Nose:
+• minimal simplified shape
+
+Mouth:
+• simplified shape
+• preserve expression
+
+ABSOLUTE FACE RESTRICTIONS:
+
+• No skin texture
+• No wrinkles
+• No pores
+• No shading
+• No highlights
+• No realistic rendering
+
+Do NOT convert faces into generic cartoon faces.
+
+────────────────────────
+SKIN — ALL PERSONS
+────────────────────────
+• Single universal skin color: #D3B385
+• No variation
+• No gradients
+• No shading
+• No highlights
+• Flat fill only
+
+IMPORTANT:
+
+Only skin color should be standardized.
+
+────────────────────────
+COLOR PRESERVATION — CRITICAL
+────────────────────────
+Preserve original colors from the source photo.
+
+Extract and preserve:
+
+• hair colors
+• eyebrow colors
+• clothing colors
+• accessory colors
+
+Each person must retain their own unique colors.
+
+Do NOT:
+
+• make all hair the same color
+• make all clothing the same color
+• replace colors with a unified palette
+• recolor people
+
+Color simplification is allowed.
+
+Color replacement is NOT allowed.
+
+────────────────────────
+HAIR — CRITICAL
+────────────────────────
+Preserve each person's natural hair color.
+
+Preserve each person's hairstyle.
+
+Hair must be simplified into large clean vector shapes.
+
+• No individual strands
+• No texture
+• No gradients
+• No shading
+• No realistic hair rendering
+
+Maximum:
+• 1–3 internal hair shapes per person
+
+Hair color must remain unique and recognizable.
+
+────────────────────────
+CLOTHING
+────────────────────────
+Preserve original clothing colors.
+
+Preserve recognizable clothing types.
+
+Simplify:
+
+• folds
+• seams
+• wrinkles
+• fabric details
+
+Convert clothing into clean vector shapes while maintaining original colors.
+
+Do not replace clothing colors.
+
+────────────────────────
+OUTLINES
+────────────────────────
+• Clear black contour outlines
+• Crisp vector edges
+• Professional SVG-style appearance
+• Consistent line weight
+
+Prioritize clean outer contours.
+
+Minimize unnecessary internal contour lines.
+
+────────────────────────
+BACKGROUND REMOVAL
+────────────────────────
+• Remove original background completely
+• Replace with pure white #FFFFFF
+• No frame
+• No border
+• No rectangle
+• No background objects
+
+Illustration must float directly on white background.
+
+────────────────────────
+CENTER POSITIONING
+────────────────────────
+• Entire illustration centered at X = 960px
+• Vertically centered
+• Height ≈ 80–85% of canvas height
+• Preserve original proportions
+
+────────────────────────
+FINAL VISUAL STYLE
+────────────────────────
+Luxury minimalist family poster.
+
+Visual structure:
+
+[flat vector family illustration]
+
+Pure white background.
+Clean bold black outlines.
+Premium vector aesthetic.
+Professional apparel graphic style.
+
+The result should visually match:
+
+• premium Etsy custom family portraits
+• modern sweatshirt graphics
+• embroidery-ready artwork
+• Cricut-ready family SVG designs
+• personalized apparel illustrations
+
+The artwork must look like a professionally commissioned custom vector portrait.
+
+NOT:
+
+• generic cartoon
+• children's illustration
+• Disney style
+• anime
+• caricature
+• line-art portrait
+• painterly illustration
+• semi-realistic rendering
+
+────────────────────────
+ABSOLUTE RESTRICTIONS
+────────────────────────
+• No text
+• No gradients
+• No shading
+• No shadows
+• No glow
+• No watercolor
+• No realistic rendering
+• No sketch style
+• No painterly effects
+• No background objects
+• No decorative elements
+• No frame
+• No texture overlays
+• No excessive line work
+• No detailed hair strands
+• No detailed fabric textures
+• No generic cartoon faces
+
+────────────────────────
+QUALITY TARGET — HIGHEST PRIORITY
+────────────────────────
+Preserve facial likeness and identity of every person.
+
+The viewer should immediately recognize the people from the original photo.
+
+Maintain:
+
+• face shape
+• eye placement
+• eyebrow shape
+• hairstyle
+• facial proportions
+• smile and expression
+• clothing colors
+• hair colors
+
+Apply simplification only to:
+
+• shading
+• textures
+• fabric details
+• hair strands
+• minor details
+
+The result should look like a premium custom family vector portrait created for apparel printing.
+
+Never sacrifice likeness for simplicity.
+
+If a choice must be made:
+
+1. Preserve identity and resemblance
+2. Preserve original hair colors
+3. Preserve original clothing colors
+4. Simplify details
+
+Identity always has the highest priority.`
+
 export const PROMPTS = {
   'dad-face': [
     { label: 'DAD', prompt: DAD_FACE },
+  ],
+  'est-face': [
+    { label: 'EST', prompt: EST_FACE },
   ],
 }

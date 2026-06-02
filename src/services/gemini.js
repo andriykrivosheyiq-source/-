@@ -6,7 +6,6 @@ let _cachedModel = null
 let _cachedRefs = null
 const _resultsCache = new Map()
 
-// Reference image filenames in public/references/
 const REF_FILES = [
   'image-1780403071670.png',
   'image-1780403071692.png',
@@ -179,7 +178,7 @@ export async function generateDesigns(photoFile, styleId) {
   const [base64, modelId, refs] = await Promise.all([
     fileToBase64(photoFile),
     findImageModel(apiKey),
-    loadReferenceImages(),
+    styleId === 'dad-face' ? loadReferenceImages() : Promise.resolve([]),
   ])
 
   const mimeType = 'image/jpeg'
@@ -199,4 +198,4 @@ export async function generateDesigns(photoFile, styleId) {
   return results
 }
 
-export const GENERATIVE_STYLES = ['dad-face']
+export const GENERATIVE_STYLES = ['dad-face', 'est-face']
