@@ -154,14 +154,10 @@ const DAD_FACE = `You are a professional graphic designer specializing in minima
 TASK:
 Take the uploaded family photo and create a "DAD" composition poster.
 
-IMPORTANT CHANGE:
-The CENTER element ("A") must NOT be the original cutout photo anymore.
+The CENTER element must be a FLAT VECTOR ILLUSTRATION of the family (converted from the uploaded photo) — NOT the original cutout photo.
 
-Instead:
-Convert the uploaded family photo into a FLAT VECTOR ILLUSTRATION in a clean minimalist embroidery/vector style similar to modern personalized apparel artwork.
-
-The final composition should visually read as:
-D + vector family illustration + D
+The final composition reads as:
+[D]  [vector family illustration]  [D]
 
 ────────────────────────
 CANVAS SPECIFICATIONS
@@ -169,58 +165,41 @@ CANVAS SPECIFICATIONS
 • Size: 1920x1080px
 • Landscape orientation
 • Background: pure white #FFFFFF only
-• No texture
-• No gradients
-• No shadows
-• No decorative elements
+• No texture, no gradients, no shadows, no decorative elements
 
 ────────────────────────
-LAYOUT — FIXED THREE COLUMNS
+LAYOUT — THREE COLUMNS
 ────────────────────────
-LEFT COLUMN CENTER:
-X = 240px
+LEFT LETTER "D" CENTER: X = 240px
+CENTER ILLUSTRATION CENTER: X = 960px
+RIGHT LETTER "D" CENTER: X = 1680px
 
-CENTER ILLUSTRATION CENTER:
-X = 960px
-
-RIGHT COLUMN CENTER:
-X = 1680px
-
-These positions are FIXED.
-Do not shift elements based on image composition.
+These positions are FIXED. Do not shift elements.
 
 ────────────────────────
-LEFT & RIGHT LETTERS
+LEFT & RIGHT LETTERS — "D"
 ────────────────────────
-Both side letters are identical collegiate "D" letters.
+Both letters are IDENTICAL large collegiate block "D" letters.
 
 STYLE:
-• Varsity / athletic block letter
-• Thick chunky angular shape
-• White fill (#FFFFFF)
-• SINGLE thick black outline only
-• NO double outline
-• NO inner border
-• NO decorative details
-• NO gradients
-• NO shadows
-• NO textures
-
-OUTLINE:
-• One clean thick black stroke only
-• Approximately 18–22px thickness
+• Classic varsity / collegiate block letter
+• Thick chunky shape
+• White fill (#FFFFFF) inside
+• Outer thick black border stroke (~20px)
+• INNER secondary black border line (~8px) offset ~15px inside — this creates the classic collegiate double-outline look
+• The space between outer and inner borders is white
+• NO gradients, NO shadows, NO textures
 
 SIZE:
-• Letter height ≈ 70–75% of canvas height
-• Both letters MUST be pixel-perfect identical
+• Letter height ≈ 65–75% of canvas height (very large, dominant)
 
 ROTATION:
-• LEFT D → rotate 10–15° counter-clockwise
-• RIGHT D → duplicate same D and rotate 10–15° clockwise
+• BOTH letters are perfectly UPRIGHT — 0° rotation — NO tilt, NO angle
+• Left D: straight vertical, 0°
+• Right D: straight vertical, 0°
+• IMPORTANT: Do NOT tilt or rotate either letter
 
-IMPORTANT:
-The right D MUST be duplicated from the left D.
-Do NOT redraw independently.
+The right D MUST be an exact mirror/duplicate of the left D. Do NOT redraw independently.
 
 ────────────────────────
 CENTER ELEMENT — VECTOR ILLUSTRATION
