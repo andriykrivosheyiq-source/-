@@ -13,10 +13,12 @@ const PRESET_COLORS = ['#000000', '#1e3a5f', '#c0392b', '#2d5a27', '#d97706', '#
 function EstPosterView({ imageUrl, estText }) {
   const containerRef = useRef(null)
   const dragRef = useRef(null)
+  const dragMovedRef = useRef(false)
+  const wasSelectedRef = useRef(false)
 
   const [letters, setLetters] = useState([
-    { id: 'left',  x: 1,  y: 5, size: 28, rotation: -12, color: '#000000' },
-    { id: 'right', x: 71, y: 5, size: 28, rotation: 12,  color: '#000000' },
+    { id: 'left',  x: 1,  y: 5, size: 22, rotation: -12, color: '#000000' },
+    { id: 'right', x: 77, y: 5, size: 22, rotation: 12,  color: '#000000' },
   ])
   const [selected, setSelected] = useState(null)
 
@@ -29,6 +31,7 @@ function EstPosterView({ imageUrl, estText }) {
       const clientY = e.touches ? e.touches[0].clientY : e.clientY
       const dx = (clientX - dr.sx) / dr.cw * 100
       const dy = (clientY - dr.sy) / dr.ch * 100
+      if (Math.abs(dx) > 0.3 || Math.abs(dy) > 0.3) dragMovedRef.current = true
       setLetters(prev => prev.map(l => {
         if (l.id !== dr.id) return l
         if (dr.type === 'move') return { ...l, x: dr.ox + dx, y: dr.oy + dy }
@@ -52,7 +55,9 @@ function EstPosterView({ imageUrl, estText }) {
   const startDrag = (id, type, e) => {
     e.preventDefault()
     e.stopPropagation()
-    if (type === 'move') setSelected(id)
+    dragMovedRef.current = false
+    wasSelectedRef.current = selected === id
+    setSelected(id)
     const rect = containerRef.current.getBoundingClientRect()
     const letter = letters.find(l => l.id === id)
     const clientX = e.touches ? e.touches[0].clientX : e.clientX
@@ -65,11 +70,18 @@ function EstPosterView({ imageUrl, estText }) {
     }
   }
 
+  // click toggles off only if: was already selected AND no drag occurred
+  const handleLetterClick = (id, e) => {
+    e.stopPropagation()
+    if (wasSelectedRef.current && !dragMovedRef.current) {
+      setSelected(null)
+    }
+  }
+
   const selectedLetter = letters.find(l => l.id === selected)
 
   return (
     <div style={{ background: '#ffffff', width: '100%', borderRadius: '12px' }}>
-      {/* Poster canvas */}
       <div
         ref={containerRef}
         onClick={() => setSelected(null)}
@@ -83,11 +95,11 @@ function EstPosterView({ imageUrl, estText }) {
           overflow: 'hidden',
         }}
       >
-        {/* Centered illustration */}
+        {/* Illustration — wider area so it matches the generated 16:9 image */}
         <div style={{
           position: 'absolute',
-          top: '5%', bottom: '14%',
-          left: '30%', right: '30%',
+          top: '4%', bottom: '14%',
+          left: '24%', right: '24%',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -132,7 +144,7 @@ function EstPosterView({ imageUrl, estText }) {
             key={letter.id}
             onMouseDown={e => startDrag(letter.id, 'move', e)}
             onTouchStart={e => startDrag(letter.id, 'move', e)}
-            onClick={e => { e.stopPropagation(); setSelected(prev => prev === letter.id ? null : letter.id) }}
+            onClick={e => handleLetterClick(letter.id, e)}
             style={{
               position: 'absolute',
               left: `${letter.x}%`,
@@ -140,11 +152,10 @@ function EstPosterView({ imageUrl, estText }) {
               width: `${letter.size}%`,
               transform: `rotate(${letter.rotation}deg)`,
               transformOrigin: 'center center',
-              cursor: 'grab',
+              cursor: selected === letter.id ? 'grab' : 'pointer',
               zIndex: selected === letter.id ? 20 : 10,
             }}
           >
-            {/* Selection outline */}
             {selected === letter.id && (
               <div style={{
                 position: 'absolute',
@@ -159,7 +170,6 @@ function EstPosterView({ imageUrl, estText }) {
               <path d={D_PATH} fill={letter.color} fillRule="evenodd" />
             </svg>
 
-            {/* Resize handle */}
             {selected === letter.id && (
               <div
                 onMouseDown={e => startDrag(letter.id, 'resize', e)}
@@ -191,7 +201,7 @@ function EstPosterView({ imageUrl, estText }) {
         ))}
       </div>
 
-      {/* Color picker — shown when a letter is selected */}
+      {/* Color picker — shown when letter selected */}
       {selected && selectedLetter && (
         <div style={{
           padding: '10px 16px',
@@ -263,7 +273,7 @@ function AIEditModal({ onClose }) {
         <textarea
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
-          placeholder="Наприклад: зроби фон темнішим, додай зірки навколо..."
+          placeholder="Наприклад: зроби фон темнішим..."
           className="w-full border border-gray-200 rounded-xl p-3 text-sm resize-none h-28 focus:outline-none focus:ring-2 focus:ring-indigo-300"
         />
         <div className="mt-3 grid grid-cols-2 gap-2">
@@ -352,7 +362,6 @@ export default function DesignPlacement({ designData }) {
 
   return (
     <div className="flex-1 overflow-y-auto">
-      {/* Header */}
       <div className="bg-white border-b border-gray-100 px-8 py-5 sticky top-0 z-10">
         <div className="flex items-center gap-4">
           <div className="w-8 h-8 bg-indigo-600 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0">2</div>
@@ -379,8 +388,6 @@ export default function DesignPlacement({ designData }) {
       </div>
 
       <div className="px-8 py-6 max-w-6xl mx-auto">
-
-        {/* Tab switcher */}
         {hasTwoDesigns && (
           <div className="flex gap-2 mb-5">
             {generatedDesigns.map((d, i) => (
@@ -400,17 +407,14 @@ export default function DesignPlacement({ designData }) {
           </div>
         )}
 
-        {/* Generated Design */}
         <div className="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden mb-5">
           <div className="px-5 py-4 border-b border-gray-50 flex items-center justify-between">
             <h2 className="font-semibold text-gray-900">Згенерований дизайн</h2>
-            <div className="flex items-center gap-3">
-              {hasDesigns && (
-                <span className="text-xs text-indigo-600 font-medium bg-indigo-50 px-2.5 py-1 rounded-full">
-                  {generatedDesigns[Math.min(activeTab, generatedDesigns.length - 1)].label}
-                </span>
-              )}
-            </div>
+            {hasDesigns && (
+              <span className="text-xs text-indigo-600 font-medium bg-indigo-50 px-2.5 py-1 rounded-full">
+                {generatedDesigns[Math.min(activeTab, generatedDesigns.length - 1)].label}
+              </span>
+            )}
           </div>
 
           <div className="p-5">
@@ -418,12 +422,7 @@ export default function DesignPlacement({ designData }) {
               {isEst ? (
                 <EstPosterView imageUrl={currentDesignImage} estText={estText} />
               ) : currentDesignImage ? (
-                <img
-                  src={currentDesignImage}
-                  alt="Generated design"
-                  className="w-full h-auto block"
-                  style={{ maxHeight: '80vh' }}
-                />
+                <img src={currentDesignImage} alt="Generated design" className="w-full h-auto block" style={{ maxHeight: '80vh' }} />
               ) : (
                 <div className="flex flex-col items-center gap-3 text-gray-400 py-20">
                   <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
@@ -451,10 +450,7 @@ export default function DesignPlacement({ designData }) {
             )}
 
             <div className="flex gap-3 mt-4">
-              <button
-                onClick={() => navigate('/create')}
-                className="btn-secondary flex-1 justify-center"
-              >
+              <button onClick={() => navigate('/create')} className="btn-secondary flex-1 justify-center">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
                 </svg>
@@ -464,14 +460,10 @@ export default function DesignPlacement({ designData }) {
           </div>
         </div>
 
-        {/* Product preview */}
         <div className="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
           <div className="px-5 py-4 border-b border-gray-50 flex items-center justify-between">
             <h2 className="font-semibold text-gray-900">Обраний товар</h2>
-            <button
-              onClick={() => setShowChangeProduct(true)}
-              className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-indigo-600 transition-colors"
-            >
+            <button onClick={() => setShowChangeProduct(true)} className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-indigo-600 transition-colors">
               Змінити товар
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
@@ -479,26 +471,15 @@ export default function DesignPlacement({ designData }) {
               </svg>
             </button>
           </div>
-
           <div className="p-5 flex gap-6 items-center">
             <div className="relative w-48 h-48 flex-shrink-0 bg-gray-50 rounded-xl overflow-hidden flex items-center justify-center">
-              <img
-                src={currentProduct?.image}
-                alt={currentProduct?.nameUk}
-                className="w-full h-full object-contain"
-              />
+              <img src={currentProduct?.image} alt={currentProduct?.nameUk} className="w-full h-full object-contain" />
               {currentDesignImage && (
                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                  <img
-                    src={currentDesignImage}
-                    alt="design overlay"
-                    className="w-2/5 opacity-90 mix-blend-multiply rounded-lg"
-                    style={{ filter: 'contrast(1.1)' }}
-                  />
+                  <img src={currentDesignImage} alt="design overlay" className="w-2/5 opacity-90 mix-blend-multiply rounded-lg" style={{ filter: 'contrast(1.1)' }} />
                 </div>
               )}
             </div>
-
             <div className="flex-1">
               <div className="space-y-3 mb-5">
                 <div className="flex items-center justify-between text-sm">
@@ -537,11 +518,7 @@ export default function DesignPlacement({ designData }) {
 
       {showAIEdit && <AIEditModal onClose={() => setShowAIEdit(false)} />}
       {showChangeProduct && (
-        <ChangeProductModal
-          current={selectedProduct}
-          onSelect={setSelectedProduct}
-          onClose={() => setShowChangeProduct(false)}
-        />
+        <ChangeProductModal current={selectedProduct} onSelect={setSelectedProduct} onClose={() => setShowChangeProduct(false)} />
       )}
     </div>
   )
