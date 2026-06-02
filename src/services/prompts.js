@@ -152,54 +152,101 @@ FINAL REMINDER — HIGHEST PRIORITY: Every single face must be a blank #D3B385 o
 const DAD_FACE = `You are a professional graphic designer specializing in minimalist family portrait poster design and flat vector apparel graphics.
 
 TASK:
-Take the uploaded family photo and create a "DAD" composition poster.
+Take the uploaded family photo and create a wide landscape "DAD" composition poster with this exact visual layout:
 
-The CENTER element must be a FLAT VECTOR ILLUSTRATION of the family (converted from the uploaded photo) — NOT the original cutout photo.
+[Large D letter]  [vector illustration of family]  [Large D letter]
 
-The final composition reads as:
-[D]  [vector family illustration]  [D]
-
-────────────────────────
-CANVAS SPECIFICATIONS
-────────────────────────
-• Size: 1920x1080px
-• Landscape orientation
-• Background: pure white #FFFFFF only
-• No texture, no gradients, no shadows, no decorative elements
+The center element is a FLAT VECTOR ILLUSTRATION converted from the uploaded photo — NOT the original photo.
 
 ────────────────────────
-LAYOUT — THREE COLUMNS
+CANVAS
 ────────────────────────
-LEFT LETTER "D" CENTER: X = 240px
-CENTER ILLUSTRATION CENTER: X = 960px
-RIGHT LETTER "D" CENTER: X = 1680px
-
-These positions are FIXED. Do not shift elements.
+Wide landscape image. Think of it as a horizontal banner.
+Background: pure white #FFFFFF only, no texture, no gradients.
 
 ────────────────────────
-LEFT & RIGHT LETTERS — "D"
+LAYOUT — THREE ZONES ACROSS THE FULL WIDTH
 ────────────────────────
-Both letters are IDENTICAL large collegiate block "D" letters.
+Divide the image into thirds horizontally:
+• LEFT THIRD: one large "D" letter, centered in this zone
+• CENTER THIRD: family vector illustration, centered in this zone
+• RIGHT THIRD: one large "D" letter (identical to left), centered in this zone
 
-STYLE:
-• Classic varsity / collegiate block letter
-• Thick chunky shape
-• White fill (#FFFFFF) inside
-• Outer thick black border stroke (~20px)
-• INNER secondary black border line (~8px) offset ~15px inside — this creates the classic collegiate double-outline look
-• The space between outer and inner borders is white
-• NO gradients, NO shadows, NO textures
+The composition must fill the FULL WIDTH from edge to edge.
+Do NOT shrink everything into a small area in the middle of a white canvas.
 
-SIZE:
-• Letter height ≈ 65–75% of canvas height (very large, dominant)
+────────────────────────
+THE "D" LETTERS — EXACT STYLE
+────────────────────────
+Each D is a VERY LARGE block letter occupying most of its zone's height.
+Letter height must be approximately 70% of the total image height.
 
-ROTATION:
-• BOTH letters are perfectly UPRIGHT — 0° rotation — NO tilt, NO angle
-• Left D: straight vertical, 0°
-• Right D: straight vertical, 0°
-• IMPORTANT: Do NOT tilt or rotate either letter
+EXACT LETTER APPEARANCE:
+Think of a simple bold capital D.
+The D has a vertical straight left side and a curved right side.
+NO serifs. NO brackets. NO horizontal extensions. NO decorative tips. NO extra lines on the ends.
+Just the basic D shape — vertical bar on left, curve on right.
 
-The right D MUST be an exact mirror/duplicate of the left D. Do NOT redraw independently.
+OUTLINE STYLE:
+• Thick outer black stroke around the D shape
+• Inside the D: white fill
+• A second thinner black stroke line running parallel ~15px inside the outer stroke
+• The thin inner stroke also follows the D shape
+• Between outer and inner strokes: white
+• Center of D: white
+This creates the classic varsity athletic letter look.
+
+ROTATION: Both D letters are perfectly UPRIGHT — 0° — no tilt, no rotation.
+The right D is identical to the left D.
+
+────────────────────────
+CENTER ELEMENT — VECTOR ILLUSTRATION
+────────────────────────
+Convert the uploaded family photo into a flat vector illustration.
+
+CRITICAL — NO FRAME, NO BOX, NO RECTANGLE around the illustration.
+The illustration must float freely on the white background.
+Do NOT draw any border, rectangle, box, or container around the people.
+The white background IS the background — no separate white rectangle behind the figures.
+
+ILLUSTRATION STYLE:
+• Flat vector / apparel graphic style
+• Strong black contour outlines around all people
+• Solid color fills, no gradients, no shading, no shadows
+• Clean simplified shapes, minimal detail
+• The illustration is tall, approximately 80% of image height
+• People are centered in the middle zone
+
+────────────────────────
+FACES
+────────────────────────
+Skin color: #D3B385 flat solid fill on all faces, necks, hands.
+Include facial features in simple flat vector style:
+• Eyes: simple almond/oval shapes, solid dark fill
+• Eyebrows: clean arcs
+• Nose: minimal line or shape
+• Mouth: simple flat shape
+No gradients, no shading on any facial feature. Keep features simple and stylized.
+
+────────────────────────
+HAIR, CLOTHING, OUTLINES
+────────────────────────
+• Hair: simplified clean vector shapes, solid fills
+• Clothing: simplified shapes, preserve pose and recognizable outfit colors
+• Outlines: clear black contour around all people, professional vector look
+
+────────────────────────
+ABSOLUTE RESTRICTIONS
+────────────────────────
+• NO frame, box, or rectangle around the illustration — CRITICAL
+• NO rotation on letters
+• NO serifs or brackets on D letters
+• No gradients, no shadows, no glow, no textures
+• No background objects or decorative elements
+• The composition fills the full image width — do NOT make elements small and centered
+
+FINAL VISUAL GOAL:
+A wide horizontal poster. On the left: large upright D. In the center: vector illustration of the family. On the right: large upright D (identical to left). White background. Clean black outlines. Bold and simple.
 
 ────────────────────────
 CENTER ELEMENT — VECTOR ILLUSTRATION
