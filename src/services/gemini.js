@@ -3,6 +3,8 @@ import { PROMPTS } from './prompts'
 const BASE_URL = 'https://generativelanguage.googleapis.com/v1beta'
 
 let _cachedModel = null
+// In-memory cache: key = "fileSize-fileLastModified-styleId" → results array
+const _resultsCache = new Map()
 
 async function findImageModel(apiKey) {
   if (_cachedModel) return _cachedModel
@@ -31,13 +33,17 @@ async function findImageModel(apiKey) {
 
   console.log(`[Gemini] Всі image моделі: ${imageModels.map((m) => m.name).join(', ')}`)
 
-  // Prefer cheapest model first — flash is cheaper than pro
+  // Prefer pro models first for quality, then fall back to flash
   const preferenceOrder = [
+    'gemini-2.5-pro-image',
+    'gemini-2.5-pro-preview-image',
+    'gemini-3-pro-image',
+    'gemini-3-pro-image-preview',
+    'gemini-2.0-pro-image',
     'gemini-2.5-flash-image',
     'gemini-3.1-flash-image',
     'gemini-3.1-flash-image-preview',
-    'gemini-3-pro-image-preview',
-    'gemini-3-pro-image',
+    'gemini-2.0-flash-image',
   ]
 
   let selected = null
@@ -54,7 +60,7 @@ async function findImageModel(apiKey) {
   return modelId
 }
 
-function resizeToBlob(file, maxPx = 1024) {
+function resizeToBlob(file, maxPx = 768) {
   return new Promise((resolve) => {
     const img = new Image()
     const url = URL.createObjectURL(file)
@@ -130,6 +136,13 @@ export async function generateDesigns(photoFile, styleId) {
   const apiKey = import.meta.env.VITE_GEMINI_API_KEY
   if (!apiKey) throw new Error('API ключ не налаштований (VITE_GEMINI_API_KEY)')
 
+  // Return cached result if same photo+style was already generated this session
+  const cacheKey = `${photoFile.size}-${photoFile.lastModified}-${styleId}`
+  if (_resultsCache.has(cacheKey)) {
+    console.log('[Gemini] Повертаю кешований результат')
+    return _resultsCache.get(cacheKey)
+  }
+
   const [base64, modelId] = await Promise.all([
     fileToBase64(photoFile),
     findImageModel(apiKey),
@@ -148,6 +161,7 @@ export async function generateDesigns(photoFile, styleId) {
     )
   )
 
+  _resultsCache.set(cacheKey, results)
   return results
 }
 
