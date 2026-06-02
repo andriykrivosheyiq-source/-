@@ -14,79 +14,29 @@ async function composeDADPoster(illustrationSrc) {
   ctx.fillStyle = '#ffffff'
   ctx.fillRect(0, 0, CANVAS_W, CANVAS_H)
 
-  // Draw a proper collegiate varsity D using canvas paths (no font dependency)
-  const drawCollegiateD = (cx, cy, letterH, tiltDeg) => {
+  const fontSize = Math.round(CANVAS_H * 0.62)
+  ctx.font = `900 ${fontSize}px Impact, "Arial Black", Arial, sans-serif`
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+
+  const drawLetter = (letter, x, rotDeg) => {
     ctx.save()
-    ctx.translate(cx, cy)
-    ctx.rotate((tiltDeg * Math.PI) / 180)
-
-    const H = letterH
-    const W = H * 0.68
-    const barW = H * 0.20       // vertical bar width
-    const serifH = H * 0.09     // serif height at top/bottom
-    const serifOverhang = H * 0.06  // how much serif sticks out beyond bar
-    const rx = W - barW         // horizontal radius of the D curve
-    const ry = (H - serifH * 2) / 2  // vertical radius
-
-    const buildDPath = () => {
-      const left = -W / 2
-      const top = -H / 2
-      const barRight = left + barW
-      const cx_curve = barRight
-      const cy_curve = 0  // center
-      const right = left + W
-
-      ctx.beginPath()
-      // Top-left corner
-      ctx.moveTo(left, top)
-      // Top-right of top serif (extends right)
-      ctx.lineTo(barRight + serifOverhang, top)
-      // Down to where curve starts
-      ctx.lineTo(barRight + serifOverhang, top + serifH)
-      ctx.lineTo(barRight, top + serifH)
-      // D curve (right side) — smooth arc
-      ctx.bezierCurveTo(
-        barRight + rx * 1.5, top + serifH,
-        barRight + rx * 1.5, -top - serifH,
-        barRight, -top - serifH
-      )
-      // Bottom serif
-      ctx.lineTo(barRight + serifOverhang, -top - serifH)
-      ctx.lineTo(barRight + serifOverhang, -top)
-      // Bottom-left corner
-      ctx.lineTo(left, -top)
-      ctx.closePath()
-    }
-
-    const outerPad = H * 0.048
-    const innerBorderW = H * 0.022
-
-    // 1. Outer black fill (slightly scaled up) — creates outer border
-    ctx.save()
-    ctx.scale(1 + outerPad * 2 / H, 1 + outerPad * 2 / H)
-    buildDPath()
-    ctx.fillStyle = '#000000'
-    ctx.fill()
-    ctx.restore()
-
-    // 2. White fill — normal size, creates white interior + white gap
-    buildDPath()
-    ctx.fillStyle = '#ffffff'
-    ctx.fill()
-
-    // 3. Inner thin black stroke — collegiate double outline
-    buildDPath()
-    ctx.lineWidth = innerBorderW
+    ctx.translate(x, CANVAS_H * 0.5)
+    ctx.rotate((rotDeg * Math.PI) / 180)
+    ctx.lineWidth = Math.round(fontSize * 0.058)
     ctx.strokeStyle = '#000000'
-    ctx.lineJoin = 'miter'
-    ctx.stroke()
-
+    ctx.lineJoin = 'round'
+    ctx.strokeText(letter, 0, 0)
+    ctx.fillStyle = '#ffffff'
+    ctx.fillText(letter, 0, 0)
+    ctx.lineWidth = Math.round(fontSize * 0.022)
+    ctx.strokeStyle = '#000000'
+    ctx.strokeText(letter, 0, 0)
     ctx.restore()
   }
 
-  const letterH = CANVAS_H * 0.68
-  drawCollegiateD(CANVAS_W * 0.185, CANVAS_H * 0.5, letterH, -11)
-  drawCollegiateD(CANVAS_W * 0.815, CANVAS_H * 0.5, letterH, 11)
+  drawLetter('D', CANVAS_W * 0.185, -11)
+  drawLetter('D', CANVAS_W * 0.815, 11)
 
   return new Promise((resolve) => {
     const img = new Image()
