@@ -1,6 +1,58 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { products as allProducts } from '../data/mockData'
+
+const CANVAS_W = 1200
+const CANVAS_H = 800
+
+function composeDADPoster(illustrationSrc, onDone) {
+  const canvas = document.createElement('canvas')
+  canvas.width = CANVAS_W
+  canvas.height = CANVAS_H
+  const ctx = canvas.getContext('2d')
+
+  ctx.fillStyle = '#ffffff'
+  ctx.fillRect(0, 0, CANVAS_W, CANVAS_H)
+
+  const fontSize = Math.round(CANVAS_H * 0.72)
+  ctx.font = `900 ${fontSize}px Impact, "Arial Black", Arial, sans-serif`
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+
+  const drawLetter = (letter, x) => {
+    const cy = CANVAS_H * 0.5
+    // Outer thick black stroke
+    ctx.lineWidth = Math.round(fontSize * 0.085)
+    ctx.strokeStyle = '#000000'
+    ctx.lineJoin = 'round'
+    ctx.strokeText(letter, x, cy)
+    // White fill (covers inner part of stroke)
+    ctx.fillStyle = '#ffffff'
+    ctx.fillText(letter, x, cy)
+    // Inner thin black border for collegiate look
+    ctx.lineWidth = Math.round(fontSize * 0.022)
+    ctx.strokeStyle = '#000000'
+    ctx.strokeText(letter, x, cy)
+  }
+
+  drawLetter('D', CANVAS_W * 0.145)
+  drawLetter('D', CANVAS_W * 0.855)
+
+  const img = new Image()
+  img.onload = () => {
+    const maxH = CANVAS_H * 0.88
+    const maxW = CANVAS_W * 0.52
+    const scale = Math.min(maxW / img.naturalWidth, maxH / img.naturalHeight)
+    const dw = img.naturalWidth * scale
+    const dh = img.naturalHeight * scale
+    const dx = (CANVAS_W - dw) / 2
+    const dy = (CANVAS_H - dh) / 2
+    ctx.drawImage(img, dx, dy, dw, dh)
+    onDone(canvas.toDataURL('image/png'))
+  }
+  img.onerror = () => onDone(illustrationSrc)
+  img.src = illustrationSrc
+}
 
 function AIEditModal({ onClose }) {
   const [prompt, setPrompt] = useState('')
@@ -99,14 +151,24 @@ export default function DesignPlacement({ designData }) {
   )
   const [showAIEdit, setShowAIEdit] = useState(false)
   const [showChangeProduct, setShowChangeProduct] = useState(false)
+  const [composited, setComposited] = useState(null)
 
   const generatedDesigns = designData?.generatedDesigns || null
   const hasDesigns = generatedDesigns && generatedDesigns.length > 0
   const hasTwoDesigns = generatedDesigns && generatedDesigns.length > 1
 
-  const currentDesignImage = hasDesigns
+  const rawIllustration = hasDesigns
     ? generatedDesigns[Math.min(activeTab, generatedDesigns.length - 1)].image
     : null
+
+  // Compose illustration + D letters whenever the raw illustration changes
+  useEffect(() => {
+    setComposited(null)
+    if (!rawIllustration) return
+    composeDADPoster(rawIllustration, setComposited)
+  }, [rawIllustration])
+
+  const currentDesignImage = composited || rawIllustration
 
   const currentProduct = allProducts.find((p) => p.id === selectedProduct) || allProducts[0]
 
@@ -207,15 +269,18 @@ export default function DesignPlacement({ designData }) {
                 </svg>
                 Перегенерувати
               </button>
-              <button
-                onClick={() => setShowAIEdit(true)}
-                className="flex-1 flex items-center justify-center gap-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-medium px-5 py-2.5 rounded-xl border border-indigo-200 transition-colors duration-200"
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
-                </svg>
-                AI Редагування
-              </button>
+              {composited && (
+                <a
+                  href={composited}
+                  download="dad-design.png"
+                  className="flex-1 flex items-center justify-center gap-2 bg-green-50 hover:bg-green-100 text-green-700 font-medium px-5 py-2.5 rounded-xl border border-green-200 transition-colors duration-200"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+                  </svg>
+                  Завантажити PNG
+                </a>
+              )}
             </div>
           </div>
         </div>
