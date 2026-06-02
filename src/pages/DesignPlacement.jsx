@@ -19,24 +19,29 @@ function composeDADPoster(illustrationSrc, onDone) {
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
 
-  const drawLetter = (letter, x) => {
-    const cy = CANVAS_H * 0.5
+  const drawLetter = (letter, x, rotationDeg) => {
+    ctx.save()
+    ctx.translate(x, CANVAS_H * 0.5)
+    ctx.rotate((rotationDeg * Math.PI) / 180)
+
     // Outer thick black stroke
-    ctx.lineWidth = Math.round(fontSize * 0.085)
+    ctx.lineWidth = Math.round(fontSize * 0.09)
     ctx.strokeStyle = '#000000'
-    ctx.lineJoin = 'round'
-    ctx.strokeText(letter, x, cy)
-    // White fill (covers inner part of stroke)
+    ctx.lineJoin = 'miter'
+    ctx.strokeText(letter, 0, 0)
+    // White fill
     ctx.fillStyle = '#ffffff'
-    ctx.fillText(letter, x, cy)
-    // Inner thin black border for collegiate look
-    ctx.lineWidth = Math.round(fontSize * 0.022)
+    ctx.fillText(letter, 0, 0)
+    // Inner thin black border (collegiate double-outline)
+    ctx.lineWidth = Math.round(fontSize * 0.024)
     ctx.strokeStyle = '#000000'
-    ctx.strokeText(letter, x, cy)
+    ctx.strokeText(letter, 0, 0)
+
+    ctx.restore()
   }
 
-  drawLetter('D', CANVAS_W * 0.145)
-  drawLetter('D', CANVAS_W * 0.855)
+  drawLetter('D', CANVAS_W * 0.145, -12)  // Left D — counter-clockwise tilt
+  drawLetter('D', CANVAS_W * 0.855, 12)   // Right D — clockwise tilt
 
   const img = new Image()
   img.onload = () => {
