@@ -802,6 +802,24 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder }) {
   const currentDesignImage = hasDesigns ? generatedDesigns[Math.min(activeTab, generatedDesigns.length - 1)].image : null
   const currentProduct = allProducts.find(p => p.id === selectedProduct) || allProducts[0]
 
+  // Keep mockupDesignUrl in sync whenever the design or EST settings change
+  useEffect(() => {
+    let cancelled = false
+    const update = async () => {
+      if (!currentDesignImage) { setMockupDesignUrl(null); return }
+      try {
+        if (isEst && estPosterRef.current) {
+          const canvas = await estPosterRef.current.exportTransparent()
+          if (!cancelled) setMockupDesignUrl(canvas.toDataURL('image/png'))
+        } else {
+          if (!cancelled) setMockupDesignUrl(currentDesignImage)
+        }
+      } catch { if (!cancelled) setMockupDesignUrl(currentDesignImage) }
+    }
+    update()
+    return () => { cancelled = true }
+  }, [currentDesignImage, isEst, estText, showEstText])
+
   const handleRegenerate = async () => {
     if (!designData?.uploadedFile || !designData?.selectedStyle) { navigate('/create'); return }
     setRegenerating(true); setRegenError(null)
@@ -1088,12 +1106,12 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder }) {
           <div className="p-5 flex gap-6 items-center">
             <button onClick={handleOpenMockup} disabled={preparingMockup} className="relative w-48 h-48 flex-shrink-0 bg-white rounded-xl overflow-hidden flex items-center justify-center hover:ring-2 hover:ring-indigo-400 transition-all group" title="Редагувати мокап">
               <img src={currentProduct?.image} alt={currentProduct?.nameUk} className="w-full h-full object-cover" />
-              {currentDesignImage && !preparingMockup && (
+              {mockupDesignUrl && !preparingMockup && (
                 <div
                   className="absolute pointer-events-none"
                   style={{ left: `${mockupOverlay.x}%`, top: `${mockupOverlay.y}%`, width: `${mockupOverlay.size}%`, transform: 'translate(-50%, -50%)' }}
                 >
-                  <img src={currentDesignImage} alt="design overlay" className="w-full opacity-90 mix-blend-multiply" />
+                  <img src={mockupDesignUrl} alt="design overlay" className="w-full mix-blend-multiply" />
                 </div>
               )}
               {preparingMockup && (
