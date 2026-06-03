@@ -49,6 +49,9 @@ export const products = [
   { id: 'hoodie-prem-brown',    nameUk: 'Коричневий преміум',  category: 'hoodie-premium', image: `${b}Копия Мокап_худі_без_флісу_преміум_коричневий_перед.jpg` },
 
   // ── Футболки базові ───────────────────────────────────────────
+  { id: 'polo-lightblue',   nameUk: 'Блакитне поло',         category: 'tshirt-basic', image: `${b}IMG_9813.PNG` },
+  { id: 'shirt-green',      nameUk: 'Зелена сорочка',        category: 'tshirt-basic', image: `${b}IMG_9820.PNG` },
+  { id: 'shirt-gray',       nameUk: 'Сіра сорочка',          category: 'tshirt-basic', image: `${b}IMG_9821.PNG` },
   { id: 'tshirt-black',       nameUk: 'Чорна футболка',        category: 'tshirt-basic', image: `${b}футболка чорна.jpg` },
   { id: 'tshirt-white',       nameUk: 'Біла футболка',         category: 'tshirt-basic', image: `${b}футболка біла.jpg` },
   { id: 'tshirt-lightblue',   nameUk: 'Блакитна футболка',     category: 'tshirt-basic', image: `${b}футболка блакитна .jpg` },
@@ -82,6 +85,7 @@ export const products = [
   { id: 'sweat-yellow', nameUk: 'Жовтий світшот JH001',     category: 'sweatshirt', image: `${b}JH001 SUN YELLOW (TORSO).jpg` },
 
   // ── Шопери ────────────────────────────────────────────────────
+  { id: 'shop-natural',       nameUk: 'Натуральний шопер',       category: 'shopper', image: `${b}IMG_9815.PNG` },
   { id: 'shop-beige-bottom', nameUk: 'Бежевий з дном шопер',   category: 'shopper', image: `${b}Копия бежевий з дном.jpg` },
   { id: 'shop-white',        nameUk: 'Білий шопер',             category: 'shopper', image: `${b}Копия білий.jpg` },
   { id: 'shop-beige',        nameUk: 'Звичайний бежевий шопер', category: 'shopper', image: `${b}Копия звичайний бежевий.jpg` },
