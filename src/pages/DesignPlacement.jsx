@@ -375,7 +375,7 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
               <svg width="8" height="8" viewBox="0 0 8 8" fill="none"><path d="M1 7L7 1M4 7L7 4" stroke="white" strokeWidth="1.5" strokeLinecap="round" /></svg>
             </div>
           )}
-        </div>
+        </div>}
 
         {letterStyle === 'D' && letters.map(letter => {
           const isSelected = selected === letter.id
