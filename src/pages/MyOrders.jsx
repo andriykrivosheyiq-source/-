@@ -11,9 +11,10 @@ const STATUSES = Object.entries(STATUS_CONFIG).map(([k, v]) => ({ key: k, label:
 
 // ─── Order Detail Modal ────────────────────────────────────────────────────────
 
-function OrderDetailModal({ order, onClose, onStatusChange, onDelete }) {
+function OrderDetailModal({ order, extras, onClose, onStatusChange, onDelete, onOpenOrder }) {
   const cfg = STATUS_CONFIG[order.status] || STATUS_CONFIG.new
   const [comment, setComment] = useState(order.comment || '')
+  const displayImage = extras?.fullImage || order.image
 
   return (
     <div
@@ -27,7 +28,17 @@ function OrderDetailModal({ order, onClose, onStatusChange, onDelete }) {
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
           <div className="flex items-center gap-3">
-            <span className="text-lg font-bold text-gray-900">{order.id}</span>
+            {order._saved && onOpenOrder ? (
+              <button
+                onClick={() => { onClose(); onOpenOrder(order.id) }}
+                className="text-lg font-bold text-indigo-600 hover:text-indigo-800 hover:underline transition-colors"
+                title="Відкрити в редакторі"
+              >
+                {order.id}
+              </button>
+            ) : (
+              <span className="text-lg font-bold text-gray-900">{order.id}</span>
+            )}
             <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${cfg.badge}`}>{cfg.label}</span>
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors">
@@ -36,9 +47,9 @@ function OrderDetailModal({ order, onClose, onStatusChange, onDelete }) {
         </div>
 
         {/* Image */}
-        {order.image && (
-          <div className="bg-gray-50 flex items-center justify-center" style={{ maxHeight: 260 }}>
-            <img src={order.image} alt={order.name} className="max-h-64 w-full object-contain" />
+        {displayImage && (
+          <div className="bg-gray-50 flex items-center justify-center" style={{ maxHeight: 320 }}>
+            <img src={displayImage} alt={order.name} className="max-h-80 w-full object-contain" />
           </div>
         )}
 
@@ -256,7 +267,7 @@ function Column({ status, orders, onStatusChange, onDelete, onOpen }) {
 
 // ─── Main Page ─────────────────────────────────────────────────────────────────
 
-export default function MyOrders({ savedOrders = [], onUpdateOrder, onDeleteOrder }) {
+export default function MyOrders({ savedOrders = [], orderExtras = {}, onUpdateOrder, onDeleteOrder, onOpenOrder }) {
   const navigate = useNavigate()
   const [search, setSearch] = useState('')
   const [filterProduct, setFilterProduct] = useState('all')
@@ -386,9 +397,11 @@ export default function MyOrders({ savedOrders = [], onUpdateOrder, onDeleteOrde
       {selectedOrder && (
         <OrderDetailModal
           order={selectedOrder}
+          extras={orderExtras[selectedOrder.id]}
           onClose={() => setSelectedOrder(null)}
           onStatusChange={handleStatusChange}
           onDelete={onDeleteOrder}
+          onOpenOrder={onOpenOrder}
         />
       )}
     </div>

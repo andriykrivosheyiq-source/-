@@ -870,6 +870,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder }) {
 
     // Build small design thumbnail (≤200px) to store alongside product image
     let thumb = currentProduct?.image || null
+    let fullImage = null
     try {
       let srcCanvas = null
       if (isEst && estPosterRef.current) {
@@ -881,12 +882,22 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder }) {
         srcCanvas.getContext('2d').drawImage(img, 0, 0)
       }
       if (srcCanvas) {
+        fullImage = srcCanvas.toDataURL('image/png')
         const tw = 300, th = Math.round(srcCanvas.height * 300 / srcCanvas.width)
         const t = document.createElement('canvas'); t.width = tw; t.height = th
         t.getContext('2d').drawImage(srcCanvas, 0, 0, tw, th)
         thumb = t.toDataURL('image/jpeg', 0.6)
       }
     } catch {}
+
+    const designSnapshot = {
+      selectedProducts: designData?.selectedProducts || [selectedProduct],
+      selectedStyle: designData?.selectedStyle,
+      generatedDesigns: designData?.generatedDesigns,
+      fileName,
+      productColors: designData?.productColors,
+      uploadedFile: null,
+    }
 
     const catMap = { 'hoodie-basic': 'hoodie', 'hoodie-fleece': 'hoodie', 'hoodie-premium': 'hoodie', 'tshirt-basic': 'tshirt', 'tshirt-oversized': 'oversized', 'sweatshirt': 'sweatshirt', 'cap': 'cap', 'shopper': 'totebag' }
     const order = {
@@ -899,7 +910,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder }) {
       colors: [designData?.productColors?.[selectedProduct] || '#1a1a1a'],
       image: thumb,
     }
-    onSaveOrder?.(order)
+    onSaveOrder?.(order, { fullImage, designSnapshot })
     navigate('/orders')
   }
 
