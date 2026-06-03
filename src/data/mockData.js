@@ -140,7 +140,7 @@ export const mockOrders = [
   },
   {
     id: '#10424',
-    status: 'in_progress',
+    status: 'review',
     productId: 'tshirt-white',
     name: 'Футболка сімейна',
     date: '30 травня 2024, 14:18',

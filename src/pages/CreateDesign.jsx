@@ -18,7 +18,7 @@ function ProductSelector({ selected, onChange }) {
 
   const filtered = products.filter(p => {
     const matchCat = activeCategory === 'all' || p.category === activeCategory
-    const matchSearch = !search.trim() || p.nameUk.toLowerCase().includes(search.trim().toLowerCase())
+    const matchSearch = !search.trim() || search.trim().toLowerCase().split(/\s+/).every(w => p.nameUk.toLowerCase().includes(w))
     return matchCat && matchSearch
   })
 
