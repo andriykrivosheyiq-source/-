@@ -883,10 +883,10 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder }) {
       }
       if (srcCanvas) {
         fullImage = srcCanvas.toDataURL('image/png')
-        const tw = 300, th = Math.round(srcCanvas.height * 300 / srcCanvas.width)
+        const tw = 800, th = Math.round(srcCanvas.height * 800 / srcCanvas.width)
         const t = document.createElement('canvas'); t.width = tw; t.height = th
         t.getContext('2d').drawImage(srcCanvas, 0, 0, tw, th)
-        thumb = t.toDataURL('image/jpeg', 0.6)
+        thumb = t.toDataURL('image/jpeg', 0.85)
       }
     } catch {}
 

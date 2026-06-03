@@ -48,8 +48,8 @@ function OrderDetailModal({ order, extras, onClose, onStatusChange, onDelete, on
 
         {/* Image */}
         {displayImage && (
-          <div className="bg-gray-50 flex items-center justify-center" style={{ maxHeight: 320 }}>
-            <img src={displayImage} alt={order.name} className="max-h-80 w-full object-contain" />
+          <div className="bg-gray-50 flex items-center justify-center" style={{ maxHeight: 380 }}>
+            <img src={displayImage} alt={order.name} className="max-h-96 w-full object-contain" style={{ imageRendering: 'auto' }} />
           </div>
         )}
 
