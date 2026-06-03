@@ -1,49 +1,91 @@
 import React, { useState, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { products, designStyles } from '../data/mockData'
+import { products, productCategories, designStyles } from '../data/mockData'
 import { generateDesigns, GENERATIVE_STYLES } from '../services/gemini'
 
 // ─── Product Selector ────────────────────────────────────────────
 function ProductSelector({ selected, onChange }) {
+  const [search, setSearch] = useState('')
+  const [activeCategory, setActiveCategory] = useState('all')
+
   const toggle = (id) => {
     if (selected.includes(id)) {
-      onChange(selected.filter((s) => s !== id))
+      onChange(selected.filter(s => s !== id))
     } else {
       onChange([...selected, id])
     }
   }
 
+  const filtered = products.filter(p => {
+    const matchCat = activeCategory === 'all' || p.category === activeCategory
+    const matchSearch = !search.trim() || p.nameUk.toLowerCase().includes(search.trim().toLowerCase())
+    return matchCat && matchSearch
+  })
+
   return (
     <div className="step-section">
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-3">
         <h2 className="section-title">1. Оберіть товар</h2>
-        <span className="text-sm text-gray-400">Оберіть один або кілька товарів</span>
+        {selected.length > 0 && (
+          <span className="text-sm text-indigo-600 font-medium">{selected.length} обрано</span>
+        )}
       </div>
-      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3">
-        {products.map((p) => (
+
+      {/* Search */}
+      <div className="relative mb-3">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+          className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
+          <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+        </svg>
+        <input
+          type="text"
+          placeholder="Пошук (напр. чорний худі, рожева...)"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          className="w-full border border-gray-200 rounded-xl pl-9 pr-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+        />
+        {search && (
+          <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+          </button>
+        )}
+      </div>
+
+      {/* Category buttons */}
+      <div className="flex gap-2 flex-wrap mb-3">
+        <button
+          onClick={() => setActiveCategory('all')}
+          className={`px-3.5 py-1.5 rounded-full text-sm font-medium transition-colors ${activeCategory === 'all' ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+        >Всі</button>
+        {productCategories.map(cat => (
+          <button
+            key={cat.id}
+            onClick={() => setActiveCategory(cat.id)}
+            className={`px-3.5 py-1.5 rounded-full text-sm font-medium transition-colors ${activeCategory === cat.id ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+          >{cat.name}</button>
+        ))}
+      </div>
+
+      {/* Product grid */}
+      <div className="grid grid-cols-3 sm:grid-cols-5 md:grid-cols-7 gap-2.5 max-h-64 overflow-y-auto pr-1">
+        {filtered.length === 0 && (
+          <div className="col-span-full text-center py-8 text-gray-400 text-sm">Нічого не знайдено</div>
+        )}
+        {filtered.map(p => (
           <div
             key={p.id}
             onClick={() => toggle(p.id)}
             className={`product-card ${selected.includes(p.id) ? 'selected' : ''}`}
           >
-            {selected.includes(p.id) && (
-              <div className="absolute top-2 right-2 w-5 h-5 bg-indigo-600 rounded-md flex items-center justify-center z-10">
-                <svg width="11" height="11" viewBox="0 0 12 12" fill="none">
-                  <path d="M2 6l3 3 5-5" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
+            {selected.includes(p.id) ? (
+              <div className="absolute top-1.5 right-1.5 w-5 h-5 bg-indigo-600 rounded-md flex items-center justify-center z-10">
+                <svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M2 6l3 3 5-5" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
               </div>
+            ) : (
+              <div className="absolute top-1.5 right-1.5 w-5 h-5 border-2 border-gray-200 rounded-md bg-white z-10" />
             )}
-            {!selected.includes(p.id) && (
-              <div className="absolute top-2 right-2 w-5 h-5 border-2 border-gray-200 rounded-md bg-white z-10" />
-            )}
-            <img
-              src={p.image}
-              alt={p.nameUk}
-              className="w-20 h-20 object-cover rounded-lg"
-            />
-            <span className="text-xs font-medium text-gray-700 text-center leading-tight">
-              {p.nameUk}
-            </span>
+            <img src={p.image} alt={p.nameUk} className="w-14 h-14 object-cover rounded-lg" />
+            <span className="text-[11px] font-medium text-gray-700 text-center leading-tight">{p.nameUk}</span>
           </div>
         ))}
       </div>
@@ -311,19 +353,13 @@ function PhotoUpload({ file, onChange }) {
 export default function CreateDesign({ onGenerate }) {
   const navigate = useNavigate()
   const [fileName, setFileName] = useState('')
-  const [selectedProducts, setSelectedProducts] = useState(['hoodie'])
-  const [selectedStyle, setSelectedStyle] = useState('dad-face')
+  const [selectedProducts, setSelectedProducts] = useState(['hoodie-black'])
+  const [selectedStyle, setSelectedStyle] = useState('est-face')
   const [showAllStyles, setShowAllStyles] = useState(false)
-  const [productColors, setProductColors] = useState({
-    hoodie: { black: true, white: true, gray: true },
-  })
+  const [productColors] = useState({})
   const [uploadedFile, setUploadedFile] = useState(null)
   const [isGenerating, setIsGenerating] = useState(false)
   const [generationError, setGenerationError] = useState(null)
-
-  const handleColorChange = (productId, colors) => {
-    setProductColors((prev) => ({ ...prev, [productId]: colors }))
-  }
 
   const handleGenerate = async () => {
     if (!canGenerate) return
@@ -352,10 +388,7 @@ export default function CreateDesign({ onGenerate }) {
     if (!GENERATIVE_STYLES.includes(selectedStyle) || !uploadedFile) {
       return 'Наш ШІ згенерує унікальні дизайни для обраних товарів.'
     }
-    if (selectedStyle === 'est-face') {
-      return 'Gemini згенерує EST ілюстрацію (бл. 15–30 сек)'
-    }
-    return 'Gemini згенерує 2 варіанти: DAD та ТАТО (бл. 15–30 сек)'
+    return 'Gemini згенерує ілюстрацію (бл. 15–30 сек)'
   }
 
   return (
@@ -406,11 +439,6 @@ export default function CreateDesign({ onGenerate }) {
           onChange={setSelectedStyle}
           showAll={showAllStyles}
           onToggleAll={() => setShowAllStyles((v) => !v)}
-        />
-        <ColorSelector
-          selectedProducts={selectedProducts}
-          productColors={productColors}
-          onChange={handleColorChange}
         />
         <PhotoUpload file={uploadedFile} onChange={setUploadedFile} />
 

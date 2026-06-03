@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useImperativeHandle } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { products as allProducts } from '../data/mockData'
+import { products as allProducts, productCategories } from '../data/mockData'
 import { generateDesigns, clearCache } from '../services/gemini'
 
 const D_PATH =
@@ -652,22 +652,50 @@ function AIEditModal({ onClose }) {
 // ─── ChangeProductModal ───────────────────────────────────────────────────────
 
 function ChangeProductModal({ current, onSelect, onClose }) {
-  const available = allProducts.slice(0, 6)
+  const [activeCategory, setActiveCategory] = useState('all')
+  const [search, setSearch] = useState('')
+
+  const filtered = allProducts.filter(p => {
+    const matchCat = activeCategory === 'all' || p.category === activeCategory
+    const matchSearch = !search.trim() || p.nameUk.toLowerCase().includes(search.trim().toLowerCase())
+    return matchCat && matchSearch
+  })
+
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
-        <div className="flex items-center justify-between mb-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md flex flex-col" style={{ maxHeight: '85vh' }}>
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 flex-shrink-0">
           <h3 className="text-lg font-bold text-gray-900">Змінити товар</h3>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
         </div>
-        <div className="space-y-2">
-          {available.map(p => (
-            <button key={p.id} onClick={() => { onSelect(p.id); onClose() }} className={`w-full flex items-center gap-3 p-3 rounded-xl border-2 transition-colors ${current === p.id ? 'border-indigo-500 bg-indigo-50' : 'border-gray-100 hover:border-gray-200'}`}>
-              <img src={p.image} alt={p.nameUk} className="w-12 h-12 object-cover rounded-lg" />
-              <span className="font-medium text-gray-800">{p.nameUk}</span>
-              {current === p.id && <span className="ml-auto"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4f46e5" strokeWidth="2.5"><path d="M20 6L9 17l-5-5"/></svg></span>}
-            </button>
-          ))}
+
+        <div className="px-5 pt-3 pb-2 flex-shrink-0 space-y-2">
+          {/* Search */}
+          <div className="relative">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+            <input type="text" placeholder="Пошук..." value={search} onChange={e => setSearch(e.target.value)}
+              className="w-full border border-gray-200 rounded-xl pl-8 pr-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300" />
+          </div>
+          {/* Category buttons */}
+          <div className="flex gap-1.5 flex-wrap">
+            <button onClick={() => setActiveCategory('all')} className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${activeCategory === 'all' ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>Всі</button>
+            {productCategories.map(cat => (
+              <button key={cat.id} onClick={() => setActiveCategory(cat.id)} className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${activeCategory === cat.id ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>{cat.name}</button>
+            ))}
+          </div>
+        </div>
+
+        <div className="px-5 pb-4 overflow-y-auto flex-1">
+          <div className="space-y-1.5">
+            {filtered.length === 0 && <p className="text-center py-6 text-gray-400 text-sm">Нічого не знайдено</p>}
+            {filtered.map(p => (
+              <button key={p.id} onClick={() => { onSelect(p.id); onClose() }} className={`w-full flex items-center gap-3 p-2.5 rounded-xl border-2 transition-colors ${current === p.id ? 'border-indigo-500 bg-indigo-50' : 'border-gray-100 hover:border-gray-200'}`}>
+                <img src={p.image} alt={p.nameUk} className="w-11 h-11 object-cover rounded-lg flex-shrink-0" />
+                <span className="font-medium text-gray-800 text-sm">{p.nameUk}</span>
+                {current === p.id && <span className="ml-auto flex-shrink-0"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4f46e5" strokeWidth="2.5"><path d="M20 6L9 17l-5-5"/></svg></span>}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
     </div>
@@ -680,7 +708,7 @@ export default function DesignPlacement({ designData, onUpdate }) {
   const navigate = useNavigate()
   const estPosterRef = useRef(null)
   const [activeTab, setActiveTab] = useState(0)
-  const [selectedProduct, setSelectedProduct] = useState(designData?.selectedProducts?.[0] || 'hoodie')
+  const [selectedProduct, setSelectedProduct] = useState(designData?.selectedProducts?.[0] || 'hoodie-black')
   const [showAIEdit, setShowAIEdit] = useState(false)
   const [showChangeProduct, setShowChangeProduct] = useState(false)
   const [showMockup, setShowMockup] = useState(false)
