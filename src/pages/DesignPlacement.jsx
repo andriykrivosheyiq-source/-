@@ -191,8 +191,8 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
   const wasSelectedRef = useRef(false)
 
   const [letters, setLetters] = useState([
-    { id: 'left',  x: 20, y: 20, size: 17, rotation: -4,  color: '#000000' },
-    { id: 'right', x: 63, y: 20, size: 17, rotation: 19,  color: '#000000' },
+    { id: 'left',  x: 20, y: 20, size: 22, rotation: -4,  color: '#000000' },
+    { id: 'right', x: 63, y: 20, size: 22, rotation: 19,  color: '#000000' },
   ])
   const [letterStyle, setLetterStyle] = useState('D')
   const [showGrid, setShowGrid] = useState(false)
