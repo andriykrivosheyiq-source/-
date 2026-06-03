@@ -195,6 +195,7 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
     { id: 'right', x: 77, y: 15, size: 22, rotation: 19,  color: '#000000' },
   ])
   const [letterStyle, setLetterStyle] = useState('D')
+  const [showGrid, setShowGrid] = useState(false)
   const [ttoLetters, setTtoLetters] = useState([
     { id: 'tLeft',  x: 4,  y: 8, size: 23, rotation: 0, color: '#000000' },
     { id: 'tRight', x: 29, y: 8, size: 23, rotation: 0, color: '#000000' },
@@ -311,10 +312,19 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
 
   return (
     <div style={{ background: '#ffffff', width: '100%', borderRadius: '12px' }}>
-      <div ref={containerRef} onClick={() => setSelected(null)} style={{ position: 'relative', width: '100%', aspectRatio: '16 / 9', background: '#ffffff', userSelect: 'none', touchAction: 'none', overflow: 'hidden', backgroundImage: 'linear-gradient(rgba(99,102,241,0.13) 1px, transparent 1px), linear-gradient(90deg, rgba(99,102,241,0.13) 1px, transparent 1px)', backgroundSize: '10% 10%' }}>
+      <div ref={containerRef} onClick={() => setSelected(null)} style={{ position: 'relative', width: '100%', aspectRatio: '16 / 9', background: '#ffffff', userSelect: 'none', touchAction: 'none', overflow: 'hidden', ...(showGrid ? { backgroundImage: 'linear-gradient(rgba(99,102,241,0.13) 1px, transparent 1px), linear-gradient(90deg, rgba(99,102,241,0.13) 1px, transparent 1px)', backgroundSize: '10% 10%' } : {}) }}>
 
-        {/* Letter style switcher */}
-        <div style={{ position: 'absolute', top: '8px', right: '8px', zIndex: 25, display: 'flex', background: 'rgba(255,255,255,0.92)', borderRadius: '10px', padding: '3px', gap: '2px', boxShadow: '0 1px 6px rgba(0,0,0,0.18)' }}>
+        {/* Grid toggle + Letter style switcher */}
+        <div style={{ position: 'absolute', top: '8px', right: '8px', zIndex: 25, display: 'flex', gap: '6px', alignItems: 'center' }}>
+          <button
+            onMouseDown={e => e.stopPropagation()}
+            onClick={e => { e.stopPropagation(); setShowGrid(v => !v) }}
+            title="Сітка"
+            style={{ width: '30px', height: '30px', borderRadius: '8px', border: 'none', cursor: 'pointer', background: showGrid ? '#4f46e5' : 'rgba(255,255,255,0.92)', color: showGrid ? '#fff' : '#6b7280', boxShadow: '0 1px 6px rgba(0,0,0,0.18)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg>
+          </button>
+        <div style={{ display: 'flex', background: 'rgba(255,255,255,0.92)', borderRadius: '10px', padding: '3px', gap: '2px', boxShadow: '0 1px 6px rgba(0,0,0,0.18)' }}>
           <button
             onMouseDown={e => e.stopPropagation()}
             onClick={e => { e.stopPropagation(); setLetterStyle('D'); setSelected(null) }}
@@ -330,7 +340,7 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
             style={{ padding: '3px 10px', borderRadius: '7px', fontSize: '11px', fontWeight: 700, border: 'none', cursor: 'pointer', background: letterStyle === 'TTO' ? '#4f46e5' : 'transparent', color: letterStyle === 'TTO' ? '#fff' : '#6b7280' }}
           >T T O</button>
         </div>
-
+        </div>
 
         {!imageUrl && (
           <div style={{ position: 'absolute', top: '4%', bottom: '14%', left: '24%', right: '24%', display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
