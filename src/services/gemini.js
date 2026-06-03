@@ -198,6 +198,49 @@ export async function generateDesigns(photoFile, styleId) {
   return results
 }
 
+export async function editDesign(currentImageDataUrl, editPrompt) {
+  const apiKey = import.meta.env.VITE_GEMINI_API_KEY
+  if (!apiKey) throw new Error('API ключ не налаштований (VITE_GEMINI_API_KEY)')
+
+  const modelId = await findImageModel(apiKey)
+
+  const [header, base64] = currentImageDataUrl.split(',')
+  const mimeType = header.match(/data:([^;]+)/)?.[1] || 'image/png'
+
+  const parts = [
+    {
+      text: `You are editing an existing design image. Apply the following changes while preserving the overall style, composition, and all other elements exactly as they are. Only change what is explicitly requested.\n\nRequested edits: ${editPrompt}`,
+    },
+    { inline_data: { mime_type: mimeType, data: base64 } },
+  ]
+
+  const url = `${BASE_URL}/models/${modelId}:generateContent?key=${apiKey}`
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{ parts }],
+      generationConfig: { responseModalities: ['image', 'text'], temperature: 0.2 },
+    }),
+  })
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error(err?.error?.message || `HTTP ${res.status}`)
+  }
+
+  const data = await res.json()
+  const resParts = data.candidates?.[0]?.content?.parts || []
+  const part = resParts.find((p) => p.inline_data || p.inlineData)
+  if (!part) {
+    const textPart = resParts.find((p) => p.text)
+    throw new Error(`Модель не повернула зображення. ${textPart ? 'Текст: ' + textPart.text.slice(0, 200) : 'Відповідь порожня'}`)
+  }
+
+  const imgData = part.inline_data || part.inlineData
+  return `data:${imgData.mime_type || imgData.mimeType};base64,${imgData.data}`
+}
+
 export const GENERATIVE_STYLES = ['dad-face', 'est-face', 'faceless-face']
 
 export function clearCache(photoFile, styleId) {

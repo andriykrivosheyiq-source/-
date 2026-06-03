@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useImperativeHandle } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { products as allProducts, productCategories } from '../data/mockData'
-import { generateDesigns, clearCache } from '../services/gemini'
+import { generateDesigns, clearCache, editDesign } from '../services/gemini'
 
 const D_PATH =
   'M291 123L78 153L88 232L114 229L116 233L148 467L143 471L121 474L132 555L349 526L400 459L360 176Z ' +
@@ -459,6 +459,53 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
   )
 })
 
+// ─── EditPromptBox ────────────────────────────────────────────────────────────
+
+function EditPromptBox({ currentImage, onSubmit, onCancel, loading }) {
+  const [text, setText] = useState('')
+  const QUICK = ['Зроби яскравіше', 'Видали фон', 'Додай більше деталей', 'Зміни кольори на темніші', 'Зроби контраст сильніше', 'Прибери зайві елементи']
+  return (
+    <div className="mt-4 border border-indigo-200 rounded-2xl bg-indigo-50/40 p-4 space-y-3">
+      <div className="flex items-center justify-between">
+        <p className="text-sm font-semibold text-gray-800">Внести правки в дизайн</p>
+        <button onClick={onCancel} className="text-gray-400 hover:text-gray-600">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+      {currentImage && (
+        <div className="rounded-xl overflow-hidden border border-gray-200 bg-white" style={{ maxHeight: '160px' }}>
+          <img src={currentImage} alt="Поточний дизайн" className="w-full h-full object-contain" style={{ maxHeight: '160px' }} />
+        </div>
+      )}
+      <textarea
+        value={text}
+        onChange={e => setText(e.target.value)}
+        placeholder="Опишіть правки: що змінити, прибрати або додати..."
+        className="w-full border border-gray-200 rounded-xl p-3 text-sm resize-none h-24 focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white"
+      />
+      <div className="flex flex-wrap gap-1.5">
+        {QUICK.map(q => (
+          <button key={q} onClick={() => setText(q)} className="text-xs border border-indigo-200 text-indigo-600 rounded-lg px-2.5 py-1 hover:bg-indigo-100 transition-colors bg-white">
+            {q}
+          </button>
+        ))}
+      </div>
+      <div className="flex gap-2">
+        <button onClick={onCancel} className="btn-secondary flex-1 justify-center text-sm">Скасувати</button>
+        <button
+          onClick={() => onSubmit(text)}
+          disabled={!text.trim() || loading}
+          className="btn-primary flex-1 justify-center text-sm"
+        >
+          {loading
+            ? <><svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" className="opacity-25"/><path d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" fill="currentColor"/></svg> Надсилаю...</>
+            : 'Застосувати правки'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
 // ─── MockupEditorModal ────────────────────────────────────────────────────────
 
 function MockupEditorModal({ designImage, product, fileName, onClose }) {
@@ -716,6 +763,9 @@ export default function DesignPlacement({ designData, onUpdate }) {
   const [estText, setEstText] = useState('EST.2025')
   const [regenerating, setRegenerating] = useState(false)
   const [regenError, setRegenError] = useState(null)
+  const [showEditPrompt, setShowEditPrompt] = useState(false)
+  const [editing, setEditing] = useState(false)
+  const [editError, setEditError] = useState(null)
   const [downloading, setDownloading] = useState(false)
   const [preparingMockup, setPreparingMockup] = useState(false)
   const [originalImageUrl, setOriginalImageUrl] = useState(null)
@@ -755,6 +805,22 @@ export default function DesignPlacement({ designData, onUpdate }) {
       setRegenError(e.message)
     } finally {
       setRegenerating(false)
+    }
+  }
+
+  const handleEdit = async (editText) => {
+    if (!currentDesignImage || !editText.trim()) return
+    setEditing(true); setEditError(null); setShowEditPrompt(false)
+    try {
+      const edited = await editDesign(currentDesignImage, editText)
+      const updated = (generatedDesigns || []).map((d, i) =>
+        i === Math.min(activeTab, (generatedDesigns?.length || 1) - 1) ? { ...d, image: edited } : d
+      )
+      onUpdate?.({ generatedDesigns: updated.length ? updated : [{ label: 'Редаговано', image: edited }] })
+    } catch (e) {
+      setEditError(e.message)
+    } finally {
+      setEditing(false)
     }
   }
 
@@ -864,11 +930,28 @@ export default function DesignPlacement({ designData, onUpdate }) {
               </div>
             )}
 
+            {editError && <div className="mt-3 px-4 py-2 bg-red-50 border border-red-200 rounded-xl text-sm text-red-600">{editError}</div>}
+
+            {showEditPrompt && (
+              <EditPromptBox
+                currentImage={currentDesignImage}
+                onSubmit={handleEdit}
+                onCancel={() => setShowEditPrompt(false)}
+                loading={editing}
+              />
+            )}
+
             <div className="flex gap-3 mt-4">
-              <button onClick={handleRegenerate} disabled={regenerating} className="btn-secondary flex-1 justify-center">
+              <button onClick={handleRegenerate} disabled={regenerating || editing} className="btn-secondary flex-1 justify-center">
                 {regenerating ? <><svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" className="opacity-25"/><path d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" fill="currentColor"/></svg> Генерація...</>
                   : <><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg> Перегенерувати</>}
               </button>
+              {hasDesigns && (
+                <button onClick={() => { setShowEditPrompt(v => !v); setEditError(null) }} disabled={editing || regenerating} className="btn-secondary flex-1 justify-center" style={{ borderColor: showEditPrompt ? '#6366f1' : undefined, color: showEditPrompt ? '#6366f1' : undefined }}>
+                  {editing ? <><svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" className="opacity-25"/><path d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" fill="currentColor"/></svg> Правки...</>
+                    : <><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> Внести правки</>}
+                </button>
+              )}
               {(hasDesigns || isEst) && (
                 <button onClick={handleDownload} disabled={downloading} className="btn-secondary justify-center" style={{ minWidth: '52px' }} title="Завантажити зображення">
                   {downloading ? <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" className="opacity-25"/><path d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" fill="currentColor"/></svg>
