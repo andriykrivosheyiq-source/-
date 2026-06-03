@@ -1,25 +1,130 @@
-import React, { useState } from 'react'
+import React, { useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { mockOrders } from '../data/mockData'
 
 const STATUS_CONFIG = {
-  new: { label: 'В роботі', dot: 'bg-blue-400', bg: 'bg-blue-50 border-blue-100', badge: 'bg-blue-100 text-blue-700' },
-  review: { label: 'На перевірці', dot: 'bg-yellow-400', bg: 'bg-yellow-50 border-yellow-100', badge: 'bg-yellow-100 text-yellow-700' },
-  approved: { label: 'Одобрено', dot: 'bg-green-400', bg: 'bg-green-50 border-green-100', badge: 'bg-green-100 text-green-700' },
+  new:      { label: 'В роботі',     dot: 'bg-blue-400',   bg: 'bg-blue-50 border-blue-100',     badge: 'bg-blue-100 text-blue-700' },
+  review:   { label: 'На перевірці', dot: 'bg-yellow-400', bg: 'bg-yellow-50 border-yellow-100', badge: 'bg-yellow-100 text-yellow-700' },
+  approved: { label: 'Одобрено',     dot: 'bg-green-400',  bg: 'bg-green-50 border-green-100',   badge: 'bg-green-100 text-green-700' },
 }
+const STATUSES = Object.entries(STATUS_CONFIG).map(([k, v]) => ({ key: k, label: v.label }))
 
-function OrderCard({ order, onStatusChange, onDelete }) {
-  const [hover, setHover] = useState(false)
-  const [showMenu, setShowMenu] = useState(false)
+// ─── Order Detail Modal ────────────────────────────────────────────────────────
+
+function OrderDetailModal({ order, onClose, onStatusChange, onDelete }) {
   const cfg = STATUS_CONFIG[order.status] || STATUS_CONFIG.new
-
-  const STATUSES = Object.entries(STATUS_CONFIG).map(([k, v]) => ({ key: k, label: v.label }))
+  const [comment, setComment] = useState(order.comment || '')
 
   return (
     <div
-      className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden hover:shadow-md transition-shadow duration-200"
+      className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden"
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+          <div className="flex items-center gap-3">
+            <span className="text-lg font-bold text-gray-900">{order.id}</span>
+            <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${cfg.badge}`}>{cfg.label}</span>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+          </button>
+        </div>
+
+        {/* Image */}
+        {order.image && (
+          <div className="bg-gray-50 flex items-center justify-center" style={{ maxHeight: 260 }}>
+            <img src={order.image} alt={order.name} className="max-h-64 w-full object-contain" />
+          </div>
+        )}
+
+        {/* Details */}
+        <div className="px-6 py-4 space-y-3">
+          <div>
+            <p className="text-base font-semibold text-gray-900">{order.name}</p>
+            {order.productName && <p className="text-sm text-gray-500 mt-0.5">{order.productName}</p>}
+            <p className="text-xs text-gray-400 mt-1">{order.date}</p>
+          </div>
+
+          {/* Colors */}
+          {(order.colors || []).length > 0 && (
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs text-gray-500 mr-1">Колір:</span>
+              {order.colors.map((hex, i) => (
+                <span key={i} className="w-5 h-5 rounded-full border border-gray-200 shadow-sm" style={{ backgroundColor: hex }} />
+              ))}
+            </div>
+          )}
+
+          {/* Comment */}
+          <div>
+            <label className="text-xs font-medium text-gray-600 block mb-1">Коментар / нотатки</label>
+            <textarea
+              value={comment}
+              onChange={e => setComment(e.target.value)}
+              placeholder="Додайте нотатку до замовлення..."
+              className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm resize-none h-20 focus:outline-none focus:ring-2 focus:ring-indigo-300"
+            />
+          </div>
+
+          {/* Status change */}
+          <div>
+            <p className="text-xs font-medium text-gray-600 mb-2">Перемістити до:</p>
+            <div className="flex gap-2">
+              {STATUSES.filter(s => s.key !== order.status).map(s => (
+                <button
+                  key={s.key}
+                  onClick={() => { onStatusChange?.(order.id, s.key); onClose() }}
+                  className="flex-1 py-2 text-xs font-semibold border border-indigo-200 text-indigo-600 rounded-xl hover:bg-indigo-50 transition-colors"
+                >
+                  {s.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="px-6 py-4 border-t border-gray-100 flex items-center justify-between gap-3">
+          {order._saved && onDelete ? (
+            <button
+              onClick={() => { onDelete(order.id); onClose() }}
+              className="flex items-center gap-1.5 text-sm text-red-500 hover:text-red-700 transition-colors"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>
+              Видалити
+            </button>
+          ) : <span />}
+          <button onClick={onClose} className="btn-primary">Закрити</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── OrderCard ─────────────────────────────────────────────────────────────────
+
+function OrderCard({ order, onStatusChange, onDelete, onOpen }) {
+  const [hover, setHover] = useState(false)
+  const cfg = STATUS_CONFIG[order.status] || STATUS_CONFIG.new
+
+  const handleDragStart = (e) => {
+    e.dataTransfer.setData('orderId', order.id)
+    e.dataTransfer.effectAllowed = 'move'
+  }
+
+  return (
+    <div
+      draggable
+      onDragStart={handleDragStart}
+      onClick={() => onOpen?.(order)}
+      className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-visible hover:shadow-md transition-all duration-200 cursor-grab active:cursor-grabbing active:opacity-70 active:scale-95"
       onMouseEnter={() => setHover(true)}
-      onMouseLeave={() => { setHover(false); setShowMenu(false) }}
+      onMouseLeave={() => setHover(false)}
     >
       <div className="flex gap-3 p-3">
         <div className="w-16 h-16 rounded-lg flex-shrink-0 overflow-hidden bg-gray-50">
@@ -39,31 +144,19 @@ function OrderCard({ order, onStatusChange, onDelete }) {
                 {cfg.label}
               </span>
             </div>
-            <div className={`relative flex gap-1 transition-opacity ${hover ? 'opacity-100' : 'opacity-0'}`}>
-              <button
-                onClick={() => setShowMenu(v => !v)}
-                className="p-1.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
-                title="Змінити статус"
-              >
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg>
-              </button>
-              {onDelete && (
-                <button onClick={() => onDelete(order.id)} className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Видалити">
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+            {/* Action buttons — stop propagation so clicking them doesn't open modal */}
+            <div
+              className={`relative flex gap-1 transition-opacity ${hover ? 'opacity-100' : 'opacity-0'}`}
+              onClick={e => e.stopPropagation()}
+            >
+              {order._saved && onDelete && (
+                <button
+                  onClick={() => onDelete(order.id)}
+                  className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                  title="Видалити"
+                >
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>
                 </button>
-              )}
-              {showMenu && (
-                <div className="absolute right-0 top-8 bg-white border border-gray-200 rounded-xl shadow-lg z-20 overflow-hidden min-w-[140px]">
-                  {STATUSES.map(s => (
-                    <button
-                      key={s.key}
-                      onClick={() => { onStatusChange?.(order.id, s.key); setShowMenu(false) }}
-                      className={`w-full text-left px-3 py-2 text-xs font-medium hover:bg-indigo-50 transition-colors ${order.status === s.key ? 'text-indigo-600 bg-indigo-50' : 'text-gray-700'}`}
-                    >
-                      {s.label}
-                    </button>
-                  ))}
-                </div>
               )}
             </div>
           </div>
@@ -80,17 +173,42 @@ function OrderCard({ order, onStatusChange, onDelete }) {
         {(order.colors || []).length > 4 && (
           <span className="text-[10px] text-gray-400 ml-1">+{order.colors.length - 4}</span>
         )}
+        <span className="ml-auto text-[10px] text-gray-300">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="9" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="19" r="1"/></svg>
+        </span>
       </div>
     </div>
   )
 }
 
-function Column({ status, orders, onStatusChange, onDelete }) {
+// ─── Column ────────────────────────────────────────────────────────────────────
+
+function Column({ status, orders, onStatusChange, onDelete, onOpen }) {
   const navigate = useNavigate()
   const cfg = STATUS_CONFIG[status]
+  const [dragOver, setDragOver] = useState(false)
+  const dragCounter = useRef(0)
+
+  const handleDragEnter = (e) => {
+    e.preventDefault()
+    dragCounter.current++
+    setDragOver(true)
+  }
+  const handleDragLeave = () => {
+    dragCounter.current--
+    if (dragCounter.current === 0) setDragOver(false)
+  }
+  const handleDragOver = (e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move' }
+  const handleDrop = (e) => {
+    e.preventDefault()
+    dragCounter.current = 0
+    setDragOver(false)
+    const id = e.dataTransfer.getData('orderId')
+    if (id) onStatusChange?.(id, status)
+  }
 
   return (
-    <div className="flex flex-col min-h-0">
+    <div className="flex flex-col min-h-0 h-full">
       <div className="flex items-center justify-between mb-3 px-1">
         <div className="flex items-center gap-2">
           <span className={`w-2.5 h-2.5 rounded-full ${cfg.dot}`} />
@@ -101,24 +219,42 @@ function Column({ status, orders, onStatusChange, onDelete }) {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto space-y-2.5 min-h-0 pr-1">
+      <div
+        onDragEnter={handleDragEnter}
+        onDragLeave={handleDragLeave}
+        onDragOver={handleDragOver}
+        onDrop={handleDrop}
+        className={`flex-1 overflow-y-auto space-y-2.5 min-h-0 pr-1 rounded-xl transition-colors duration-150 p-1 ${dragOver ? 'bg-indigo-50 ring-2 ring-indigo-300 ring-inset' : ''}`}
+        style={{ minHeight: 80 }}
+      >
         {orders.map((o) => (
-          <OrderCard key={o.id} order={o} onStatusChange={onStatusChange} onDelete={o._saved ? onDelete : undefined} />
+          <OrderCard
+            key={o.id}
+            order={o}
+            onStatusChange={onStatusChange}
+            onDelete={onDelete}
+            onOpen={onOpen}
+          />
         ))}
+        {dragOver && orders.length === 0 && (
+          <div className="flex items-center justify-center h-16 text-indigo-400 text-sm font-medium">
+            Перетягніть сюди
+          </div>
+        )}
       </div>
 
       <button
         onClick={() => navigate('/create')}
         className="mt-3 flex items-center justify-center gap-1.5 text-sm text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 py-2 rounded-xl border border-dashed border-gray-200 hover:border-indigo-300 transition-colors"
       >
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <path d="M12 5v14M5 12h14"/>
-        </svg>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 5v14M5 12h14"/></svg>
         Додати нове замовлення
       </button>
     </div>
   )
 }
+
+// ─── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function MyOrders({ savedOrders = [], onUpdateOrder, onDeleteOrder }) {
   const navigate = useNavigate()
@@ -127,15 +263,16 @@ export default function MyOrders({ savedOrders = [], onUpdateOrder, onDeleteOrde
   const [filterStatus, setFilterStatus] = useState('all')
   const [viewMode, setViewMode] = useState('grid')
   const [sortBy, setSortBy] = useState('newest')
+  const [selectedOrder, setSelectedOrder] = useState(null)
 
-  // Saved orders come first; mock orders shown as examples only if no saved orders exist
   const allOrders = [
     ...savedOrders.map(o => ({ ...o, _saved: true })),
     ...(savedOrders.length === 0 ? mockOrders : []),
   ]
 
   const filtered = allOrders.filter((o) => {
-    const matchSearch = search === '' || o.name.toLowerCase().includes(search.toLowerCase()) || o.id.includes(search)
+    const q = search.trim().toLowerCase()
+    const matchSearch = !q || q.split(/\s+/).every(w => o.name.toLowerCase().includes(w) || o.id.toLowerCase().includes(w))
     const matchProduct = filterProduct === 'all' || o.productId === filterProduct
     const matchStatus = filterStatus === 'all' || o.status === filterStatus
     return matchSearch && matchProduct && matchStatus
@@ -150,6 +287,7 @@ export default function MyOrders({ savedOrders = [], onUpdateOrder, onDeleteOrde
 
   const handleStatusChange = (id, newStatus) => {
     onUpdateOrder?.(id, { status: newStatus })
+    if (selectedOrder?.id === id) setSelectedOrder(prev => ({ ...prev, status: newStatus }))
   }
 
   return (
@@ -161,13 +299,8 @@ export default function MyOrders({ savedOrders = [], onUpdateOrder, onDeleteOrde
             <h1 className="text-2xl font-bold text-gray-900">Мої замовлення</h1>
             <p className="text-sm text-gray-500 mt-0.5">Усі ваші дизайни в одному місці</p>
           </div>
-          <button
-            onClick={() => navigate('/create')}
-            className="btn-primary"
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 5v14M5 12h14"/>
-            </svg>
+          <button onClick={() => navigate('/create')} className="btn-primary">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12h14"/></svg>
             Створити новий дизайн
           </button>
         </div>
@@ -175,26 +308,14 @@ export default function MyOrders({ savedOrders = [], onUpdateOrder, onDeleteOrde
 
       {/* Filters */}
       <div className="bg-white border-b border-gray-100 px-8 py-3 flex items-center gap-3 flex-wrap">
-        {/* Search */}
         <div className="relative">
-          <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
-          </svg>
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Пошук за назвою або номером..."
-            className="pl-8 pr-4 py-2 text-sm border border-gray-200 rounded-xl w-64 focus:outline-none focus:ring-2 focus:ring-indigo-200"
-          />
+          <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Пошук за назвою або номером..."
+            className="pl-8 pr-4 py-2 text-sm border border-gray-200 rounded-xl w-64 focus:outline-none focus:ring-2 focus:ring-indigo-200" />
         </div>
 
-        {/* Product filter */}
-        <select
-          value={filterProduct}
-          onChange={(e) => setFilterProduct(e.target.value)}
-          className="text-sm border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-200 text-gray-700"
-        >
+        <select value={filterProduct} onChange={(e) => setFilterProduct(e.target.value)}
+          className="text-sm border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-200 text-gray-700">
           <option value="all">Всі товари</option>
           <option value="hoodie">Худі</option>
           <option value="tshirt">Футболка</option>
@@ -204,50 +325,31 @@ export default function MyOrders({ savedOrders = [], onUpdateOrder, onDeleteOrde
           <option value="totebag">Сумка шопер</option>
         </select>
 
-        {/* Status filter */}
-        <select
-          value={filterStatus}
-          onChange={(e) => setFilterStatus(e.target.value)}
-          className="text-sm border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-200 text-gray-700"
-        >
+        <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}
+          className="text-sm border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-200 text-gray-700">
           <option value="all">Всі статуси</option>
           <option value="new">В роботі</option>
           <option value="review">На перевірці</option>
           <option value="approved">Одобрено</option>
         </select>
 
-        {/* Sort */}
-        <select
-          value={sortBy}
-          onChange={(e) => setSortBy(e.target.value)}
-          className="text-sm border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-200 text-gray-700"
-        >
+        <select value={sortBy} onChange={(e) => setSortBy(e.target.value)}
+          className="text-sm border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-200 text-gray-700">
           <option value="newest">Спочатку нові</option>
           <option value="oldest">Спочатку старі</option>
         </select>
 
-        {/* View toggle */}
         <div className="ml-auto flex items-center gap-1 border border-gray-200 rounded-xl p-1">
-          <button
-            onClick={() => setViewMode('grid')}
-            className={`p-1.5 rounded-lg transition-colors ${viewMode === 'grid' ? 'bg-indigo-50 text-indigo-600' : 'text-gray-400 hover:text-gray-600'}`}
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
-            </svg>
+          <button onClick={() => setViewMode('grid')} className={`p-1.5 rounded-lg transition-colors ${viewMode === 'grid' ? 'bg-indigo-50 text-indigo-600' : 'text-gray-400 hover:text-gray-600'}`}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
           </button>
-          <button
-            onClick={() => setViewMode('list')}
-            className={`p-1.5 rounded-lg transition-colors ${viewMode === 'list' ? 'bg-indigo-50 text-indigo-600' : 'text-gray-400 hover:text-gray-600'}`}
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>
-            </svg>
+          <button onClick={() => setViewMode('list')} className={`p-1.5 rounded-lg transition-colors ${viewMode === 'list' ? 'bg-indigo-50 text-indigo-600' : 'text-gray-400 hover:text-gray-600'}`}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
           </button>
         </div>
       </div>
 
-      {/* Kanban board */}
+      {/* Kanban */}
       <div className="flex-1 overflow-x-auto overflow-y-hidden">
         <div className="h-full p-6 flex gap-5 min-w-0">
           {(['new', 'review', 'approved']).map((status) => (
@@ -257,33 +359,38 @@ export default function MyOrders({ savedOrders = [], onUpdateOrder, onDeleteOrde
                 orders={byStatus(status)}
                 onStatusChange={handleStatusChange}
                 onDelete={onDeleteOrder}
+                onOpen={setSelectedOrder}
               />
             </div>
           ))}
         </div>
       </div>
 
-      {/* Footer pagination hint */}
+      {/* Footer */}
       <div className="bg-white border-t border-gray-100 px-8 py-3 flex items-center justify-between">
         <p className="text-sm text-gray-500">
           Показано 1–{filtered.length} із {allOrders.length} замовлень
         </p>
         <div className="flex items-center gap-1">
           <button className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-200 text-gray-400 hover:bg-gray-50 transition-colors">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <polyline points="15 18 9 12 15 6"/>
-            </svg>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15 18 9 12 15 6"/></svg>
           </button>
-          <button className="w-8 h-8 flex items-center justify-center rounded-lg bg-indigo-600 text-white text-sm font-medium">
-            1
-          </button>
+          <button className="w-8 h-8 flex items-center justify-center rounded-lg bg-indigo-600 text-white text-sm font-medium">1</button>
           <button className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-200 text-gray-400 hover:bg-gray-50 transition-colors">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <polyline points="9 18 15 12 9 6"/>
-            </svg>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 18 15 12 9 6"/></svg>
           </button>
         </div>
       </div>
+
+      {/* Detail modal */}
+      {selectedOrder && (
+        <OrderDetailModal
+          order={selectedOrder}
+          onClose={() => setSelectedOrder(null)}
+          onStatusChange={handleStatusChange}
+          onDelete={onDeleteOrder}
+        />
+      )}
     </div>
   )
 }
