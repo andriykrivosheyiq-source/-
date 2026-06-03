@@ -191,15 +191,15 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
   const wasSelectedRef = useRef(false)
 
   const [letters, setLetters] = useState([
-    { id: 'left',  x: 1,  y: 15, size: 22, rotation: -4,  color: '#000000' },
-    { id: 'right', x: 77, y: 15, size: 22, rotation: 19,  color: '#000000' },
+    { id: 'left',  x: 20, y: 20, size: 28, rotation: -4,  color: '#000000' },
+    { id: 'right', x: 52, y: 20, size: 28, rotation: 19,  color: '#000000' },
   ])
   const [letterStyle, setLetterStyle] = useState('D')
   const [showGrid, setShowGrid] = useState(false)
   const [ttoLetters, setTtoLetters] = useState([
-    { id: 'tLeft',  x: 4,  y: 8, size: 23, rotation: 0, color: '#000000' },
-    { id: 'tRight', x: 29, y: 8, size: 23, rotation: 0, color: '#000000' },
-    { id: 'o',      x: 54, y: 8, size: 23, rotation: 0, color: '#000000' },
+    { id: 'tLeft',  x: 0,  y: 8, size: 28, rotation: 0, color: '#000000' },
+    { id: 'tRight', x: 37, y: 8, size: 28, rotation: 0, color: '#000000' },
+    { id: 'o',      x: 64, y: 8, size: 35, rotation: 0, color: '#000000' },
   ])
   const [estEl, setEstEl] = useState({ x: 50, y: 88, color: '#000000', fontSize: 2.8 })
   const [illus, setIllus] = useState({ x: 50, y: 45, size: 52, cropBottom: 0 })
@@ -333,9 +333,9 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
           <button
             onMouseDown={e => e.stopPropagation()}
             onClick={e => { e.stopPropagation(); setLetterStyle('TTO'); setSelected(null); setTtoLetters(prev => [
-              { id: 'tLeft',  x: 4,  y: 8, size: 23, rotation: 0, color: prev[0]?.color || '#000000' },
-              { id: 'tRight', x: 29, y: 8, size: 23, rotation: 0, color: prev[1]?.color || '#000000' },
-              { id: 'o',      x: 54, y: 8, size: 23, rotation: 0, color: prev[2]?.color || '#000000' },
+              { id: 'tLeft',  x: 0,  y: 8, size: 28, rotation: 0, color: prev[0]?.color || '#000000' },
+              { id: 'tRight', x: 37, y: 8, size: 28, rotation: 0, color: prev[1]?.color || '#000000' },
+              { id: 'o',      x: 64, y: 8, size: 35, rotation: 0, color: prev[2]?.color || '#000000' },
             ]) }}
             style={{ padding: '3px 10px', borderRadius: '7px', fontSize: '11px', fontWeight: 700, border: 'none', cursor: 'pointer', background: letterStyle === 'TTO' ? '#4f46e5' : 'transparent', color: letterStyle === 'TTO' ? '#fff' : '#6b7280' }}
           >T T O</button>
