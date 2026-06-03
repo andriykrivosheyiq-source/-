@@ -1,16 +1,19 @@
 /**
- * CRM integration for sending client files.
+ * CRM integration for sending client files via Sitniks API.
  *
- * To connect your CRM, set these env vars in .env:
- *   VITE_CRM_API_URL  — e.g. https://api.your-crm.com
- *   VITE_CRM_API_KEY  — bearer token or API key
+ * Required env vars in .env:
+ *   VITE_CRM_API_URL              — e.g. https://api.sitniks.com
+ *   VITE_CRM_API_KEY              — bearer token / API key
+ *   VITE_CLOUDINARY_CLOUD_NAME    — e.g. dgwiuq1lr
+ *   VITE_CLOUDINARY_UPLOAD_PRESET — unsigned upload preset name
  *
- * The endpoint is expected to accept multipart/form-data:
- *   POST {VITE_CRM_API_URL}/send-files
- *   Authorization: Bearer {VITE_CRM_API_KEY}
- *   fields:  clientPhone, note (optional)
- *   files[]: each file as a blob with its filename
+ * Flow:
+ *   1. Each file (base64 dataUrl) is uploaded to Cloudinary → public URL
+ *   2. URLs are sent to Sitniks via POST /send-files as JSON
+ *      { clientPhone, note?, files: [{ filename, url }] }
  */
+import { uploadImageToCloudinary } from './imageUpload.js'
+
 export async function sendToClientCRM({ clientPhone, files, note }) {
   const apiUrl = import.meta.env.VITE_CRM_API_URL
   const apiKey = import.meta.env.VITE_CRM_API_KEY
@@ -19,23 +22,24 @@ export async function sendToClientCRM({ clientPhone, files, note }) {
     throw new Error('CRM_NOT_CONFIGURED')
   }
 
-  const formData = new FormData()
-  formData.append('clientPhone', clientPhone)
-  if (note) formData.append('note', note)
+  // Upload each image to Cloudinary to get a public URL
+  const uploadedFiles = await Promise.all(
+    files.map(async (file) => {
+      const url = await uploadImageToCloudinary(file.dataUrl, file.filename)
+      return { filename: file.filename, url }
+    })
+  )
 
-  for (const file of files) {
-    const res = await fetch(file.dataUrl)
-    const blob = await res.blob()
-    formData.append('files', blob, file.filename)
-  }
-
-  const headers = {}
+  const headers = { 'Content-Type': 'application/json' }
   if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`
+
+  const body = { clientPhone, files: uploadedFiles }
+  if (note) body.note = note
 
   const response = await fetch(`${apiUrl}/send-files`, {
     method: 'POST',
     headers,
-    body: formData,
+    body: JSON.stringify(body),
   })
 
   if (!response.ok) {
