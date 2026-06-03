@@ -3,11 +3,18 @@ import { useNavigate } from 'react-router-dom'
 import { mockOrders } from '../data/mockData'
 
 const STATUS_CONFIG = {
-  new:      { label: 'В роботі',     dot: 'bg-blue-400',   bg: 'bg-blue-50 border-blue-100',     badge: 'bg-blue-100 text-blue-700' },
-  review:   { label: 'На перевірці', dot: 'bg-yellow-400', bg: 'bg-yellow-50 border-yellow-100', badge: 'bg-yellow-100 text-yellow-700' },
-  approved: { label: 'Одобрено',     dot: 'bg-green-400',  bg: 'bg-green-50 border-green-100',   badge: 'bg-green-100 text-green-700' },
+  new:      { label: 'В роботі',          dot: 'bg-blue-400',   bg: 'bg-blue-50 border-blue-100',       badge: 'bg-blue-100 text-blue-700' },
+  review:   { label: 'На перевірці',      dot: 'bg-yellow-400', bg: 'bg-yellow-50 border-yellow-100',   badge: 'bg-yellow-100 text-yellow-700' },
+  approved: { label: 'Одобрено',          dot: 'bg-green-400',  bg: 'bg-green-50 border-green-100',     badge: 'bg-green-100 text-green-700' },
+  designer: { label: 'Передано дизайнеру',dot: 'bg-purple-400', bg: 'bg-purple-50 border-purple-100',  badge: 'bg-purple-100 text-purple-700' },
+  done:     { label: 'Виконано',          dot: 'bg-gray-400',   bg: 'bg-gray-50 border-gray-100',       badge: 'bg-gray-100 text-gray-700' },
 }
 const STATUSES = Object.entries(STATUS_CONFIG).map(([k, v]) => ({ key: k, label: v.label }))
+
+const KYIV_DATE = (iso) => new Date(iso).toLocaleString('uk-UA', {
+  day: '2-digit', month: '2-digit', year: 'numeric',
+  hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Kiev'
+}).replace(',', '')
 
 // ─── Order Detail Modal ────────────────────────────────────────────────────────
 
@@ -80,6 +87,18 @@ function OrderDetailModal({ order, extras, onClose, onStatusChange, onDelete, on
             </div>
           )}
 
+          {/* Designer info */}
+          {order.designer && (
+            <div className="bg-purple-50 border border-purple-100 rounded-xl px-4 py-3 space-y-1">
+              <p className="text-xs font-semibold text-purple-700">Вишивальний дизайнер</p>
+              <p className="text-sm font-bold text-gray-800">{order.designer}</p>
+              {order.transferDate && (
+                <p className="text-xs text-gray-500">Дата передачі: {KYIV_DATE(order.transferDate)}</p>
+              )}
+              {order.comment && <p className="text-xs text-gray-500 italic">«{order.comment}»</p>}
+            </div>
+          )}
+
           {/* Comment */}
           <div>
             <label className="text-xs font-medium text-gray-600 block mb-1">Коментар / нотатки</label>
@@ -137,6 +156,7 @@ function OrderDetailModal({ order, extras, onClose, onStatusChange, onDelete, on
 function OrderCard({ order, onStatusChange, onDelete, onOpen }) {
   const [hover, setHover] = useState(false)
   const cfg = STATUS_CONFIG[order.status] || STATUS_CONFIG.new
+  const isOverdue = order.transferDate && (Date.now() - new Date(order.transferDate).getTime() > 24 * 3600 * 1000)
 
   const handleDragStart = (e) => {
     e.dataTransfer.setData('orderId', order.id)
@@ -148,7 +168,7 @@ function OrderCard({ order, onStatusChange, onDelete, onOpen }) {
       draggable
       onDragStart={handleDragStart}
       onClick={() => onOpen?.(order)}
-      className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-visible hover:shadow-md transition-all duration-200 cursor-grab active:cursor-grabbing active:opacity-70 active:scale-95"
+      className={`bg-white rounded-xl shadow-sm overflow-visible hover:shadow-md transition-all duration-200 cursor-grab active:cursor-grabbing active:opacity-70 active:scale-95 ${isOverdue ? 'border-2 border-red-400' : 'border border-gray-100'}`}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
     >
@@ -188,8 +208,20 @@ function OrderCard({ order, onStatusChange, onDelete, onOpen }) {
           </div>
           {order.productName && <p className="text-[11px] text-gray-500 truncate">{order.productName}</p>}
           <p className="text-[11px] text-gray-400 mt-0.5">{order.date}</p>
+          {order.designer && (
+            <p className="text-[11px] text-purple-600 font-medium mt-0.5 truncate">{order.designer}</p>
+          )}
+          {order.transferDate && (
+            <p className="text-[10px] text-gray-400 truncate">Передано: {KYIV_DATE(order.transferDate)}</p>
+          )}
         </div>
       </div>
+      {isOverdue && (
+        <div className="mx-3 mb-2 flex items-center gap-1.5 bg-red-50 border border-red-200 rounded-lg px-2 py-1">
+          <span className="w-1.5 h-1.5 rounded-full bg-red-500 flex-shrink-0" />
+          <span className="text-[10px] text-red-600 font-medium">Більше 24 год у дизайнера</span>
+        </div>
+      )}
 
       <div className="px-3 pb-3 flex items-center gap-1">
         {(order.colors || []).slice(0, 4).map((hex, i) => (
@@ -356,6 +388,8 @@ export default function MyOrders({ savedOrders = [], orderExtras = {}, onUpdateO
           <option value="new">В роботі</option>
           <option value="review">На перевірці</option>
           <option value="approved">Одобрено</option>
+          <option value="designer">Передано дизайнеру</option>
+          <option value="done">Виконано</option>
         </select>
 
         <select value={sortBy} onChange={(e) => setSortBy(e.target.value)}
@@ -377,7 +411,7 @@ export default function MyOrders({ savedOrders = [], orderExtras = {}, onUpdateO
       {/* Kanban */}
       <div className="flex-1 overflow-x-auto overflow-y-hidden">
         <div className="h-full p-6 flex gap-5 min-w-0">
-          {(['new', 'review', 'approved']).map((status) => (
+          {(['new', 'review', 'approved', 'designer', 'done']).map((status) => (
             <div key={status} className="flex-1 min-w-[280px] flex flex-col overflow-hidden">
               <Column
                 status={status}

@@ -11,6 +11,14 @@ const D_PATH =
 
 const PRESET_COLORS = ['#000000', '#1e3a5f', '#c0392b', '#2d5a27', '#d97706', '#7c3aed', '#9ca3af', '#8b5e3c']
 
+const DESIGNERS = [
+  { id: 'andrii',    name: 'Андрій',    handle: '@andrii_design',    color: 'bg-blue-500' },
+  { id: 'maksym',    name: 'Максим',    handle: '@maksym_design',    color: 'bg-green-500' },
+  { id: 'oleksandr', name: 'Олександр', handle: '@oleksandr_design', color: 'bg-orange-500' },
+  { id: 'mariia',    name: 'Марія',     handle: '@mariia_design',    color: 'bg-pink-500' },
+  { id: 'yuliia',    name: 'Юлія',      handle: '@yuliia_design',    color: 'bg-purple-500' },
+]
+
 // ─── Canvas utilities ─────────────────────────────────────────────────────────
 
 function loadImgEl(src) {
@@ -811,6 +819,11 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder }) {
   const [showSendModal, setShowSendModal] = useState(false)
   const [sendItems, setSendItems] = useState([])
   const [preparingSend, setPreparingSend] = useState(false)
+  const [sendOrderSize, setSendOrderSize] = useState('XL')
+  const [sendEmbroiderySize, setSendEmbroiderySize] = useState('')
+  const [selectedDesigner, setSelectedDesigner] = useState(null)
+  const [designerComment, setDesignerComment] = useState('')
+  const [showDesignerDropdown, setShowDesignerDropdown] = useState(false)
 
   useEffect(() => {
     if (!designData?.uploadedFile) return
@@ -1091,7 +1104,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder }) {
 
   const handleSaveDesign = async () => {
     const now = new Date()
-    const dateStr = now.toLocaleString('uk-UA', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+    const dateStr = now.toLocaleString('uk-UA', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Kiev' })
     const orderNum = fileName ? `#${fileName}` : `#${String(now.getTime()).slice(-5)}`
 
     // Build small design thumbnail (≤200px) to store alongside product image
@@ -1137,6 +1150,70 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder }) {
       image: thumb,
     }
     onSaveOrder?.(order, { fullImage, designSnapshot })
+    navigate('/orders')
+  }
+
+  const handleConfirmTransfer = async () => {
+    // Download all checked files
+    sendItems.filter(i => i.checked).forEach(item => {
+      const a = document.createElement('a'); a.download = item.filename; a.href = item.dataUrl; a.click()
+    })
+
+    const now = new Date()
+    const dateStr = now.toLocaleString('uk-UA', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Kiev' })
+    const orderNum = fileName ? `#${fileName}` : `#${String(now.getTime()).slice(-5)}`
+
+    let thumb = currentProduct?.image || null
+    let fullImage = null
+    try {
+      let srcCanvas = null
+      if (isEst && estPosterRef.current) {
+        srcCanvas = await estPosterRef.current.exportToCanvas()
+      } else if (currentDesignImage && currentDesignImage.startsWith('data:')) {
+        const img = await loadImgEl(currentDesignImage)
+        srcCanvas = document.createElement('canvas')
+        srcCanvas.width = img.width; srcCanvas.height = img.height
+        srcCanvas.getContext('2d').drawImage(img, 0, 0)
+      }
+      if (srcCanvas) {
+        fullImage = srcCanvas.toDataURL('image/png')
+        const tw = 800, th = Math.round(srcCanvas.height * 800 / srcCanvas.width)
+        const t = document.createElement('canvas'); t.width = tw; t.height = th
+        t.getContext('2d').drawImage(srcCanvas, 0, 0, tw, th)
+        thumb = t.toDataURL('image/jpeg', 0.85)
+      }
+    } catch {}
+
+    const catMap = { 'hoodie-basic': 'hoodie', 'hoodie-fleece': 'hoodie', 'hoodie-premium': 'hoodie', 'tshirt-basic': 'tshirt', 'tshirt-oversized': 'oversized', 'sweatshirt': 'sweatshirt', 'cap': 'cap', 'shopper': 'totebag' }
+    const transferDateStr = now.toLocaleString('uk-UA', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Kiev' }).replace(',', '')
+    const order = {
+      id: orderNum,
+      name: fileName || `Дизайн від ${dateStr}`,
+      status: 'designer',
+      productId: catMap[currentProduct?.category] || currentProduct?.category || 'hoodie',
+      productName: currentProduct?.nameUk || '',
+      date: dateStr,
+      colors: [designData?.productColors?.[selectedProduct] || '#1a1a1a'],
+      image: thumb,
+      designer: selectedDesigner?.handle || '',
+      designerName: selectedDesigner?.name || '',
+      designerColor: selectedDesigner?.color || 'bg-blue-500',
+      transferDate: now.toISOString(),
+      transferDateStr,
+      comment: designerComment,
+      orderSize: sendOrderSize,
+      embroiderySize: sendEmbroiderySize,
+    }
+    const designSnapshot = {
+      selectedProducts: designData?.selectedProducts || [selectedProduct],
+      selectedStyle: designData?.selectedStyle,
+      generatedDesigns: designData?.generatedDesigns,
+      fileName,
+      productColors: designData?.productColors,
+      uploadedFile: null,
+    }
+    onSaveOrder?.(order, { fullImage, designSnapshot })
+    setShowSendModal(false)
     navigate('/orders')
   }
 
@@ -1380,6 +1457,8 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder }) {
               <option value="new">В роботі</option>
               <option value="review">На перевірці</option>
               <option value="approved">Одобрено</option>
+              <option value="designer">Передано дизайнеру</option>
+              <option value="done">Виконано</option>
             </select>
           </div>
 
@@ -1417,7 +1496,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder }) {
               className="w-full flex items-center justify-center gap-2 border border-indigo-200 text-indigo-600 hover:bg-indigo-50 rounded-xl py-2.5 text-sm font-semibold transition-colors"
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-              Відправити клієнту
+              Передати дизайнеру
             </button>
           </div>
 
@@ -1431,68 +1510,139 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder }) {
       {showAddMockupModal && <ChangeProductModal current={null} onSelect={(id) => { setExtraMockupProducts(prev => [...prev, id]); setShowAddMockupModal(false) }} onClose={() => setShowAddMockupModal(false)} />}
 
       {showSendModal && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg">
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setShowSendModal(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             {/* Header */}
-            <div className="relative px-6 pt-6 pb-4 text-center">
-              <button onClick={() => setShowSendModal(false)} className="absolute right-4 top-4 w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors">
+            <div className="flex items-start justify-between px-6 pt-6 pb-2">
+              <div>
+                <h2 className="text-xl font-bold text-gray-900">Підтвердити передачу дизайнеру</h2>
+                <p className="text-sm text-gray-500 mt-1 leading-relaxed">Перевірте деталі замовлення, виберіть файли для передачі та дизайнера.<br/>Після підтвердження статус зміниться на «Передано дизайнером».</p>
+              </div>
+              <button onClick={() => setShowSendModal(false)} className="ml-4 flex-shrink-0 w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
               </button>
-              <div className="w-16 h-16 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#6366f1" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+            </div>
+
+            <div className="px-6 pb-6 space-y-6">
+              {/* Order info */}
+              <div>
+                <h3 className="text-base font-bold text-gray-900 mb-3">Інформація про замовлення</h3>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs text-gray-500 block mb-1">Номер замовлення</label>
+                    <div className="border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-800 bg-gray-50">{fileName || '—'}</div>
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500 block mb-1">Тип одягу та колір</label>
+                    <div className="border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-800 bg-gray-50 flex items-center gap-2">
+                      <span className="w-4 h-4 rounded-full flex-shrink-0 border border-gray-200" style={{ backgroundColor: designData?.productColors?.[selectedProduct] || '#9ca3af' }} />
+                      {currentProduct?.nameUk || '—'}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500 block mb-1">Розмір</label>
+                    <input value={sendOrderSize} onChange={e => setSendOrderSize(e.target.value)} className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300" placeholder="XL" />
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500 block mb-1">Розмір вишивки</label>
+                    <input value={sendEmbroiderySize} onChange={e => setSendEmbroiderySize(e.target.value)} className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300" placeholder="23 см" />
+                  </div>
+                </div>
               </div>
-              <h2 className="text-xl font-bold text-gray-900 mb-2">Відправити дизайн клієнту?</h2>
-              <p className="text-sm text-gray-500 leading-relaxed">
-                {preparingSend
-                  ? 'Підготовка файлів...'
-                  : `Буде відправлено ${sendItems.filter(i => i.checked).length} ${['файл','файли','файлів'][[1,2,3,4].includes(sendItems.filter(i=>i.checked).length) ? sendItems.filter(i=>i.checked).length === 1 ? 0 : 1 : 2]}. Перевірте список перед відправкою. Ви можете прибрати непотрібні файли зі списку.`}
-              </p>
+
+              {/* Files */}
+              <div>
+                <h3 className="text-base font-bold text-gray-900 mb-1">Файли для передачі</h3>
+                <p className="text-sm text-gray-500 mb-3">Оберіть файли, які передаються дизайнеру</p>
+                {preparingSend ? (
+                  <div className="flex items-center justify-center py-10 gap-3">
+                    <svg className="animate-spin w-5 h-5 text-indigo-500" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" className="opacity-25"/><path d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" fill="currentColor"/></svg>
+                    <span className="text-sm text-gray-500">Генерація мокапів...</span>
+                  </div>
+                ) : (
+                  <div className="flex gap-3 overflow-x-auto pb-2">
+                    {sendItems.map((item, idx) => (
+                      <div key={item.id} className={`flex-shrink-0 w-44 border-2 rounded-xl p-3 cursor-pointer transition-all ${item.checked ? 'border-indigo-500 bg-indigo-50/40' : 'border-gray-200 bg-white'}`} onClick={() => setSendItems(prev => prev.map((it, i) => i === idx ? { ...it, checked: !it.checked } : it))}>
+                        <div className="flex items-center justify-between mb-2">
+                          <div className={`w-5 h-5 rounded flex items-center justify-center border-2 transition-colors ${item.checked ? 'bg-indigo-600 border-indigo-600' : 'border-gray-300 bg-white'}`}>
+                            {item.checked && <svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M2 6l3 3 5-5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                          </div>
+                          <button onClick={e => { e.stopPropagation(); setSendItems(prev => prev.filter((_, i) => i !== idx)) }} className="w-6 h-6 flex items-center justify-center text-gray-400 hover:text-red-500 rounded-lg hover:bg-red-50 transition-colors">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                          </button>
+                        </div>
+                        <div className="w-full h-28 bg-white rounded-lg overflow-hidden border border-gray-100 flex items-center justify-center mb-2">
+                          <img src={item.thumbnail} alt="" className="w-full h-full object-contain" />
+                        </div>
+                        <p className="text-xs font-semibold text-gray-800 truncate">{item.label.replace('.png','')}</p>
+                        <p className="text-[10px] text-gray-400 mt-0.5 truncate">{item.filename}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Designer + Comment */}
+              <div>
+                <h3 className="text-base font-bold text-gray-900 mb-3">Передати дизайнеру</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-xs text-gray-500 block mb-1">Виберіть дизайнера</label>
+                    <div className="relative">
+                      <button
+                        type="button"
+                        onClick={() => setShowDesignerDropdown(v => !v)}
+                        className={`w-full flex items-center justify-between border rounded-xl px-3 py-2.5 text-sm transition-colors ${showDesignerDropdown ? 'border-indigo-400 ring-2 ring-indigo-200' : 'border-gray-200'}`}
+                      >
+                        {selectedDesigner ? (
+                          <span className="flex items-center gap-2">
+                            <span className={`w-6 h-6 rounded-full ${selectedDesigner.color} text-white text-[10px] font-bold flex items-center justify-center`}>{selectedDesigner.name[0]}</span>
+                            {selectedDesigner.name}
+                          </span>
+                        ) : <span className="text-gray-400">Виберіть дизайнера</span>}
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={`transition-transform ${showDesignerDropdown ? 'rotate-180' : ''}`}><polyline points="6 9 12 15 18 9"/></svg>
+                      </button>
+                      {showDesignerDropdown && (
+                        <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg z-10 overflow-hidden">
+                          {DESIGNERS.map(d => (
+                            <button key={d.id} type="button" onClick={() => { setSelectedDesigner(d); setShowDesignerDropdown(false) }} className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-indigo-50 transition-colors text-left">
+                              <span className={`w-8 h-8 rounded-full ${d.color} text-white text-xs font-bold flex items-center justify-center flex-shrink-0`}>{d.name[0]}</span>
+                              <span className="text-sm font-medium text-gray-800">{d.name}</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500 block mb-1">Коментар (необов'язково)</label>
+                    <textarea
+                      value={designerComment}
+                      onChange={e => setDesignerComment(e.target.value.slice(0, 200))}
+                      placeholder="Додайте коментар для дизайнера..."
+                      className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm resize-none h-24 focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                    />
+                    <div className="flex items-center justify-between mt-1">
+                      <p className="text-[11px] text-gray-400">Наприклад: Терміново, зберегти всі деталі обличчя тощо.</p>
+                      <span className="text-[11px] text-gray-400">{designerComment.length}/200</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
 
-            {/* File list */}
-            <div className="px-4 pb-2 max-h-72 overflow-y-auto space-y-2">
-              {preparingSend ? (
-                <div className="flex items-center justify-center py-10 gap-3">
-                  <svg className="animate-spin w-5 h-5 text-indigo-500" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" className="opacity-25"/><path d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" fill="currentColor"/></svg>
-                  <span className="text-sm text-gray-500">Генерація мокапів...</span>
-                </div>
-              ) : sendItems.map((item, idx) => (
-                <div key={item.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
-                  <input
-                    type="checkbox"
-                    checked={item.checked}
-                    onChange={e => setSendItems(prev => prev.map((it, i) => i === idx ? { ...it, checked: e.target.checked } : it))}
-                    className="w-4 h-4 accent-indigo-600 flex-shrink-0 cursor-pointer"
-                  />
-                  <div className="w-11 h-11 flex-shrink-0 bg-white rounded-lg overflow-hidden flex items-center justify-center border border-gray-100">
-                    <img src={item.thumbnail} alt="" className="w-full h-full object-contain" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-800 truncate">{item.label}</p>
-                    <p className="text-xs text-gray-400 mt-0.5">PNG • {item.size}</p>
-                  </div>
-                  <button
-                    onClick={() => setSendItems(prev => prev.filter((_, i) => i !== idx))}
-                    className="w-7 h-7 flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors flex-shrink-0"
-                  >
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                  </button>
-                </div>
-              ))}
-            </div>
-
-            {/* Actions */}
-            <div className="p-4 flex gap-3">
+            {/* Footer */}
+            <div className="px-6 pb-6 flex gap-3">
               <button onClick={() => setShowSendModal(false)} className="flex-1 border border-gray-200 text-gray-700 hover:bg-gray-50 rounded-xl py-3 text-sm font-semibold transition-colors">
                 Скасувати
               </button>
               <button
-                onClick={handleSendFiles}
-                disabled={preparingSend || sendItems.filter(i => i.checked).length === 0}
+                onClick={handleConfirmTransfer}
+                disabled={preparingSend || !selectedDesigner}
                 className="flex-1 flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl py-3 text-sm font-semibold transition-colors disabled:opacity-50"
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-                Відправити {sendItems.filter(i => i.checked).length} {['файл','файли','файлів'][[1,2,3,4].includes(sendItems.filter(i=>i.checked).length) ? sendItems.filter(i=>i.checked).length === 1 ? 0 : 1 : 2]}
+                Підтвердити передачу дизайнеру
               </button>
             </div>
           </div>
