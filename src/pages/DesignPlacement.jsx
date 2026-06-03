@@ -195,6 +195,7 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
     { id: 'right', x: 77, y: 15, size: 22, rotation: 19,  color: '#000000' },
   ])
   const [letterStyle, setLetterStyle] = useState('D')
+  const [showGrid, setShowGrid] = useState(false)
   const [ttoLetters, setTtoLetters] = useState([
     { id: 'tLeft',  x: 4,  y: 8, size: 23, rotation: 0, color: '#000000' },
     { id: 'tRight', x: 29, y: 8, size: 23, rotation: 0, color: '#000000' },
@@ -313,23 +314,82 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
     <div style={{ background: '#ffffff', width: '100%', borderRadius: '12px' }}>
       <div ref={containerRef} onClick={() => setSelected(null)} style={{ position: 'relative', width: '100%', aspectRatio: '16 / 9', background: '#ffffff', userSelect: 'none', touchAction: 'none', overflow: 'hidden' }}>
 
-        {/* Letter style switcher */}
-        <div style={{ position: 'absolute', top: '8px', right: '8px', zIndex: 25, display: 'flex', background: 'rgba(255,255,255,0.92)', borderRadius: '10px', padding: '3px', gap: '2px', boxShadow: '0 1px 6px rgba(0,0,0,0.18)' }}>
+        {/* Letter style switcher + grid toggle */}
+        <div style={{ position: 'absolute', top: '8px', right: '8px', zIndex: 25, display: 'flex', gap: '6px', alignItems: 'center' }}>
+          {/* Grid toggle */}
           <button
             onMouseDown={e => e.stopPropagation()}
-            onClick={e => { e.stopPropagation(); setLetterStyle('D'); setSelected(null) }}
-            style={{ padding: '3px 10px', borderRadius: '7px', fontSize: '11px', fontWeight: 700, border: 'none', cursor: 'pointer', background: letterStyle === 'D' ? '#4f46e5' : 'transparent', color: letterStyle === 'D' ? '#fff' : '#6b7280' }}
-          >D D</button>
-          <button
-            onMouseDown={e => e.stopPropagation()}
-            onClick={e => { e.stopPropagation(); setLetterStyle('TTO'); setSelected(null); setTtoLetters(prev => [
-              { id: 'tLeft',  x: 4,  y: 8, size: 23, rotation: 0, color: prev[0]?.color || '#000000' },
-              { id: 'tRight', x: 29, y: 8, size: 23, rotation: 0, color: prev[1]?.color || '#000000' },
-              { id: 'o',      x: 54, y: 8, size: 23, rotation: 0, color: prev[2]?.color || '#000000' },
-            ]) }}
-            style={{ padding: '3px 10px', borderRadius: '7px', fontSize: '11px', fontWeight: 700, border: 'none', cursor: 'pointer', background: letterStyle === 'TTO' ? '#4f46e5' : 'transparent', color: letterStyle === 'TTO' ? '#fff' : '#6b7280' }}
-          >T T O</button>
+            onClick={e => { e.stopPropagation(); setShowGrid(v => !v) }}
+            title="Сітка / лінійка"
+            style={{ padding: '4px 7px', borderRadius: '8px', fontSize: '11px', fontWeight: 700, border: 'none', cursor: 'pointer', background: showGrid ? '#4f46e5' : 'rgba(255,255,255,0.92)', color: showGrid ? '#fff' : '#6b7280', boxShadow: '0 1px 6px rgba(0,0,0,0.18)', display: 'flex', alignItems: 'center', gap: '4px' }}
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg>
+          </button>
+          {/* DD / TTO */}
+          <div style={{ display: 'flex', background: 'rgba(255,255,255,0.92)', borderRadius: '10px', padding: '3px', gap: '2px', boxShadow: '0 1px 6px rgba(0,0,0,0.18)' }}>
+            <button
+              onMouseDown={e => e.stopPropagation()}
+              onClick={e => { e.stopPropagation(); setLetterStyle('D'); setSelected(null) }}
+              style={{ padding: '3px 10px', borderRadius: '7px', fontSize: '11px', fontWeight: 700, border: 'none', cursor: 'pointer', background: letterStyle === 'D' ? '#4f46e5' : 'transparent', color: letterStyle === 'D' ? '#fff' : '#6b7280' }}
+            >D D</button>
+            <button
+              onMouseDown={e => e.stopPropagation()}
+              onClick={e => { e.stopPropagation(); setLetterStyle('TTO'); setSelected(null); setTtoLetters(prev => [
+                { id: 'tLeft',  x: 4,  y: 8, size: 23, rotation: 0, color: prev[0]?.color || '#000000' },
+                { id: 'tRight', x: 29, y: 8, size: 23, rotation: 0, color: prev[1]?.color || '#000000' },
+                { id: 'o',      x: 54, y: 8, size: 23, rotation: 0, color: prev[2]?.color || '#000000' },
+              ]) }}
+              style={{ padding: '3px 10px', borderRadius: '7px', fontSize: '11px', fontWeight: 700, border: 'none', cursor: 'pointer', background: letterStyle === 'TTO' ? '#4f46e5' : 'transparent', color: letterStyle === 'TTO' ? '#fff' : '#6b7280' }}
+            >T T O</button>
+          </div>
         </div>
+
+        {/* Grid + ruler overlay — 30cm wide × ~17cm tall assumed print area */}
+        {showGrid && (
+          <svg
+            style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 22 }}
+            viewBox="0 0 160 90"
+            preserveAspectRatio="none"
+          >
+            {/* Minor grid lines every 5% */}
+            {Array.from({ length: 19 }, (_, i) => (i + 1) * 160 / 20).map((x, i) => (
+              <line key={'mv'+i} x1={x} y1={0} x2={x} y2={90} stroke="rgba(99,102,241,0.12)" strokeWidth="0.25" />
+            ))}
+            {Array.from({ length: 19 }, (_, i) => (i + 1) * 90 / 20).map((y, i) => (
+              <line key={'mh'+i} x1={0} y1={y} x2={160} y2={y} stroke="rgba(99,102,241,0.12)" strokeWidth="0.25" />
+            ))}
+            {/* Major grid lines every 10% */}
+            {[16, 32, 48, 64, 80, 96, 112, 128, 144].map((x, i) => (
+              <line key={'v'+i} x1={x} y1={0} x2={x} y2={90} stroke="rgba(99,102,241,0.35)" strokeWidth="0.4" />
+            ))}
+            {[9, 18, 27, 36, 45, 54, 63, 72, 81].map((y, i) => (
+              <line key={'h'+i} x1={0} y1={y} x2={160} y2={y} stroke="rgba(99,102,241,0.35)" strokeWidth="0.4" />
+            ))}
+            {/* TOP ruler — 0 to 30cm, tick every 3cm (10% steps) */}
+            {[0, 3, 6, 9, 12, 15, 18, 21, 24, 27, 30].map((cm, i) => {
+              const x = i * 16
+              return (
+                <g key={'tr'+i}>
+                  <rect x={x === 0 ? 0 : x - 0.4} y={0} width={x === 0 ? 8 : 0.8} height={x === 0 ? 0.8 : 3} fill="rgba(99,102,241,0.6)" />
+                  <text x={x === 0 ? 1 : x} y={6} fontSize="3.2" textAnchor={x === 0 ? 'start' : 'middle'} fill="rgba(67,56,202,0.9)" fontWeight="700" fontFamily="Arial">{cm}см</text>
+                </g>
+              )
+            })}
+            {/* BOTTOM ruler */}
+            {[0, 3, 6, 9, 12, 15, 18, 21, 24, 27, 30].map((cm, i) => {
+              const x = i * 16
+              return (
+                <g key={'br'+i}>
+                  <rect x={x === 0 ? 0 : x - 0.4} y={x === 0 ? 89.2 : 87} width={x === 0 ? 8 : 0.8} height={x === 0 ? 0.8 : 3} fill="rgba(99,102,241,0.6)" />
+                  <text x={x === 0 ? 1 : x} y={86} fontSize="3.2" textAnchor={x === 0 ? 'start' : 'middle'} fill="rgba(67,56,202,0.9)" fontWeight="700" fontFamily="Arial">{cm}см</text>
+                </g>
+              )
+            })}
+            {/* Center crosshair */}
+            <line x1={80} y1={0} x2={80} y2={90} stroke="rgba(239,68,68,0.4)" strokeWidth="0.5" strokeDasharray="2,2" />
+            <line x1={0} y1={45} x2={160} y2={45} stroke="rgba(239,68,68,0.4)" strokeWidth="0.5" strokeDasharray="2,2" />
+          </svg>
+        )}
 
         {!imageUrl && (
           <div style={{ position: 'absolute', top: '4%', bottom: '14%', left: '24%', right: '24%', display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
