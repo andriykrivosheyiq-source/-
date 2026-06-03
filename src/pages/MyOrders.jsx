@@ -11,9 +11,16 @@ const STATUSES = Object.entries(STATUS_CONFIG).map(([k, v]) => ({ key: k, label:
 
 // ─── Order Detail Modal ────────────────────────────────────────────────────────
 
-function OrderDetailModal({ order, extras, onClose, onStatusChange, onDelete, onOpenOrder }) {
+function OrderDetailModal({ order, extras, onClose, onStatusChange, onDelete, onOpenOrder, onUpdateOrder }) {
   const cfg = STATUS_CONFIG[order.status] || STATUS_CONFIG.new
   const [comment, setComment] = useState(order.comment || '')
+  const [saved, setSaved] = useState(false)
+
+  const handleSaveComment = () => {
+    onUpdateOrder?.(order.id, { comment })
+    setSaved(true)
+    setTimeout(() => setSaved(false), 1500)
+  }
   const displayImage = extras?.fullImage || order.image
 
   return (
@@ -78,10 +85,16 @@ function OrderDetailModal({ order, extras, onClose, onStatusChange, onDelete, on
             <label className="text-xs font-medium text-gray-600 block mb-1">Коментар / нотатки</label>
             <textarea
               value={comment}
-              onChange={e => setComment(e.target.value)}
+              onChange={e => { setComment(e.target.value); setSaved(false) }}
               placeholder="Додайте нотатку до замовлення..."
               className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm resize-none h-20 focus:outline-none focus:ring-2 focus:ring-indigo-300"
             />
+            <button
+              onClick={handleSaveComment}
+              className={`mt-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${saved ? 'bg-green-100 text-green-700' : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100'}`}
+            >
+              {saved ? '✓ Збережено' : 'Зберегти коментар'}
+            </button>
           </div>
 
           {/* Status change */}
@@ -403,6 +416,7 @@ export default function MyOrders({ savedOrders = [], orderExtras = {}, onUpdateO
           onStatusChange={handleStatusChange}
           onDelete={onDeleteOrder}
           onOpenOrder={onOpenOrder}
+          onUpdateOrder={onUpdateOrder}
         />
       )}
     </div>
