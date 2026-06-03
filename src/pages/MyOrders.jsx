@@ -27,19 +27,22 @@ function OrderDetailModal({ order, extras, onClose, onStatusChange, onDelete, on
       >
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-          <div className="flex items-center gap-3">
-            {order._saved && onOpenOrder ? (
-              <button
-                onClick={() => { onClose(); onOpenOrder(order.id) }}
-                className="text-lg font-bold text-indigo-600 hover:text-indigo-800 hover:underline transition-colors"
-                title="Відкрити в редакторі"
-              >
-                {order.id}
-              </button>
-            ) : (
-              <span className="text-lg font-bold text-gray-900">{order.id}</span>
-            )}
-            <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${cfg.badge}`}>{cfg.label}</span>
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="flex items-baseline gap-2 min-w-0">
+              {order._saved && onOpenOrder ? (
+                <button
+                  onClick={() => { onClose(); onOpenOrder(order.id) }}
+                  className="text-lg font-bold text-indigo-600 hover:text-indigo-800 hover:underline transition-colors shrink-0"
+                  title="Відкрити в редакторі"
+                >
+                  {order.id}
+                </button>
+              ) : (
+                <span className="text-lg font-bold text-gray-900 shrink-0">{order.id}</span>
+              )}
+              {order.name && <span className="text-sm font-medium text-gray-500 truncate">{order.name}</span>}
+            </div>
+            <span className={`text-xs font-semibold px-2.5 py-1 rounded-full shrink-0 ${cfg.badge}`}>{cfg.label}</span>
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
@@ -149,15 +152,18 @@ function OrderCard({ order, onStatusChange, onDelete, onOpen }) {
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-1">
-            <div>
-              <p className="text-sm font-semibold text-gray-900">{order.id}</p>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-baseline gap-1.5 flex-wrap">
+                <span className="text-sm font-bold text-gray-900 shrink-0">{order.id}</span>
+                <span className="text-xs font-medium text-gray-600 truncate">{order.name}</span>
+              </div>
               <span className={`inline-block text-[10px] font-medium px-2 py-0.5 rounded-full mt-0.5 ${cfg.badge}`}>
                 {cfg.label}
               </span>
             </div>
             {/* Action buttons — stop propagation so clicking them doesn't open modal */}
             <div
-              className={`relative flex gap-1 transition-opacity ${hover ? 'opacity-100' : 'opacity-0'}`}
+              className={`relative flex gap-1 transition-opacity shrink-0 ${hover ? 'opacity-100' : 'opacity-0'}`}
               onClick={e => e.stopPropagation()}
             >
               {order._saved && onDelete && (
@@ -171,7 +177,6 @@ function OrderCard({ order, onStatusChange, onDelete, onOpen }) {
               )}
             </div>
           </div>
-          <p className="text-xs font-medium text-gray-700 mt-1 truncate">{order.name}</p>
           {order.productName && <p className="text-[11px] text-gray-500 truncate">{order.productName}</p>}
           <p className="text-[11px] text-gray-400 mt-0.5">{order.date}</p>
         </div>
