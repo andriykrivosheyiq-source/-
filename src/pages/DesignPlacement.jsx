@@ -16,8 +16,15 @@ const PRESET_COLORS = ['#000000', '#1e3a5f', '#c0392b', '#2d5a27', '#d97706', '#
 function loadImgEl(src) {
   return new Promise((resolve, reject) => {
     const img = new Image()
+    img.crossOrigin = 'anonymous'
     img.onload = () => resolve(img)
-    img.onerror = reject
+    img.onerror = () => {
+      // retry without crossOrigin (some local/data URLs don't support it)
+      const img2 = new Image()
+      img2.onload = () => resolve(img2)
+      img2.onerror = reject
+      img2.src = src
+    }
     img.src = src
   })
 }
@@ -619,7 +626,7 @@ function MockupEditorModal({ designImage, product, fileName, onClose }) {
               ref={innerRef}
               style={{ position: 'absolute', inset: 0, transform: `scale(${viewScale})`, transformOrigin: 'center center' }}
             >
-              <img src={product?.image} alt={product?.nameUk} style={{ width: '100%', height: '100%', objectFit: 'contain', pointerEvents: 'none', display: 'block' }} />
+              <img src={product?.image} alt={product?.nameUk} style={{ width: '100%', height: '100%', objectFit: 'cover', pointerEvents: 'none', display: 'block' }} />
               {designImage && (
                 <div
                   onMouseDown={e => startDrag('move', e)}
@@ -971,8 +978,8 @@ export default function DesignPlacement({ designData, onUpdate }) {
             </button>
           </div>
           <div className="p-5 flex gap-6 items-center">
-            <button onClick={handleOpenMockup} disabled={preparingMockup} className="relative w-48 h-48 flex-shrink-0 bg-gray-50 rounded-xl overflow-hidden flex items-center justify-center hover:ring-2 hover:ring-indigo-400 transition-all group" title="Редагувати мокап">
-              <img src={currentProduct?.image} alt={currentProduct?.nameUk} className="w-full h-full object-contain" />
+            <button onClick={handleOpenMockup} disabled={preparingMockup} className="relative w-48 h-48 flex-shrink-0 bg-white rounded-xl overflow-hidden flex items-center justify-center hover:ring-2 hover:ring-indigo-400 transition-all group" title="Редагувати мокап">
+              <img src={currentProduct?.image} alt={currentProduct?.nameUk} className="w-full h-full object-cover" />
               {currentDesignImage && !preparingMockup && (
                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                   <img src={currentDesignImage} alt="design overlay" className="w-2/5 opacity-90 mix-blend-multiply rounded-lg" style={{ filter: 'contrast(1.1)' }} />
