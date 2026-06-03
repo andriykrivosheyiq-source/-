@@ -604,11 +604,266 @@ If a choice must be made:
 
 Identity always has the highest priority.`
 
+const FACELESS_FACE = `You are a professional graphic designer specializing in premium minimalist faceless family portrait design and luxury flat vector apparel graphics.
+
+TASK:
+Transform the uploaded photo into a premium minimalist FACELESS flat vector illustration suitable for apparel printing, embroidery-ready artwork, Cricut SVG designs, and luxury custom family portrait posters.
+
+This prompt must work correctly for:
+• 1 person
+• 2 people
+• families
+• parents with children
+• babies
+• any group size
+
+────────────────────────
+CANVAS SPECIFICATIONS
+────────────────────────
+• Size: 1920x1080px
+• Landscape orientation
+• Background: pure white #FFFFFF only
+• No texture
+• No gradients
+• No shadows
+• No decorative elements
+
+────────────────────────
+LAYOUT — CENTER ILLUSTRATION
+────────────────────────
+• Entire illustration centered at X = 960px
+• Vertically centered
+• Preserve original proportions
+• Do not shift composition
+
+────────────────────────
+VECTOR ILLUSTRATION STYLE
+────────────────────────
+Transform the uploaded photo into a premium flat vector illustration.
+
+STYLE REQUIREMENTS:
+• Flat vector illustration
+• Luxury apparel-design style
+• Premium Etsy family portrait aesthetic
+• Embroidery-ready artwork
+• Cricut-ready SVG style
+• Strong black contour outlines
+• Smooth professional vector lines
+• Solid color fills only
+• NO gradients
+• NO shading
+• NO shadows
+• NO highlights
+• NO texture
+• NO 3D effects
+
+────────────────────────
+FACELESS STYLE — ABSOLUTE PRIORITY
+────────────────────────
+All people must be illustrated WITHOUT any facial features.
+
+DO NOT SHOW:
+• eyes
+• eyebrows
+• eyelashes
+• nose
+• nostrils
+• mouth
+• lips
+• teeth
+• freckles
+• wrinkles
+• facial lines
+• facial shading
+• facial highlights
+• facial contours
+
+FACE RULE:
+Faces must remain completely blank.
+The head shape must be preserved, but the face area must contain NO visible facial features whatsoever.
+Use smooth uninterrupted skin-colored shapes only.
+No exceptions. No compromises.
+
+────────────────────────
+IDENTITY PRESERVATION
+────────────────────────
+Maintain visual differences between all individuals using ONLY:
+• hairstyle
+• hair silhouette
+• hair color
+• clothing color
+• clothing type
+• accessories
+• body proportions
+• pose
+• composition
+
+Identity must be recognizable through silhouette, hairstyle, clothing, and pose ONLY.
+Never use facial details for identification.
+
+────────────────────────
+VECTOR SIMPLIFICATION
+────────────────────────
+Target style:
+• Premium custom family vector portrait
+• Embroidery-ready artwork
+• Sweatshirt graphic illustration
+• Cricut-ready SVG artwork
+• Luxury faceless family portrait
+
+Reduce:
+• Clothing folds by 80%
+• Hair details by 90%
+• Fabric texture by 100%
+• Skin texture by 100%
+
+Use large clean vector shapes.
+Avoid excessive internal line work.
+
+────────────────────────
+SKIN COLOR — ALL PERSONS
+────────────────────────
+All people must use EXACTLY the same skin color: #D3B385
+
+Apply identically to:
+• face
+• ears
+• neck
+• hands
+• arms
+• legs
+• all visible skin
+
+No variation. No exceptions.
+
+────────────────────────
+HAIR
+────────────────────────
+Preserve:
+• hairstyle
+• hair silhouette
+• hair color
+
+Hair must be simplified into clean vector shapes.
+
+RESTRICTIONS:
+• No individual strands
+• No texture
+• No gradients
+• No shading
+• No realistic rendering
+
+Maximum 1–3 internal hair shapes per person.
+
+────────────────────────
+CLOTHING
+────────────────────────
+• Preserve original clothing colors
+• Preserve recognizable clothing types
+• Simplify folds, seams, wrinkles, fabric details
+• Convert clothing into clean vector shapes
+• Do not recolor clothing
+
+────────────────────────
+OUTLINES
+────────────────────────
+• Clear black contour outlines
+• Crisp vector edges
+• Consistent line weight
+• Professional SVG appearance
+• Prioritize clean outer contours
+• Minimize internal contour lines
+
+────────────────────────
+BACKGROUND REMOVAL
+────────────────────────
+• Remove original background completely
+• Replace with pure white #FFFFFF
+• No frame
+• No border
+• No background objects
+• No scenery
+• No decorative elements
+
+Illustration must float directly on the white background.
+
+────────────────────────
+POSITIONING
+────────────────────────
+• Entire illustration centered at X = 960px
+• Vertically centered
+• Height approximately 80–85% of canvas height
+• Preserve original proportions
+
+────────────────────────
+FINAL VISUAL STYLE
+────────────────────────
+Luxury minimalist FACELESS family poster.
+
+Pure white background.
+Bold black outlines.
+Premium vector aesthetic.
+Professional apparel graphic style.
+
+Inspired by:
+• Premium Etsy faceless family portraits
+• Modern sweatshirt graphics
+• Embroidery-ready vector artwork
+• Cricut-ready family SVG designs
+• Luxury personalized apparel illustrations
+
+────────────────────────
+ABSOLUTE RESTRICTIONS
+────────────────────────
+• No eyes
+• No eyebrows
+• No eyelashes
+• No nose
+• No nostrils
+• No mouth
+• No lips
+• No teeth
+• No facial details
+• No facial contour lines
+• No facial shading
+• No facial highlights
+• No text
+• No gradients
+• No shadows
+• No glow
+• No watercolor
+• No sketch effects
+• No painterly rendering
+• No realistic rendering
+• No decorative elements
+• No background objects
+• No texture overlays
+• No excessive line work
+
+────────────────────────
+QUALITY TARGET
+────────────────────────
+Preserve identity through:
+1. Hairstyle
+2. Hair color
+3. Clothing colors
+4. Clothing type
+5. Pose
+6. Body proportions
+7. Overall silhouette
+
+All facial features are strictly forbidden without exception.
+
+The final result must look like a premium commissioned faceless family vector portrait for luxury apparel printing and wall art.`
+
 export const PROMPTS = {
   'dad-face': [
     { label: 'DAD', prompt: DAD_FACE },
   ],
   'est-face': [
     { label: 'EST', prompt: EST_FACE },
+  ],
+  'faceless-face': [
+    { label: 'Faceless', prompt: FACELESS_FACE },
   ],
 }

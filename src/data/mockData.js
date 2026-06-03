@@ -131,6 +131,12 @@ export const designStyles = [
     nameUk: 'EST Портрет',
     image: `${b}1a0ac8a8-3d48-4892-bfa5-b0325a4b0e92-removebg-preview.png`,
   },
+  {
+    id: 'faceless-face',
+    name: 'Без рис обличчя',
+    nameUk: 'Без рис обличчя',
+    image: `${b}1a0ac8a8-3d48-4892-bfa5-b0325a4b0e92-removebg-preview.png`,
+  },
 ]
 
 export const mockOrders = [

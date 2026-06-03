@@ -697,6 +697,7 @@ export default function DesignPlacement({ designData, onUpdate }) {
     const style = designData?.selectedStyle
     if (style === 'dad-face') return `Dad_Est_${year}_Design`
     if (style === 'est-face') return `Est_${year}_Design`
+    if (style === 'faceless-face') return `Faceless_${year}_Design`
     return `Design_${year}`
   })
 
@@ -707,7 +708,7 @@ export default function DesignPlacement({ designData, onUpdate }) {
     return () => URL.revokeObjectURL(url)
   }, [designData?.uploadedFile])
 
-  const isEst = designData?.selectedStyle === 'est-face'
+  const isEst = designData?.selectedStyle === 'est-face' || designData?.selectedStyle === 'faceless-face'
   const generatedDesigns = designData?.generatedDesigns || null
   const hasDesigns = generatedDesigns && generatedDesigns.length > 0
   const hasTwoDesigns = generatedDesigns && generatedDesigns.length > 1
