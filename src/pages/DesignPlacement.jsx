@@ -1162,61 +1162,92 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder }) {
 
         <div className="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
           <div className="px-5 py-4 border-b border-gray-50 flex items-center justify-between">
-            <h2 className="font-semibold text-gray-900">Мокапи</h2>
-            <button onClick={() => setShowAddMockupModal(true)} className="flex items-center gap-1.5 text-sm text-indigo-600 hover:text-indigo-700 transition-colors font-medium">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-              Додати мокап
+            <h2 className="font-semibold text-gray-900">Обраний товар</h2>
+            <button onClick={() => setShowChangeProduct(true)} className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-indigo-600 transition-colors">
+              Змінити товар
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
             </button>
           </div>
           <div className="divide-y divide-gray-50">
             {allMockupProducts.map((product, index) => (
-              <div key={`${product?.id}-${index}`} className="px-4 py-3 flex items-center gap-3">
-                <span className="text-xs font-semibold bg-indigo-50 text-indigo-600 px-2 py-1 rounded-lg flex-shrink-0 whitespace-nowrap">Мокап №{index + 1}</span>
+              <div key={`${product?.id}-${index}`} className="p-5 flex gap-5 items-start">
+                {/* Product image with badge */}
                 <button
                   onClick={handleOpenMockup}
                   disabled={preparingMockup}
-                  className="relative w-12 h-12 flex-shrink-0 bg-gray-50 rounded-lg overflow-hidden flex items-center justify-center hover:ring-2 hover:ring-indigo-400 transition-all group"
+                  className="relative w-44 h-44 flex-shrink-0 bg-white border border-gray-100 rounded-xl overflow-hidden flex items-center justify-center hover:ring-2 hover:ring-indigo-400 transition-all group"
                   title="Редагувати мокап"
                 >
+                  <span className="absolute top-2 left-2 z-10 text-xs font-semibold bg-white text-indigo-600 border border-indigo-200 px-2 py-1 rounded-lg shadow-sm">Мокап №{index + 1}</span>
                   <img src={product?.image} alt={product?.nameUk} className="w-full h-full object-contain" />
                   {mockupDesignUrl && !preparingMockup && (
-                    <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
-                      <img src={mockupDesignUrl} alt="design" className="w-2/3 mix-blend-multiply" />
+                    <div
+                      className="absolute pointer-events-none"
+                      style={{ left: `${mockupOverlay.x}%`, top: `${mockupOverlay.y}%`, width: `${mockupOverlay.size}%`, transform: 'translate(-50%, -50%)' }}
+                    >
+                      <img src={mockupDesignUrl} alt="design overlay" className="w-full mix-blend-multiply" />
                     </div>
                   )}
-                  {preparingMockup && index === 0 && (
+                  {preparingMockup && (
                     <div className="absolute inset-0 bg-white/70 flex items-center justify-center">
-                      <svg className="animate-spin w-3 h-3 text-indigo-500" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" className="opacity-25"/><path d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" fill="currentColor"/></svg>
+                      <svg className="animate-spin w-5 h-5 text-indigo-500" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" className="opacity-25"/><path d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" fill="currentColor"/></svg>
                     </div>
                   )}
+                  <div className="absolute inset-0 bg-indigo-600/0 group-hover:bg-indigo-600/8 transition-all" />
                 </button>
-                <span className="flex-1 text-sm text-gray-700 min-w-0 truncate">{product?.nameUk}</span>
-                <button
-                  onClick={() => handleDownloadMockupForProduct(product, index)}
-                  disabled={downloadingMockupIndex === index}
-                  className="flex-shrink-0 w-8 h-8 flex items-center justify-center border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-500 hover:text-indigo-600 transition-colors disabled:opacity-50"
-                  title={`Скачати Мокап №${index + 1}`}
-                >
-                  {downloadingMockupIndex === index
-                    ? <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" className="opacity-25"/><path d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" fill="currentColor"/></svg>
-                    : <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>}
-                </button>
-                {index > 0 && (
-                  <button
-                    onClick={() => setExtraMockupProducts(prev => prev.filter((_, i) => i !== index - 1))}
-                    className="flex-shrink-0 w-8 h-8 flex items-center justify-center border border-gray-100 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors"
-                    title="Видалити мокап"
-                  >
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
-                  </button>
-                )}
-                {index === 0 && (
-                  <button onClick={() => setShowChangeProduct(true)} className="flex-shrink-0 w-8 h-8 flex items-center justify-center border border-gray-100 rounded-lg hover:bg-gray-50 text-gray-400 hover:text-gray-600 transition-colors" title="Змінити товар">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                  </button>
-                )}
+
+                {/* Details */}
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-indigo-600 mb-3">Мокап №{index + 1}</p>
+                  <div className="space-y-2 mb-4">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-500">Товар:</span>
+                      <span className="font-semibold text-gray-800 text-right ml-2 truncate">{product?.nameUk}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-500">Положення:</span>
+                      <span className="font-semibold text-gray-800">Центр спереду</span>
+                    </div>
+                    {index === 0 && hasDesigns && (
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-gray-500">Варіант:</span>
+                        <span className="font-semibold text-indigo-600">{generatedDesigns[Math.min(activeTab, generatedDesigns.length - 1)].label}</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleDownloadMockupForProduct(product, index)}
+                      disabled={downloadingMockupIndex === index}
+                      className="flex-1 flex items-center justify-center gap-2 border border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-indigo-600 rounded-xl py-2 text-sm font-medium transition-colors disabled:opacity-50"
+                    >
+                      {downloadingMockupIndex === index
+                        ? <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" className="opacity-25"/><path d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" fill="currentColor"/></svg>
+                        : <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>}
+                      Скачати
+                    </button>
+                    {index > 0 && (
+                      <button
+                        onClick={() => setExtraMockupProducts(prev => prev.filter((_, i) => i !== index - 1))}
+                        className="w-9 h-9 flex items-center justify-center border border-gray-100 rounded-xl hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors"
+                        title="Видалити мокап"
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+                      </button>
+                    )}
+                  </div>
+                </div>
               </div>
             ))}
+          </div>
+          <div className="px-5 pb-5">
+            <button
+              onClick={() => setShowAddMockupModal(true)}
+              className="w-full flex items-center justify-center gap-2 border border-indigo-300 text-indigo-600 hover:bg-indigo-50 rounded-xl py-3 text-sm font-semibold transition-colors"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Додати мокап
+            </button>
           </div>
         </div>
 
