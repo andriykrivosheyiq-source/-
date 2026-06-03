@@ -129,7 +129,7 @@ export const designStyles = [
     id: 'faceless-face',
     name: 'Без рис обличчя',
     nameUk: 'Без рис обличчя',
-    image: `${b}dad.png`,
+    image: `${b}без рис обличчя.jpg`,
   },
 ]
 
