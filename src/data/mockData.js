@@ -120,12 +120,6 @@ export const products = [
 
 export const designStyles = [
   {
-    id: 'dad-face',
-    name: 'Dad з рисами',
-    nameUk: 'Dad з рисами обличчя',
-    image: `${b}1a0ac8a8-3d48-4892-bfa5-b0325a4b0e92-removebg-preview.png`,
-  },
-  {
     id: 'est-face',
     name: 'EST Портрет',
     nameUk: 'EST Портрет',
