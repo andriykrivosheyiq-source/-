@@ -579,8 +579,14 @@ function MockupEditorModal({ designImage, product, fileName, initialOverlay, onS
       canvas.width = SIZE; canvas.height = SIZE
       const ctx = canvas.getContext('2d')
 
+      ctx.fillStyle = '#ffffff'
+      ctx.fillRect(0, 0, SIZE, SIZE)
       const productImg = await loadImgEl(product.image)
-      ctx.drawImage(productImg, 0, 0, SIZE, SIZE)
+      const pA = productImg.naturalWidth / productImg.naturalHeight
+      let pW, pH, pX, pY
+      if (pA >= 1) { pW = SIZE; pH = SIZE / pA; pX = 0; pY = (SIZE - pH) / 2 }
+      else          { pH = SIZE; pW = SIZE * pA; pX = (SIZE - pW) / 2; pY = 0 }
+      ctx.drawImage(productImg, pX, pY, pW, pH)
 
       if (designImage) {
         const designImg = await loadImgEl(designImage)
@@ -626,7 +632,7 @@ function MockupEditorModal({ designImage, product, fileName, initialOverlay, onS
               ref={innerRef}
               style={{ position: 'absolute', inset: 0, transform: `scale(${viewScale})`, transformOrigin: 'center center' }}
             >
-              <img src={product?.image} alt={product?.nameUk} style={{ width: '100%', height: '100%', objectFit: 'cover', pointerEvents: 'none', display: 'block' }} />
+              <img src={product?.image} alt={product?.nameUk} style={{ width: '100%', height: '100%', objectFit: 'contain', pointerEvents: 'none', display: 'block' }} />
               {designImage && (
                 <div
                   onMouseDown={e => startDrag('move', e)}
@@ -900,8 +906,14 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder }) {
       const canvas = document.createElement('canvas')
       canvas.width = SIZE; canvas.height = SIZE
       const ctx = canvas.getContext('2d')
+      ctx.fillStyle = '#ffffff'
+      ctx.fillRect(0, 0, SIZE, SIZE)
       const productImg = await loadImgEl(currentProduct.image)
-      ctx.drawImage(productImg, 0, 0, SIZE, SIZE)
+      const pA2 = productImg.naturalWidth / productImg.naturalHeight
+      let pW2, pH2, pX2, pY2
+      if (pA2 >= 1) { pW2 = SIZE; pH2 = SIZE / pA2; pX2 = 0; pY2 = (SIZE - pH2) / 2 }
+      else           { pH2 = SIZE; pW2 = SIZE * pA2; pX2 = (SIZE - pW2) / 2; pY2 = 0 }
+      ctx.drawImage(productImg, pX2, pY2, pW2, pH2)
       if (designUrl) {
         const designImg = await loadImgEl(designUrl)
         const dW = mockupOverlay.size / 100 * SIZE
@@ -1105,7 +1117,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder }) {
           </div>
           <div className="p-5 flex gap-6 items-center">
             <button onClick={handleOpenMockup} disabled={preparingMockup} className="relative w-48 h-48 flex-shrink-0 bg-white rounded-xl overflow-hidden flex items-center justify-center hover:ring-2 hover:ring-indigo-400 transition-all group" title="Редагувати мокап">
-              <img src={currentProduct?.image} alt={currentProduct?.nameUk} className="w-full h-full object-cover" />
+              <img src={currentProduct?.image} alt={currentProduct?.nameUk} className="w-full h-full object-contain" />
               {mockupDesignUrl && !preparingMockup && (
                 <div
                   className="absolute pointer-events-none"
