@@ -12,27 +12,14 @@ export const productCategories = [
 ]
 
 export const products = [
-  // ── Худі базові (20) ──────────────────────────────────────────
-  { id: 'hoodie-black',       nameUk: 'Чорний худі',               category: 'hoodie-basic', image: `${b}Чорний перед.jpg` },
-  { id: 'hoodie-white',       nameUk: 'Білий худі',                category: 'hoodie-basic', image: `${b}Білий перед.jpg` },
-  { id: 'hoodie-gray',        nameUk: 'Сірий худі',                category: 'hoodie-basic', image: `${b}Сірий перед.jpg` },
-  { id: 'hoodie-graphite',    nameUk: 'Графітовий худі',           category: 'hoodie-basic', image: `${b}Графіт перед.jpg` },
-  { id: 'hoodie-beige',       nameUk: 'Бежевий худі',              category: 'hoodie-basic', image: `${b}Бежевий перед.jpg` },
-  { id: 'hoodie-blue',        nameUk: 'Синій худі',                category: 'hoodie-basic', image: `${b}Синій перед.jpg` },
-  { id: 'hoodie-lightblue',   nameUk: 'Блакитний худі',            category: 'hoodie-basic', image: `${b}Блакитний перед.jpg` },
-  { id: 'hoodie-darkgreen',   nameUk: 'Темно-зелений худі',        category: 'hoodie-basic', image: `${b}Темно зелений перед.jpg` },
-  { id: 'hoodie-khaki',       nameUk: 'Хакі худі',                 category: 'hoodie-basic', image: `${b}Хакі перед.jpg` },
-  { id: 'hoodie-red',         nameUk: 'Червоний худі',             category: 'hoodie-basic', image: `${b}Червоний перед.jpg` },
-  { id: 'hoodie-burgundy',    nameUk: 'Бордовий худі',             category: 'hoodie-basic', image: `${b}Бордовий перед.jpg` },
-  { id: 'hoodie-pink',        nameUk: 'Рожевий худі',              category: 'hoodie-basic', image: `${b}Рожевий перед.jpg` },
-  { id: 'hoodie-orange-kids', nameUk: 'Помаранчевий дитячий худі', category: 'hoodie-basic', image: `${b}Помаранчевий дитячий перед.jpg` },
-  { id: 'hoodie-vanilla',     nameUk: 'Ванільний худі',            category: 'hoodie-basic', image: `${b}Ванільний перед.jpg` },
-  { id: 'hoodie-lavender',    nameUk: 'Лавандовий худі',           category: 'hoodie-basic', image: `${b}Лавандовий перед.jpg` },
-  { id: 'hoodie-mint',        nameUk: "М'ятний худі",              category: 'hoodie-basic', image: `${b}М_ятний перед.jpg` },
-  { id: 'hoodie-chocolate',   nameUk: 'Шоколадний худі',           category: 'hoodie-basic', image: `${b}Шоколадний перед.webp` },
-  { id: 'jh001-purple',       nameUk: 'Фіолетовий худі JH001',     category: 'hoodie-basic', image: `${b}JH001 PURPLE (TORSO).jpg` },
-  { id: 'jh001-blue',         nameUk: 'Блакитний худі JH001',      category: 'hoodie-basic', image: `${b}JH001 ROYAL BLUE (TORSO).jpg` },
-  { id: 'jh001-yellow',       nameUk: 'Жовтий худі JH001',         category: 'hoodie-basic', image: `${b}JH001 SUN YELLOW (TORSO).jpg` },
+  // ── Худі базові (7) ───────────────────────────────────────────
+  { id: 'hoodie-vanilla',   nameUk: 'Ванільний худі',           category: 'hoodie-basic', image: `${b}Ванільний перед.jpg` },
+  { id: 'hoodie-lavender',  nameUk: 'Лавандовий худі',          category: 'hoodie-basic', image: `${b}Лавандовий перед.jpg` },
+  { id: 'hoodie-mint',      nameUk: "М'ятний худі",             category: 'hoodie-basic', image: `${b}М_ятний перед.jpg` },
+  { id: 'hoodie-chocolate', nameUk: 'Шоколадний худі',          category: 'hoodie-basic', image: `${b}Шоколадний перед.webp` },
+  { id: 'jh001-purple',     nameUk: 'Фіолетовий худі JH001',    category: 'hoodie-basic', image: `${b}JH001 PURPLE (TORSO).jpg` },
+  { id: 'jh001-blue',       nameUk: 'Блакитний худі JH001',     category: 'hoodie-basic', image: `${b}JH001 ROYAL BLUE (TORSO).jpg` },
+  { id: 'jh001-yellow',     nameUk: 'Жовтий худі JH001',        category: 'hoodie-basic', image: `${b}JH001 SUN YELLOW (TORSO).jpg` },
 
   // ── Худі оверсайз з флісом (3) ───────────────────────────────
   { id: 'hoodie-fleece-brown', nameUk: 'Коричневий флісовий оверсайз', category: 'hoodie-fleece', image: `${b}Копия Мокап_худі_з_флісом_новий_преміум_коричневий_перед.jpg` },
@@ -40,13 +27,13 @@ export const products = [
   { id: 'hoodie-fleece-blue',  nameUk: 'Синій флісовий оверсайз',      category: 'hoodie-fleece', image: `${b}Копия Мокап_худі_з_флісом_новий_преміум_перед_синій.jpg` },
 
   // ── Худі преміум без флісу (7) ───────────────────────────────
-  { id: 'hoodie-prem-white',  nameUk: 'Білий преміум',     category: 'hoodie-premium', image: `${b}Копия Мокап_худі_без_флісу_новий_преміум_білий_перед.jpg` },
-  { id: 'hoodie-prem-coyote', nameUk: 'Койот преміум',     category: 'hoodie-premium', image: `${b}Копия Мокап_худі_без_флісу_новий_преміум_койот_перед.jpg` },
-  { id: 'hoodie-prem-fume',   nameUk: 'Фюме преміум',      category: 'hoodie-premium', image: `${b}Копия Мокап_худі_без_флісу_новий_преміум_перед_фюме.jpg` },
-  { id: 'hoodie-prem-black',  nameUk: 'Чорний преміум',    category: 'hoodie-premium', image: `${b}Копия Мокап_худі_без_флісу_новий_преміум_перед_чорний.jpg` },
-  { id: 'hoodie-prem-gray',   nameUk: 'Сірий преміум',     category: 'hoodie-premium', image: `${b}Копия Мокап_худі_без_флісу_новий_преміум_сірий_перед_.jpg` },
-  { id: 'hoodie-prem-khaki',  nameUk: 'Хакі преміум',      category: 'hoodie-premium', image: `${b}Копия Мокап_худі_без_флісу_новий_преміум_хакі_перед.jpg` },
-  { id: 'hoodie-prem-brown',  nameUk: 'Коричневий преміум', category: 'hoodie-premium', image: `${b}Копия Мокап_худі_без_флісу_преміум_коричневий_перед.jpg` },
+  { id: 'hoodie-prem-white',  nameUk: 'Білий преміум',      category: 'hoodie-premium', image: `${b}Копия Мокап_худі_без_флісу_новий_преміум_білий_перед.jpg` },
+  { id: 'hoodie-prem-coyote', nameUk: 'Койот преміум',      category: 'hoodie-premium', image: `${b}Копия Мокап_худі_без_флісу_новий_преміум_койот_перед.jpg` },
+  { id: 'hoodie-prem-fume',   nameUk: 'Фюме преміум',       category: 'hoodie-premium', image: `${b}Копия Мокап_худі_без_флісу_новий_преміум_перед_фюме.jpg` },
+  { id: 'hoodie-prem-black',  nameUk: 'Чорний преміум',     category: 'hoodie-premium', image: `${b}Копия Мокап_худі_без_флісу_новий_преміум_перед_чорний.jpg` },
+  { id: 'hoodie-prem-gray',   nameUk: 'Сірий преміум',      category: 'hoodie-premium', image: `${b}Копия Мокап_худі_без_флісу_новий_преміум_сірий_перед_.jpg` },
+  { id: 'hoodie-prem-khaki',  nameUk: 'Хакі преміум',       category: 'hoodie-premium', image: `${b}Копия Мокап_худі_без_флісу_новий_преміум_хакі_перед.jpg` },
+  { id: 'hoodie-prem-brown',  nameUk: 'Коричневий преміум',  category: 'hoodie-premium', image: `${b}Копия Мокап_худі_без_флісу_преміум_коричневий_перед.jpg` },
 
   // ── Футболки базові (15) ──────────────────────────────────────
   { id: 'tshirt-black',     nameUk: 'Чорна футболка',        category: 'tshirt-basic', image: `${b}футболка чорна.jpg` },
@@ -76,10 +63,23 @@ export const products = [
   { id: 'over-mocco',     nameUk: 'Мокко оверсайз',       category: 'tshirt-oversized', image: `${b}Мокко перед оверсайз.jpg` },
   { id: 'over-pink',      nameUk: 'Рожева оверсайз',      category: 'tshirt-oversized', image: `${b}Рожевий оверсайз.jpg` },
 
-  // ── Світшоти (3) ──────────────────────────────────────────────
-  { id: 'sweat-darkblue', nameUk: 'Темно-синій світшот',      category: 'sweatshirt', image: `${b}Темно синій перед.jpg` },
-  { id: 'sweat-purple',   nameUk: 'Фіолетовий світшот JH030', category: 'sweatshirt', image: `${b}JH030 PURPLE (FRONT).jpg` },
-  { id: 'sweat-yellow',   nameUk: 'Жовтий світшот JH030',     category: 'sweatshirt', image: `${b}JH030 SUN YELLOW (FRONT).jpg` },
+  // ── Світшоти (16) ─────────────────────────────────────────────
+  { id: 'sweat-black',      nameUk: 'Чорний світшот',         category: 'sweatshirt', image: `${b}Чорний перед.jpg` },
+  { id: 'sweat-white',      nameUk: 'Білий світшот',          category: 'sweatshirt', image: `${b}Білий перед.jpg` },
+  { id: 'sweat-gray',       nameUk: 'Сірий світшот',          category: 'sweatshirt', image: `${b}Сірий перед.jpg` },
+  { id: 'sweat-graphite',   nameUk: 'Графітовий світшот',     category: 'sweatshirt', image: `${b}Графіт перед.jpg` },
+  { id: 'sweat-beige',      nameUk: 'Бежевий світшот',        category: 'sweatshirt', image: `${b}Бежевий перед.jpg` },
+  { id: 'sweat-blue',       nameUk: 'Синій світшот',          category: 'sweatshirt', image: `${b}Синій перед.jpg` },
+  { id: 'sweat-lightblue',  nameUk: 'Блакитний світшот',      category: 'sweatshirt', image: `${b}Блакитний перед.jpg` },
+  { id: 'sweat-darkblue',   nameUk: 'Темно-синій світшот',    category: 'sweatshirt', image: `${b}Темно синій перед.jpg` },
+  { id: 'sweat-darkgreen',  nameUk: 'Темно-зелений світшот',  category: 'sweatshirt', image: `${b}Темно зелений перед.jpg` },
+  { id: 'sweat-khaki',      nameUk: 'Хакі світшот',           category: 'sweatshirt', image: `${b}Хакі перед.jpg` },
+  { id: 'sweat-red',        nameUk: 'Червоний світшот',       category: 'sweatshirt', image: `${b}Червоний перед.jpg` },
+  { id: 'sweat-burgundy',   nameUk: 'Бордовий світшот',       category: 'sweatshirt', image: `${b}Бордовий перед.jpg` },
+  { id: 'sweat-pink',       nameUk: 'Рожевий світшот',        category: 'sweatshirt', image: `${b}Рожевий перед.jpg` },
+  { id: 'sweat-orange',     nameUk: 'Помаранчевий світшот',   category: 'sweatshirt', image: `${b}Помаранчевий дитячий перед.jpg` },
+  { id: 'sweat-jh030-purple', nameUk: 'Фіолетовий світшот JH030', category: 'sweatshirt', image: `${b}JH030 PURPLE (FRONT).jpg` },
+  { id: 'sweat-jh030-yellow', nameUk: 'Жовтий світшот JH030',     category: 'sweatshirt', image: `${b}JH030 SUN YELLOW (FRONT).jpg` },
 
   // ── Шопери (5) ────────────────────────────────────────────────
   { id: 'shop-beige-bottom', nameUk: 'Бежевий з дном шопер',   category: 'shopper', image: `${b}Копия бежевий з дном.jpg` },
@@ -120,11 +120,11 @@ export const mockOrders = [
   {
     id: '#10425',
     status: 'new',
-    productId: 'hoodie-black',
+    productId: 'hoodie-vanilla',
     name: 'Худі з собакою',
     date: '31 травня 2024, 10:42',
     colors: ['#1a1a1a'],
-    image: `${b}Чорний перед.jpg`,
+    image: `${b}Ванільний перед.jpg`,
   },
   {
     id: '#10424',
