@@ -12,14 +12,27 @@ export const productCategories = [
 ]
 
 export const products = [
-  // ── Худі базові (7) ───────────────────────────────────────────
-  { id: 'hoodie-vanilla',   nameUk: 'Ванільний худі',           category: 'hoodie-basic', image: `${b}Ванільний перед.jpg` },
-  { id: 'hoodie-lavender',  nameUk: 'Лавандовий худі',          category: 'hoodie-basic', image: `${b}Лавандовий перед.jpg` },
-  { id: 'hoodie-mint',      nameUk: "М'ятний худі",             category: 'hoodie-basic', image: `${b}М_ятний перед.jpg` },
-  { id: 'hoodie-chocolate', nameUk: 'Шоколадний худі',          category: 'hoodie-basic', image: `${b}Шоколадний перед.webp` },
-  { id: 'jh001-purple',     nameUk: 'Фіолетовий худі JH001',    category: 'hoodie-basic', image: `${b}JH001 PURPLE (TORSO).jpg` },
-  { id: 'jh001-blue',       nameUk: 'Блакитний худі JH001',     category: 'hoodie-basic', image: `${b}JH001 ROYAL BLUE (TORSO).jpg` },
-  { id: 'jh001-yellow',     nameUk: 'Жовтий худі JH001',        category: 'hoodie-basic', image: `${b}JH001 SUN YELLOW (TORSO).jpg` },
+  // ── Худі базові (20) ──────────────────────────────────────────
+  { id: 'hoodie-black',       nameUk: 'Чорний худі',               category: 'hoodie-basic', image: `${b}Чорний перед.jpg` },
+  { id: 'hoodie-white',       nameUk: 'Білий худі',                category: 'hoodie-basic', image: `${b}Білий перед.jpg` },
+  { id: 'hoodie-gray',        nameUk: 'Сірий худі',                category: 'hoodie-basic', image: `${b}Сірий перед.jpg` },
+  { id: 'hoodie-graphite',    nameUk: 'Графітовий худі',           category: 'hoodie-basic', image: `${b}Графіт перед.jpg` },
+  { id: 'hoodie-beige',       nameUk: 'Бежевий худі',              category: 'hoodie-basic', image: `${b}Бежевий перед.jpg` },
+  { id: 'hoodie-blue',        nameUk: 'Синій худі',                category: 'hoodie-basic', image: `${b}Синій перед.jpg` },
+  { id: 'hoodie-lightblue',   nameUk: 'Блакитний худі',            category: 'hoodie-basic', image: `${b}Блакитний перед.jpg` },
+  { id: 'hoodie-darkgreen',   nameUk: 'Темно-зелений худі',        category: 'hoodie-basic', image: `${b}Темно зелений перед.jpg` },
+  { id: 'hoodie-khaki',       nameUk: 'Хакі худі',                 category: 'hoodie-basic', image: `${b}Хакі перед.jpg` },
+  { id: 'hoodie-red',         nameUk: 'Червоний худі',             category: 'hoodie-basic', image: `${b}Червоний перед.jpg` },
+  { id: 'hoodie-burgundy',    nameUk: 'Бордовий худі',             category: 'hoodie-basic', image: `${b}Бордовий перед.jpg` },
+  { id: 'hoodie-pink',        nameUk: 'Рожевий худі',              category: 'hoodie-basic', image: `${b}Рожевий перед.jpg` },
+  { id: 'hoodie-orange',      nameUk: 'Помаранчевий худі',         category: 'hoodie-basic', image: `${b}Помаранчевий дитячий перед.jpg` },
+  { id: 'hoodie-vanilla',     nameUk: 'Ванільний худі',            category: 'hoodie-basic', image: `${b}Ванільний перед.jpg` },
+  { id: 'hoodie-lavender',    nameUk: 'Лавандовий худі',           category: 'hoodie-basic', image: `${b}Лавандовий перед.jpg` },
+  { id: 'hoodie-mint',        nameUk: "М'ятний худі",              category: 'hoodie-basic', image: `${b}М_ятний перед.jpg` },
+  { id: 'hoodie-chocolate',   nameUk: 'Шоколадний худі',           category: 'hoodie-basic', image: `${b}Шоколадний перед.webp` },
+  { id: 'jh001-purple',       nameUk: 'Фіолетовий худі JH001',     category: 'hoodie-basic', image: `${b}JH001 PURPLE (TORSO).jpg` },
+  { id: 'jh001-blue',         nameUk: 'Блакитний худі JH001',      category: 'hoodie-basic', image: `${b}JH001 ROYAL BLUE (TORSO).jpg` },
+  { id: 'jh001-yellow',       nameUk: 'Жовтий худі JH001',         category: 'hoodie-basic', image: `${b}JH001 SUN YELLOW (TORSO).jpg` },
 
   // ── Худі оверсайз з флісом (3) ───────────────────────────────
   { id: 'hoodie-fleece-brown', nameUk: 'Коричневий флісовий оверсайз', category: 'hoodie-fleece', image: `${b}Копия Мокап_худі_з_флісом_новий_преміум_коричневий_перед.jpg` },
