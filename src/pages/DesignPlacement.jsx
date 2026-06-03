@@ -198,8 +198,8 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
   const [showGrid, setShowGrid] = useState(false)
   const [ttoLetters, setTtoLetters] = useState([
     { id: 'tLeft',  x: 18, y: 27, size: 20, rotation: 0, color: '#000000' },
-    { id: 'tRight', x: 39, y: 27, size: 20, rotation: 0, color: '#000000' },
-    { id: 'o',      x: 60, y: 27, size: 22, rotation: 0, color: '#000000' },
+    { id: 'tRight', x: 38, y: 27, size: 20, rotation: 0, color: '#000000' },
+    { id: 'o',      x: 58, y: 27, size: 22, rotation: 0, color: '#000000' },
   ])
   const [estEl, setEstEl] = useState({ x: 50, y: 88, color: '#000000', fontSize: 2.8 })
   const [illus, setIllus] = useState({ x: 50, y: 45, size: 52, cropBottom: 0 })
@@ -334,8 +334,8 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
             onMouseDown={e => e.stopPropagation()}
             onClick={e => { e.stopPropagation(); setLetterStyle('TTO'); setSelected(null); setTtoLetters(prev => [
               { id: 'tLeft',  x: 18, y: 27, size: 20, rotation: 0, color: prev[0]?.color || '#000000' },
-              { id: 'tRight', x: 39, y: 27, size: 20, rotation: 0, color: prev[1]?.color || '#000000' },
-              { id: 'o',      x: 60, y: 27, size: 22, rotation: 0, color: prev[2]?.color || '#000000' },
+              { id: 'tRight', x: 38, y: 27, size: 20, rotation: 0, color: prev[1]?.color || '#000000' },
+              { id: 'o',      x: 58, y: 27, size: 22, rotation: 0, color: prev[2]?.color || '#000000' },
             ]) }}
             style={{ padding: '3px 10px', borderRadius: '7px', fontSize: '11px', fontWeight: 700, border: 'none', cursor: 'pointer', background: letterStyle === 'TTO' ? '#4f46e5' : 'transparent', color: letterStyle === 'TTO' ? '#fff' : '#6b7280' }}
           >T T O</button>
