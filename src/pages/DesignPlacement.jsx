@@ -122,7 +122,7 @@ function drawEstText(ctx, estEl, estText, W, H) {
 }
 
 // Full composite with white background (for regular download)
-async function renderEstToCanvas(letters, estEl, estText, imageUrl, illus, letterStyle, ttoLetters) {
+async function renderEstToCanvas(letters, estEl, estText, showEstText, imageUrl, illus, letterStyle, ttoLetters) {
   const W = 1600, H = 900
   const canvas = document.createElement('canvas')
   canvas.width = W; canvas.height = H
@@ -149,12 +149,12 @@ async function renderEstToCanvas(letters, estEl, estText, imageUrl, illus, lette
 
   if (letterStyle === 'TTO') drawTTOLetters(ctx, ttoLetters, W, H)
   else drawDLetters(ctx, letters, W, H)
-  drawEstText(ctx, estEl, estText, W, H)
+  if (showEstText) drawEstText(ctx, estEl, estText, W, H)
   return canvas
 }
 
 // Transparent composite for mockup (no white fill, illustration bg removed)
-async function renderEstTransparent(letters, estEl, estText, imageUrl, illus, letterStyle, ttoLetters) {
+async function renderEstTransparent(letters, estEl, estText, showEstText, imageUrl, illus, letterStyle, ttoLetters) {
   const W = 1600, H = 900
   const canvas = document.createElement('canvas')
   canvas.width = W; canvas.height = H
@@ -177,13 +177,13 @@ async function renderEstTransparent(letters, estEl, estText, imageUrl, illus, le
 
   if (letterStyle === 'TTO') drawTTOLetters(ctx, ttoLetters, W, H)
   else drawDLetters(ctx, letters, W, H)
-  drawEstText(ctx, estEl, estText, W, H)
+  if (showEstText) drawEstText(ctx, estEl, estText, W, H)
   return canvas
 }
 
 // ─── EstPosterView ────────────────────────────────────────────────────────────
 
-const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estText }, ref) {
+const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estText, showEstText }, ref) {
   const containerRef = useRef(null)
   const illusImgRef = useRef(null)
   const dragRef = useRef(null)
@@ -222,9 +222,9 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
   }, [imageUrl])
 
   useImperativeHandle(ref, () => ({
-    exportToCanvas:      () => renderEstToCanvas(letters, estEl, estText, imageUrl, illus, letterStyle, ttoLetters),
-    exportTransparent:   () => renderEstTransparent(letters, estEl, estText, imageUrl, illus, letterStyle, ttoLetters),
-  }), [letters, estEl, estText, imageUrl, illus, letterStyle, ttoLetters])
+    exportToCanvas:      () => renderEstToCanvas(letters, estEl, estText, showEstText, imageUrl, illus, letterStyle, ttoLetters),
+    exportTransparent:   () => renderEstTransparent(letters, estEl, estText, showEstText, imageUrl, illus, letterStyle, ttoLetters),
+  }), [letters, estEl, estText, showEstText, imageUrl, illus, letterStyle, ttoLetters])
 
   useEffect(() => {
     const onMove = (e) => {
@@ -367,7 +367,7 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
           </div>
         )}
 
-        <div onMouseDown={e => startDrag('est', 'move', e)} onTouchStart={e => startDrag('est', 'move', e)} onClick={e => handleClick('est', e)} style={{ position: 'absolute', left: `${estEl.x}%`, top: `${estEl.y}%`, transform: 'translate(-50%, -50%)', fontFamily: 'Arial, Helvetica, sans-serif', fontWeight: 700, fontSize: `${estEl.fontSize}vw`, letterSpacing: '6px', color: estEl.color, cursor: isEstSelected ? 'grab' : 'pointer', zIndex: isEstSelected ? 20 : 10, whiteSpace: 'nowrap' }}>
+        {showEstText && <div onMouseDown={e => startDrag('est', 'move', e)} onTouchStart={e => startDrag('est', 'move', e)} onClick={e => handleClick('est', e)} style={{ position: 'absolute', left: `${estEl.x}%`, top: `${estEl.y}%`, transform: 'translate(-50%, -50%)', fontFamily: 'Arial, Helvetica, sans-serif', fontWeight: 700, fontSize: `${estEl.fontSize}vw`, letterSpacing: '6px', color: estEl.color, cursor: isEstSelected ? 'grab' : 'pointer', zIndex: isEstSelected ? 20 : 10, whiteSpace: 'nowrap' }}>
           {isEstSelected && <div style={{ position: 'absolute', inset: '-5px', border: '2px dashed #4f46e5', borderRadius: '6px', pointerEvents: 'none' }} />}
           {(estText || 'EST.2025').toUpperCase()}
           {isEstSelected && (
@@ -768,6 +768,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder }) {
   const [showMockup, setShowMockup] = useState(false)
   const [mockupDesignUrl, setMockupDesignUrl] = useState(null)
   const [estText, setEstText] = useState('EST.2025')
+  const [showEstText, setShowEstText] = useState(true)
   const [regenerating, setRegenerating] = useState(false)
   const [regenError, setRegenError] = useState(null)
   const [showEditPrompt, setShowEditPrompt] = useState(false)
@@ -967,7 +968,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder }) {
             ) : (
               <div className="w-full bg-gray-50 rounded-xl overflow-hidden">
                 {isEst ? (
-                  <EstPosterView ref={estPosterRef} imageUrl={currentDesignImage} estText={estText} />
+                  <EstPosterView ref={estPosterRef} imageUrl={currentDesignImage} estText={estText} showEstText={showEstText} />
                 ) : currentDesignImage ? (
                   <img src={currentDesignImage} alt="Generated design" className="w-full h-auto block" style={{ maxHeight: '80vh' }} />
                 ) : (
@@ -984,7 +985,25 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder }) {
             {isEst && !regenerating && (
               <div className="mt-4 flex items-center gap-3">
                 <label className="text-sm font-medium text-gray-700 whitespace-nowrap">EST текст:</label>
-                <input type="text" value={estText} onChange={e => setEstText(e.target.value)} placeholder="EST.2025" className="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300" style={{ textTransform: 'uppercase' }} />
+                <input
+                  type="text"
+                  value={estText}
+                  onChange={e => setEstText(e.target.value)}
+                  placeholder="EST.2025"
+                  disabled={!showEstText}
+                  className="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 disabled:opacity-40 disabled:cursor-not-allowed"
+                  style={{ textTransform: 'uppercase' }}
+                />
+                <button
+                  onClick={() => setShowEstText(v => !v)}
+                  title={showEstText ? 'Сховати EST текст' : 'Показати EST текст'}
+                  className={`flex-shrink-0 p-2 rounded-xl border transition-colors ${showEstText ? 'border-indigo-200 bg-indigo-50 text-indigo-600 hover:bg-indigo-100' : 'border-gray-200 bg-gray-50 text-gray-400 hover:bg-gray-100'}`}
+                >
+                  {showEstText
+                    ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                    : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                  }
+                </button>
               </div>
             )}
 
