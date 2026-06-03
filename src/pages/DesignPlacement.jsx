@@ -808,6 +808,9 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder }) {
   const [extraMockupProducts, setExtraMockupProducts] = useState([])
   const [showAddMockupModal, setShowAddMockupModal] = useState(false)
   const [downloadingMockupIndex, setDownloadingMockupIndex] = useState(null)
+  const [showSendModal, setShowSendModal] = useState(false)
+  const [sendItems, setSendItems] = useState([])
+  const [preparingSend, setPreparingSend] = useState(false)
 
   useEffect(() => {
     if (!designData?.uploadedFile) return
@@ -989,6 +992,101 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder }) {
     } finally {
       setDownloadingMockupIndex(null)
     }
+  }
+
+  const formatFileSize = (bytes) => {
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} КБ`
+    return `${(bytes / (1024 * 1024)).toFixed(1)} МБ`
+  }
+
+  const handleOpenSendModal = async () => {
+    setShowSendModal(true)
+    setPreparingSend(true)
+    setSendItems([])
+    try {
+      const items = []
+
+      // Design image
+      let designUrl = null
+      if (isEst && estPosterRef.current) {
+        const canvas = await estPosterRef.current.exportToCanvas()
+        designUrl = canvas.toDataURL('image/png')
+      } else if (currentDesignImage) {
+        designUrl = currentDesignImage
+      }
+      if (designUrl) {
+        items.push({
+          id: 'design',
+          label: `Файл 1 — ${fileName || 'Дизайн'}.png`,
+          thumbnail: designUrl,
+          dataUrl: designUrl,
+          filename: `${fileName || 'Дизайн'}.png`,
+          size: formatFileSize(Math.round(designUrl.length * 0.75)),
+          checked: true,
+        })
+      }
+
+      // Prepare design overlay URL
+      let overlayUrl = mockupDesignUrl
+      if (!overlayUrl) {
+        if (isEst && estPosterRef.current) {
+          const c = await estPosterRef.current.exportTransparent()
+          overlayUrl = c.toDataURL('image/png')
+        } else {
+          overlayUrl = currentDesignImage
+        }
+      }
+
+      // Generate mockup for each product
+      for (let i = 0; i < allMockupProducts.length; i++) {
+        const product = allMockupProducts[i]
+        const SIZE = 1200
+        const canvas = document.createElement('canvas')
+        canvas.width = SIZE; canvas.height = SIZE
+        const ctx = canvas.getContext('2d')
+        ctx.fillStyle = '#ffffff'
+        ctx.fillRect(0, 0, SIZE, SIZE)
+        const productImg = await loadImgEl(product.image)
+        const pA = productImg.naturalWidth / productImg.naturalHeight
+        let pW, pH, pX, pY
+        if (pA >= 1) { pW = SIZE; pH = SIZE / pA; pX = 0; pY = (SIZE - pH) / 2 }
+        else          { pH = SIZE; pW = SIZE * pA; pX = (SIZE - pW) / 2; pY = 0 }
+        ctx.drawImage(productImg, pX, pY, pW, pH)
+        if (overlayUrl) {
+          const dImg = await loadImgEl(overlayUrl)
+          const dW = mockupOverlay.size / 100 * SIZE
+          const aspect = (dImg.naturalHeight || dImg.height) / (dImg.naturalWidth || dImg.width)
+          const dH = dW * aspect
+          ctx.drawImage(dImg, mockupOverlay.x / 100 * SIZE - dW / 2, mockupOverlay.y / 100 * SIZE - dH / 2, dW, dH)
+        }
+        const mockupUrl = canvas.toDataURL('image/png')
+        items.push({
+          id: `mockup-${i}`,
+          label: `Мокап №${i + 1} — ${product.nameUk}.png`,
+          thumbnail: product.image,
+          dataUrl: mockupUrl,
+          filename: `${fileName || 'mockup'}_Мокап_№${i + 1}.png`,
+          size: formatFileSize(Math.round(mockupUrl.length * 0.75)),
+          checked: true,
+        })
+      }
+
+      setSendItems(items)
+    } catch (e) {
+      console.error('Send prep error:', e)
+    } finally {
+      setPreparingSend(false)
+    }
+  }
+
+  const handleSendFiles = () => {
+    sendItems.filter(i => i.checked).forEach(item => {
+      const a = document.createElement('a')
+      a.download = item.filename
+      a.href = item.dataUrl
+      a.click()
+    })
+    setShowSendModal(false)
   }
 
   const handleSaveDesign = async () => {
@@ -1315,7 +1413,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder }) {
               Зберегти дизайн
             </button>
             <button
-              onClick={() => {}}
+              onClick={handleOpenSendModal}
               className="w-full flex items-center justify-center gap-2 border border-indigo-200 text-indigo-600 hover:bg-indigo-50 rounded-xl py-2.5 text-sm font-semibold transition-colors"
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
@@ -1331,6 +1429,75 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder }) {
       {showChangeProduct && <ChangeProductModal current={selectedProduct} onSelect={setSelectedProduct} onClose={() => setShowChangeProduct(false)} />}
       {showMockup && <MockupEditorModal designImage={mockupDesignUrl} product={currentProduct} fileName={fileName} initialOverlay={mockupOverlay} onSave={setMockupOverlay} onClose={() => setShowMockup(false)} />}
       {showAddMockupModal && <ChangeProductModal current={null} onSelect={(id) => { setExtraMockupProducts(prev => [...prev, id]); setShowAddMockupModal(false) }} onClose={() => setShowAddMockupModal(false)} />}
+
+      {showSendModal && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg">
+            {/* Header */}
+            <div className="relative px-6 pt-6 pb-4 text-center">
+              <button onClick={() => setShowSendModal(false)} className="absolute right-4 top-4 w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>
+              <div className="w-16 h-16 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#6366f1" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+              </div>
+              <h2 className="text-xl font-bold text-gray-900 mb-2">Відправити дизайн клієнту?</h2>
+              <p className="text-sm text-gray-500 leading-relaxed">
+                {preparingSend
+                  ? 'Підготовка файлів...'
+                  : `Буде відправлено ${sendItems.filter(i => i.checked).length} ${['файл','файли','файлів'][[1,2,3,4].includes(sendItems.filter(i=>i.checked).length) ? sendItems.filter(i=>i.checked).length === 1 ? 0 : 1 : 2]}. Перевірте список перед відправкою. Ви можете прибрати непотрібні файли зі списку.`}
+              </p>
+            </div>
+
+            {/* File list */}
+            <div className="px-4 pb-2 max-h-72 overflow-y-auto space-y-2">
+              {preparingSend ? (
+                <div className="flex items-center justify-center py-10 gap-3">
+                  <svg className="animate-spin w-5 h-5 text-indigo-500" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" className="opacity-25"/><path d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" fill="currentColor"/></svg>
+                  <span className="text-sm text-gray-500">Генерація мокапів...</span>
+                </div>
+              ) : sendItems.map((item, idx) => (
+                <div key={item.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
+                  <input
+                    type="checkbox"
+                    checked={item.checked}
+                    onChange={e => setSendItems(prev => prev.map((it, i) => i === idx ? { ...it, checked: e.target.checked } : it))}
+                    className="w-4 h-4 accent-indigo-600 flex-shrink-0 cursor-pointer"
+                  />
+                  <div className="w-11 h-11 flex-shrink-0 bg-white rounded-lg overflow-hidden flex items-center justify-center border border-gray-100">
+                    <img src={item.thumbnail} alt="" className="w-full h-full object-contain" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-800 truncate">{item.label}</p>
+                    <p className="text-xs text-gray-400 mt-0.5">PNG • {item.size}</p>
+                  </div>
+                  <button
+                    onClick={() => setSendItems(prev => prev.filter((_, i) => i !== idx))}
+                    className="w-7 h-7 flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors flex-shrink-0"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            {/* Actions */}
+            <div className="p-4 flex gap-3">
+              <button onClick={() => setShowSendModal(false)} className="flex-1 border border-gray-200 text-gray-700 hover:bg-gray-50 rounded-xl py-3 text-sm font-semibold transition-colors">
+                Скасувати
+              </button>
+              <button
+                onClick={handleSendFiles}
+                disabled={preparingSend || sendItems.filter(i => i.checked).length === 0}
+                className="flex-1 flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl py-3 text-sm font-semibold transition-colors disabled:opacity-50"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                Відправити {sendItems.filter(i => i.checked).length} {['файл','файли','файлів'][[1,2,3,4].includes(sendItems.filter(i=>i.checked).length) ? sendItems.filter(i=>i.checked).length === 1 ? 0 : 1 : 2]}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
