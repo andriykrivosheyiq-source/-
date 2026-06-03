@@ -32,15 +32,14 @@ function OrderDetailModal({ order, extras, onClose, onStatusChange, onDelete, on
               {order._saved && onOpenOrder ? (
                 <button
                   onClick={() => { onClose(); onOpenOrder(order.id) }}
-                  className="text-lg font-bold text-indigo-600 hover:text-indigo-800 hover:underline transition-colors shrink-0"
+                  className="text-lg font-bold text-indigo-600 hover:text-indigo-800 hover:underline transition-colors"
                   title="Відкрити в редакторі"
                 >
                   {order.id}
                 </button>
               ) : (
-                <span className="text-lg font-bold text-gray-900 shrink-0">{order.id}</span>
+                <span className="text-lg font-bold text-gray-900">{order.id}</span>
               )}
-              {order.name && <span className="text-sm font-medium text-gray-500 truncate">{order.name}</span>}
             </div>
             <span className={`text-xs font-semibold px-2.5 py-1 rounded-full shrink-0 ${cfg.badge}`}>{cfg.label}</span>
           </div>
@@ -153,10 +152,7 @@ function OrderCard({ order, onStatusChange, onDelete, onOpen }) {
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-1">
             <div className="min-w-0 flex-1">
-              <div className="flex items-baseline gap-1.5 flex-wrap">
-                <span className="text-sm font-bold text-gray-900 shrink-0">{order.id}</span>
-                <span className="text-xs font-medium text-gray-600 truncate">{order.name}</span>
-              </div>
+              <p className="text-sm font-bold text-gray-900 truncate">{order.id}</p>
               <span className={`inline-block text-[10px] font-medium px-2 py-0.5 rounded-full mt-0.5 ${cfg.badge}`}>
                 {cfg.label}
               </span>

@@ -866,7 +866,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder }) {
   const handleSaveDesign = async () => {
     const now = new Date()
     const dateStr = now.toLocaleString('uk-UA', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })
-    const orderNum = `#${String(now.getTime()).slice(-5)}`
+    const orderNum = fileName ? `#${fileName}` : `#${String(now.getTime()).slice(-5)}`
 
     // Build small design thumbnail (≤200px) to store alongside product image
     let thumb = currentProduct?.image || null
