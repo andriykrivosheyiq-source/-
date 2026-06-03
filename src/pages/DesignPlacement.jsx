@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useImperativeHandle } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { products as allProducts, productCategories } from '../data/mockData'
 import { generateDesigns, clearCache, editDesign } from '../services/gemini'
+import { sendToClientCRM } from '../services/crmService'
 
 const D_PATH =
   'M291 123L78 153L88 232L114 229L116 233L148 467L143 471L121 474L132 555L349 526L400 459L360 176Z ' +
@@ -824,6 +825,11 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder }) {
   const [selectedDesigner, setSelectedDesigner] = useState(null)
   const [designerComment, setDesignerComment] = useState('')
   const [showDesignerDropdown, setShowDesignerDropdown] = useState(false)
+  const [showClientModal, setShowClientModal] = useState(false)
+  const [clientPhone, setClientPhone] = useState('')
+  const [clientNote, setClientNote] = useState('')
+  const [sendingToClient, setSendingToClient] = useState(false)
+  const [clientSendResult, setClientSendResult] = useState(null)
 
   useEffect(() => {
     if (!designData?.uploadedFile) return
@@ -1012,83 +1018,102 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder }) {
     return `${(bytes / (1024 * 1024)).toFixed(1)} МБ`
   }
 
+  const buildSendItems = async () => {
+    const items = []
+    let designUrl = null
+    if (isEst && estPosterRef.current) {
+      const canvas = await estPosterRef.current.exportToCanvas()
+      designUrl = canvas.toDataURL('image/png')
+    } else if (currentDesignImage) {
+      designUrl = currentDesignImage
+    }
+    if (designUrl) {
+      items.push({
+        id: 'design',
+        label: `Дизайн №1`,
+        thumbnail: designUrl,
+        dataUrl: designUrl,
+        filename: `${fileName || 'Дизайн'}.png`,
+        size: formatFileSize(Math.round(designUrl.length * 0.75)),
+        checked: true,
+      })
+    }
+    let overlayUrl = mockupDesignUrl
+    if (!overlayUrl) {
+      if (isEst && estPosterRef.current) {
+        const c = await estPosterRef.current.exportTransparent()
+        overlayUrl = c.toDataURL('image/png')
+      } else {
+        overlayUrl = currentDesignImage
+      }
+    }
+    for (let i = 0; i < allMockupProducts.length; i++) {
+      const product = allMockupProducts[i]
+      const SIZE = 1200
+      const canvas = document.createElement('canvas')
+      canvas.width = SIZE; canvas.height = SIZE
+      const ctx = canvas.getContext('2d')
+      ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, SIZE, SIZE)
+      const productImg = await loadImgEl(product.image)
+      const pA = productImg.naturalWidth / productImg.naturalHeight
+      let pW, pH, pX, pY
+      if (pA >= 1) { pW = SIZE; pH = SIZE / pA; pX = 0; pY = (SIZE - pH) / 2 }
+      else          { pH = SIZE; pW = SIZE * pA; pX = (SIZE - pW) / 2; pY = 0 }
+      ctx.drawImage(productImg, pX, pY, pW, pH)
+      if (overlayUrl) {
+        const dImg = await loadImgEl(overlayUrl)
+        const dW = mockupOverlay.size / 100 * SIZE
+        const aspect = (dImg.naturalHeight || dImg.height) / (dImg.naturalWidth || dImg.width)
+        const dH = dW * aspect
+        ctx.drawImage(dImg, mockupOverlay.x / 100 * SIZE - dW / 2, mockupOverlay.y / 100 * SIZE - dH / 2, dW, dH)
+      }
+      const mockupUrl = canvas.toDataURL('image/png')
+      items.push({
+        id: `mockup-${i}`,
+        label: `Мокап №${i + 1} — ${product.nameUk}`,
+        thumbnail: product.image,
+        dataUrl: mockupUrl,
+        filename: `${fileName || 'mockup'}_Мокап_№${i + 1}.png`,
+        size: formatFileSize(Math.round(mockupUrl.length * 0.75)),
+        checked: true,
+      })
+    }
+    return items
+  }
+
   const handleOpenSendModal = async () => {
     setShowSendModal(true)
     setPreparingSend(true)
     setSendItems([])
+    try { setSendItems(await buildSendItems()) }
+    catch (e) { console.error('Send prep error:', e) }
+    finally { setPreparingSend(false) }
+  }
+
+  const handleOpenClientModal = async () => {
+    setShowClientModal(true)
+    setClientSendResult(null)
+    setPreparingSend(true)
+    setSendItems([])
+    try { setSendItems(await buildSendItems()) }
+    catch (e) { console.error('Client send prep error:', e) }
+    finally { setPreparingSend(false) }
+  }
+
+  const handleSendToClient = async () => {
+    setSendingToClient(true)
+    setClientSendResult(null)
     try {
-      const items = []
-
-      // Design image
-      let designUrl = null
-      if (isEst && estPosterRef.current) {
-        const canvas = await estPosterRef.current.exportToCanvas()
-        designUrl = canvas.toDataURL('image/png')
-      } else if (currentDesignImage) {
-        designUrl = currentDesignImage
-      }
-      if (designUrl) {
-        items.push({
-          id: 'design',
-          label: `Файл 1 — ${fileName || 'Дизайн'}.png`,
-          thumbnail: designUrl,
-          dataUrl: designUrl,
-          filename: `${fileName || 'Дизайн'}.png`,
-          size: formatFileSize(Math.round(designUrl.length * 0.75)),
-          checked: true,
-        })
-      }
-
-      // Prepare design overlay URL
-      let overlayUrl = mockupDesignUrl
-      if (!overlayUrl) {
-        if (isEst && estPosterRef.current) {
-          const c = await estPosterRef.current.exportTransparent()
-          overlayUrl = c.toDataURL('image/png')
-        } else {
-          overlayUrl = currentDesignImage
-        }
-      }
-
-      // Generate mockup for each product
-      for (let i = 0; i < allMockupProducts.length; i++) {
-        const product = allMockupProducts[i]
-        const SIZE = 1200
-        const canvas = document.createElement('canvas')
-        canvas.width = SIZE; canvas.height = SIZE
-        const ctx = canvas.getContext('2d')
-        ctx.fillStyle = '#ffffff'
-        ctx.fillRect(0, 0, SIZE, SIZE)
-        const productImg = await loadImgEl(product.image)
-        const pA = productImg.naturalWidth / productImg.naturalHeight
-        let pW, pH, pX, pY
-        if (pA >= 1) { pW = SIZE; pH = SIZE / pA; pX = 0; pY = (SIZE - pH) / 2 }
-        else          { pH = SIZE; pW = SIZE * pA; pX = (SIZE - pW) / 2; pY = 0 }
-        ctx.drawImage(productImg, pX, pY, pW, pH)
-        if (overlayUrl) {
-          const dImg = await loadImgEl(overlayUrl)
-          const dW = mockupOverlay.size / 100 * SIZE
-          const aspect = (dImg.naturalHeight || dImg.height) / (dImg.naturalWidth || dImg.width)
-          const dH = dW * aspect
-          ctx.drawImage(dImg, mockupOverlay.x / 100 * SIZE - dW / 2, mockupOverlay.y / 100 * SIZE - dH / 2, dW, dH)
-        }
-        const mockupUrl = canvas.toDataURL('image/png')
-        items.push({
-          id: `mockup-${i}`,
-          label: `Мокап №${i + 1} — ${product.nameUk}.png`,
-          thumbnail: product.image,
-          dataUrl: mockupUrl,
-          filename: `${fileName || 'mockup'}_Мокап_№${i + 1}.png`,
-          size: formatFileSize(Math.round(mockupUrl.length * 0.75)),
-          checked: true,
-        })
-      }
-
-      setSendItems(items)
+      await sendToClientCRM({
+        clientPhone,
+        files: sendItems.filter(i => i.checked),
+        note: clientNote,
+      })
+      setClientSendResult('success')
     } catch (e) {
-      console.error('Send prep error:', e)
+      setClientSendResult(e.message === 'CRM_NOT_CONFIGURED' ? 'not_configured' : 'error')
     } finally {
-      setPreparingSend(false)
+      setSendingToClient(false)
     }
   }
 
@@ -1492,6 +1517,13 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder }) {
               Зберегти дизайн
             </button>
             <button
+              onClick={handleOpenClientModal}
+              className="w-full flex items-center justify-center gap-2 border border-emerald-300 text-emerald-700 hover:bg-emerald-50 rounded-xl py-2.5 text-sm font-semibold transition-colors"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.6 1.1h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 8.9a16 16 0 0 0 6 6l.81-.81a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 21.73 16.92z"/></svg>
+              Відправити клієнту
+            </button>
+            <button
               onClick={handleOpenSendModal}
               className="w-full flex items-center justify-center gap-2 border border-indigo-200 text-indigo-600 hover:bg-indigo-50 rounded-xl py-2.5 text-sm font-semibold transition-colors"
             >
@@ -1644,6 +1676,115 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder }) {
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
                 Підтвердити передачу дизайнеру
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showClientModal && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setShowClientModal(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="flex items-start justify-between px-6 pt-6 pb-2">
+              <div>
+                <h2 className="text-xl font-bold text-gray-900">Відправити клієнту</h2>
+                <p className="text-sm text-gray-500 mt-1">Ескізи та мокапи будуть надіслані через CRM напряму клієнту.</p>
+              </div>
+              <button onClick={() => setShowClientModal(false)} className="ml-4 flex-shrink-0 w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>
+            </div>
+
+            <div className="px-6 pb-6 space-y-5">
+              {/* Client phone */}
+              <div>
+                <label className="text-xs text-gray-500 block mb-1">Номер телефону клієнта</label>
+                <input
+                  type="tel"
+                  value={clientPhone}
+                  onChange={e => setClientPhone(e.target.value)}
+                  placeholder="+380 XX XXX XX XX"
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300"
+                />
+              </div>
+
+              {/* Files */}
+              <div>
+                <h3 className="text-sm font-semibold text-gray-800 mb-1">Файли для відправки</h3>
+                <p className="text-xs text-gray-400 mb-3">Оберіть файли, які отримає клієнт</p>
+                {preparingSend ? (
+                  <div className="flex items-center justify-center py-10 gap-3">
+                    <svg className="animate-spin w-5 h-5 text-emerald-500" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" className="opacity-25"/><path d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" fill="currentColor"/></svg>
+                    <span className="text-sm text-gray-500">Підготовка файлів...</span>
+                  </div>
+                ) : (
+                  <div className="flex gap-3 overflow-x-auto pb-2">
+                    {sendItems.map((item, idx) => (
+                      <div key={item.id} className={`flex-shrink-0 w-40 border-2 rounded-xl p-3 cursor-pointer transition-all ${item.checked ? 'border-emerald-500 bg-emerald-50/40' : 'border-gray-200 bg-white'}`} onClick={() => setSendItems(prev => prev.map((it, i) => i === idx ? { ...it, checked: !it.checked } : it))}>
+                        <div className="flex items-center justify-between mb-2">
+                          <div className={`w-5 h-5 rounded flex items-center justify-center border-2 transition-colors ${item.checked ? 'bg-emerald-500 border-emerald-500' : 'border-gray-300 bg-white'}`}>
+                            {item.checked && <svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M2 6l3 3 5-5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                          </div>
+                          <span className="text-[10px] text-gray-400">{item.size}</span>
+                        </div>
+                        <div className="w-full h-24 bg-white rounded-lg overflow-hidden border border-gray-100 flex items-center justify-center mb-2">
+                          <img src={item.thumbnail} alt="" className="w-full h-full object-contain" />
+                        </div>
+                        <p className="text-xs font-semibold text-gray-800 truncate">{item.label}</p>
+                        <p className="text-[10px] text-gray-400 mt-0.5 truncate">{item.filename}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Note */}
+              <div>
+                <label className="text-xs text-gray-500 block mb-1">Повідомлення клієнту (необов'язково)</label>
+                <textarea
+                  value={clientNote}
+                  onChange={e => setClientNote(e.target.value.slice(0, 300))}
+                  placeholder="Ваш дизайн готовий! Ось ескізи та мокапи..."
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm resize-none h-20 focus:outline-none focus:ring-2 focus:ring-emerald-300"
+                />
+                <span className="text-[11px] text-gray-400">{clientNote.length}/300</span>
+              </div>
+
+              {/* Result feedback */}
+              {clientSendResult === 'success' && (
+                <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#059669" strokeWidth="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                  <span className="text-sm text-emerald-700 font-medium">Файли успішно відправлені клієнту!</span>
+                </div>
+              )}
+              {clientSendResult === 'not_configured' && (
+                <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 space-y-1">
+                  <p className="text-sm font-semibold text-amber-700">CRM API не налаштовано</p>
+                  <p className="text-xs text-amber-600">Додайте <code className="bg-amber-100 px-1 rounded">VITE_CRM_API_URL</code> та <code className="bg-amber-100 px-1 rounded">VITE_CRM_API_KEY</code> у файл <code className="bg-amber-100 px-1 rounded">.env</code></p>
+                </div>
+              )}
+              {clientSendResult === 'error' && (
+                <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                  <span className="text-sm text-red-700">Помилка відправки. Перевірте налаштування CRM.</span>
+                </div>
+              )}
+            </div>
+
+            <div className="px-6 pb-6 flex gap-3">
+              <button onClick={() => setShowClientModal(false)} className="flex-1 border border-gray-200 text-gray-700 hover:bg-gray-50 rounded-xl py-3 text-sm font-semibold transition-colors">
+                {clientSendResult === 'success' ? 'Закрити' : 'Скасувати'}
+              </button>
+              {clientSendResult !== 'success' && (
+                <button
+                  onClick={handleSendToClient}
+                  disabled={preparingSend || sendingToClient || !clientPhone.trim() || sendItems.filter(i => i.checked).length === 0}
+                  className="flex-1 flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl py-3 text-sm font-semibold transition-colors disabled:opacity-50"
+                >
+                  {sendingToClient
+                    ? <><svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" className="opacity-25"/><path d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" fill="currentColor"/></svg> Надсилання...</>
+                    : <><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.6 1.1h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 8.9a16 16 0 0 0 6 6l.81-.81a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 21.73 16.92z"/></svg> Відправити клієнту ({sendItems.filter(i=>i.checked).length} файлів)</>}
+                </button>
+              )}
             </div>
           </div>
         </div>
