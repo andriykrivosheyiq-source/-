@@ -515,11 +515,11 @@ function EditPromptBox({ currentImage, onSubmit, onCancel, loading }) {
 
 // ─── MockupEditorModal ────────────────────────────────────────────────────────
 
-function MockupEditorModal({ designImage, product, fileName, onClose }) {
+function MockupEditorModal({ designImage, product, fileName, initialOverlay, onSave, onClose }) {
   const outerRef = useRef(null)
   const innerRef = useRef(null)
   const dragRef = useRef(null)
-  const [overlay, setOverlay] = useState({ x: 50, y: 35, size: 32 })
+  const [overlay, setOverlay] = useState(initialOverlay || { x: 50, y: 35, size: 32 })
   const [viewScale, setViewScale] = useState(1.0)
   const [downloading, setDownloading] = useState(false)
 
@@ -659,7 +659,7 @@ function MockupEditorModal({ designImage, product, fileName, onClose }) {
           </button>
           <div className="flex gap-3">
             <button onClick={onClose} className="btn-secondary">Закрити</button>
-            <button onClick={onClose} className="btn-primary">Готово</button>
+            <button onClick={() => { onSave?.(overlay); onClose() }} className="btn-primary">Готово</button>
           </div>
         </div>
       </div>
@@ -767,6 +767,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder }) {
   const [showChangeProduct, setShowChangeProduct] = useState(false)
   const [showMockup, setShowMockup] = useState(false)
   const [mockupDesignUrl, setMockupDesignUrl] = useState(null)
+  const [mockupOverlay, setMockupOverlay] = useState({ x: 50, y: 35, size: 32 })
   const [estText, setEstText] = useState('EST.2025')
   const [showEstText, setShowEstText] = useState(true)
   const [regenerating, setRegenerating] = useState(false)
@@ -859,6 +860,43 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder }) {
     } catch (e) {
       setMockupDesignUrl(currentDesignImage)
       setShowMockup(true)
+    } finally {
+      setPreparingMockup(false)
+    }
+  }
+
+  const handleDownloadMockup = async () => {
+    setPreparingMockup(true)
+    try {
+      let designUrl = mockupDesignUrl
+      if (!designUrl) {
+        if (isEst && estPosterRef.current) {
+          const canvas = await estPosterRef.current.exportTransparent()
+          designUrl = canvas.toDataURL('image/png')
+        } else {
+          designUrl = currentDesignImage
+        }
+        setMockupDesignUrl(designUrl)
+      }
+      const SIZE = 1200
+      const canvas = document.createElement('canvas')
+      canvas.width = SIZE; canvas.height = SIZE
+      const ctx = canvas.getContext('2d')
+      const productImg = await loadImgEl(currentProduct.image)
+      ctx.drawImage(productImg, 0, 0, SIZE, SIZE)
+      if (designUrl) {
+        const designImg = await loadImgEl(designUrl)
+        const dW = mockupOverlay.size / 100 * SIZE
+        const aspect = (designImg.naturalHeight || designImg.height) / (designImg.naturalWidth || designImg.width)
+        const dH = dW * aspect
+        ctx.drawImage(designImg, mockupOverlay.x / 100 * SIZE - dW / 2, mockupOverlay.y / 100 * SIZE - dH / 2, dW, dH)
+      }
+      const link = document.createElement('a')
+      link.download = `${fileName || 'mockup'}.mokap.png`
+      link.href = canvas.toDataURL('image/png')
+      link.click()
+    } catch (e) {
+      console.error('Mockup download error:', e)
     } finally {
       setPreparingMockup(false)
     }
@@ -1051,8 +1089,11 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder }) {
             <button onClick={handleOpenMockup} disabled={preparingMockup} className="relative w-48 h-48 flex-shrink-0 bg-white rounded-xl overflow-hidden flex items-center justify-center hover:ring-2 hover:ring-indigo-400 transition-all group" title="Редагувати мокап">
               <img src={currentProduct?.image} alt={currentProduct?.nameUk} className="w-full h-full object-cover" />
               {currentDesignImage && !preparingMockup && (
-                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                  <img src={currentDesignImage} alt="design overlay" className="w-2/5 opacity-90 mix-blend-multiply rounded-lg" style={{ filter: 'contrast(1.1)' }} />
+                <div
+                  className="absolute pointer-events-none"
+                  style={{ left: `${mockupOverlay.x}%`, top: `${mockupOverlay.y}%`, width: `${mockupOverlay.size}%`, transform: 'translate(-50%, -50%)' }}
+                >
+                  <img src={currentDesignImage} alt="design overlay" className="w-full opacity-90 mix-blend-multiply" />
                 </div>
               )}
               {preparingMockup && (
@@ -1130,14 +1171,14 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder }) {
               Скачати зображення
             </button>
             <button
-              onClick={handleOpenMockup}
+              onClick={handleDownloadMockup}
               disabled={preparingMockup}
               className="w-full flex items-center justify-center gap-2 border border-gray-200 text-gray-700 hover:bg-gray-50 rounded-xl py-2.5 text-sm font-medium transition-colors disabled:opacity-50"
             >
               {preparingMockup
                 ? <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" className="opacity-25"/><path d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" fill="currentColor"/></svg>
                 : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>}
-              Скачати мокап (1)
+              Скачати мокап
             </button>
             <button
               onClick={handleSaveDesign}
@@ -1154,7 +1195,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder }) {
 
       {showAIEdit && <AIEditModal onClose={() => setShowAIEdit(false)} />}
       {showChangeProduct && <ChangeProductModal current={selectedProduct} onSelect={setSelectedProduct} onClose={() => setShowChangeProduct(false)} />}
-      {showMockup && <MockupEditorModal designImage={mockupDesignUrl} product={currentProduct} fileName={fileName} onClose={() => setShowMockup(false)} />}
+      {showMockup && <MockupEditorModal designImage={mockupDesignUrl} product={currentProduct} fileName={fileName} initialOverlay={mockupOverlay} onSave={setMockupOverlay} onClose={() => setShowMockup(false)} />}
     </div>
   )
 }
