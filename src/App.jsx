@@ -8,8 +8,43 @@ import Templates from './pages/Templates'
 import Favorites from './pages/Favorites'
 import Settings from './pages/Settings'
 
+const STORAGE_KEY = 'aidesign_orders'
+
+function loadOrders() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || [] } catch { return [] }
+}
+
+function saveOrdersToStorage(orders) {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(orders)) } catch {}
+}
+
 export default function App() {
   const [designData, setDesignData] = useState(null)
+  const [savedOrders, setSavedOrders] = useState(loadOrders)
+
+  const handleSaveOrder = (order) => {
+    setSavedOrders(prev => {
+      const updated = [order, ...prev]
+      saveOrdersToStorage(updated)
+      return updated
+    })
+  }
+
+  const handleUpdateOrder = (id, changes) => {
+    setSavedOrders(prev => {
+      const updated = prev.map(o => o.id === id ? { ...o, ...changes } : o)
+      saveOrdersToStorage(updated)
+      return updated
+    })
+  }
+
+  const handleDeleteOrder = (id) => {
+    setSavedOrders(prev => {
+      const updated = prev.filter(o => o.id !== id)
+      saveOrdersToStorage(updated)
+      return updated
+    })
+  }
 
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50">
@@ -18,8 +53,26 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Navigate to="/create" replace />} />
           <Route path="/create" element={<CreateDesign onGenerate={setDesignData} />} />
-          <Route path="/placement" element={<DesignPlacement designData={designData} onUpdate={(upd) => setDesignData(prev => ({ ...prev, ...upd }))} />} />
-          <Route path="/orders" element={<MyOrders />} />
+          <Route
+            path="/placement"
+            element={
+              <DesignPlacement
+                designData={designData}
+                onUpdate={(upd) => setDesignData(prev => ({ ...prev, ...upd }))}
+                onSaveOrder={handleSaveOrder}
+              />
+            }
+          />
+          <Route
+            path="/orders"
+            element={
+              <MyOrders
+                savedOrders={savedOrders}
+                onUpdateOrder={handleUpdateOrder}
+                onDeleteOrder={handleDeleteOrder}
+              />
+            }
+          />
           <Route path="/templates" element={<Templates />} />
           <Route path="/favorites" element={<Favorites />} />
           <Route path="/settings" element={<Settings />} />

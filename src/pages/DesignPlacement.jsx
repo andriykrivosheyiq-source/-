@@ -758,7 +758,7 @@ function ChangeProductModal({ current, onSelect, onClose }) {
 
 // ─── DesignPlacement ──────────────────────────────────────────────────────────
 
-export default function DesignPlacement({ designData, onUpdate }) {
+export default function DesignPlacement({ designData, onUpdate, onSaveOrder }) {
   const navigate = useNavigate()
   const estPosterRef = useRef(null)
   const [activeTab, setActiveTab] = useState(0)
@@ -861,6 +861,46 @@ export default function DesignPlacement({ designData, onUpdate }) {
     } finally {
       setPreparingMockup(false)
     }
+  }
+
+  const handleSaveDesign = async () => {
+    const now = new Date()
+    const dateStr = now.toLocaleString('uk-UA', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+    const orderNum = `#${String(now.getTime()).slice(-5)}`
+
+    // Build small design thumbnail (≤200px) to store alongside product image
+    let thumb = currentProduct?.image || null
+    try {
+      let srcCanvas = null
+      if (isEst && estPosterRef.current) {
+        srcCanvas = await estPosterRef.current.exportToCanvas()
+      } else if (currentDesignImage && currentDesignImage.startsWith('data:')) {
+        const img = await loadImgEl(currentDesignImage)
+        srcCanvas = document.createElement('canvas')
+        srcCanvas.width = img.width; srcCanvas.height = img.height
+        srcCanvas.getContext('2d').drawImage(img, 0, 0)
+      }
+      if (srcCanvas) {
+        const tw = 300, th = Math.round(srcCanvas.height * 300 / srcCanvas.width)
+        const t = document.createElement('canvas'); t.width = tw; t.height = th
+        t.getContext('2d').drawImage(srcCanvas, 0, 0, tw, th)
+        thumb = t.toDataURL('image/jpeg', 0.6)
+      }
+    } catch {}
+
+    const catMap = { 'hoodie-basic': 'hoodie', 'hoodie-fleece': 'hoodie', 'hoodie-premium': 'hoodie', 'tshirt-basic': 'tshirt', 'tshirt-oversized': 'oversized', 'sweatshirt': 'sweatshirt', 'cap': 'cap', 'shopper': 'totebag' }
+    const order = {
+      id: orderNum,
+      name: fileName || `Дизайн від ${dateStr}`,
+      status: 'new',
+      productId: catMap[currentProduct?.category] || currentProduct?.category || 'hoodie',
+      productName: currentProduct?.nameUk || '',
+      date: dateStr,
+      colors: [designData?.productColors?.[selectedProduct] || '#1a1a1a'],
+      image: thumb,
+    }
+    onSaveOrder?.(order)
+    navigate('/orders')
   }
 
   return (
@@ -1004,9 +1044,9 @@ export default function DesignPlacement({ designData, onUpdate }) {
                 {preparingMockup ? <><svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" className="opacity-25"/><path d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" fill="currentColor"/></svg> Підготовка...</>
                   : <><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg> Редагувати на товарі</>}
               </button>
-              <button onClick={() => navigate('/orders')} className="btn-primary w-full justify-center">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
-                Додати до замовлення
+              <button onClick={handleSaveDesign} className="btn-primary w-full justify-center">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                Зберегти дизайн
               </button>
             </div>
           </div>
@@ -1070,7 +1110,7 @@ export default function DesignPlacement({ designData, onUpdate }) {
               Скачати мокап (1)
             </button>
             <button
-              onClick={() => navigate('/orders')}
+              onClick={handleSaveDesign}
               className="w-full flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl py-2.5 text-sm font-semibold transition-colors"
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
