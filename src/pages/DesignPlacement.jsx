@@ -826,7 +826,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder }) {
   const [designerComment, setDesignerComment] = useState('')
   const [showDesignerDropdown, setShowDesignerDropdown] = useState(false)
   const [showClientModal, setShowClientModal] = useState(false)
-  const [clientPhone, setClientPhone] = useState('')
+  const [chatId, setChatId] = useState('')
   const [clientNote, setClientNote] = useState('')
   const [sendingToClient, setSendingToClient] = useState(false)
   const [clientSendResult, setClientSendResult] = useState(null)
@@ -1105,7 +1105,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder }) {
     setClientSendResult(null)
     try {
       await sendToClientCRM({
-        clientPhone,
+        chatId,
         files: sendItems.filter(i => i.checked),
         note: clientNote,
       })
@@ -1695,16 +1695,17 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder }) {
             </div>
 
             <div className="px-6 pb-6 space-y-5">
-              {/* Client phone */}
+              {/* Chat ID */}
               <div>
-                <label className="text-xs text-gray-500 block mb-1">Номер телефону клієнта</label>
+                <label className="text-xs text-gray-500 block mb-1">Chat ID в Sitniks</label>
                 <input
-                  type="tel"
-                  value={clientPhone}
-                  onChange={e => setClientPhone(e.target.value)}
-                  placeholder="+380 XX XXX XX XX"
+                  type="text"
+                  value={chatId}
+                  onChange={e => setChatId(e.target.value.trim())}
+                  placeholder="Вставте ID з URL чату: crm.sitniks.com/chats/..."
                   className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300"
                 />
+                <p className="text-[11px] text-gray-400 mt-1">Знайдіть чат клієнта в Sitniks → скопіюйте ID з адресного рядка браузера</p>
               </div>
 
               {/* Files */}
@@ -1777,7 +1778,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder }) {
               {clientSendResult !== 'success' && (
                 <button
                   onClick={handleSendToClient}
-                  disabled={preparingSend || sendingToClient || !clientPhone.trim() || sendItems.filter(i => i.checked).length === 0}
+                  disabled={preparingSend || sendingToClient || !chatId.trim() || sendItems.filter(i => i.checked).length === 0}
                   className="flex-1 flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl py-3 text-sm font-semibold transition-colors disabled:opacity-50"
                 >
                   {sendingToClient
