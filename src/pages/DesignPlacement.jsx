@@ -88,7 +88,7 @@ function drawTTOLetters(ctx, ttoLetters, W, H) {
       ctx.rotate(letter.rotation * Math.PI / 180)
       const path = new Path2D()
       path.ellipse(0, 0, lw / 2, lh / 2, 0, 0, Math.PI * 2)
-      path.ellipse(0, 0, lw * 70 / 270, lh * 85 / 300, 0, 0, Math.PI * 2)
+      path.ellipse(0, 0, lw * 95 / 270, lh * 110 / 300, 0, 0, Math.PI * 2)
       ctx.fill(path, 'evenodd')
     } else {
       const lw = letter.size / 100 * W
@@ -96,9 +96,9 @@ function drawTTOLetters(ctx, ttoLetters, W, H) {
       ctx.translate(lx + lw / 2, ly + lh / 2)
       ctx.rotate(letter.rotation * Math.PI / 180)
       ctx.translate(-lw / 2, -lh / 2)
-      const r = lw * 35 / 260
-      drawRR(ctx, 0, 0, lw, lw * 70 / 260, r)
-      drawRR(ctx, lw * 95 / 260, lh * 40 / 300, lw * 70 / 260, lh * 260 / 300, r)
+      const r = lw * 20 / 260
+      drawRR(ctx, 0, 0, lw, lw * 40 / 260, r)
+      drawRR(ctx, lw * 110 / 260, lh * 20 / 300, lw * 40 / 260, lh * 280 / 300, r)
     }
     ctx.restore()
   }
@@ -416,12 +416,12 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
               {isO ? (
                 <svg viewBox="285 0 270 300" style={{ width: '100%', height: 'auto', display: 'block' }}>
                   <ellipse cx="420" cy="150" rx="135" ry="150" fill={letter.color} />
-                  <ellipse cx="420" cy="150" rx="70" ry="85" fill="white" />
+                  <ellipse cx="420" cy="150" rx="95" ry="110" fill="white" />
                 </svg>
               ) : (
                 <svg viewBox="0 0 260 300" style={{ width: '100%', height: 'auto', display: 'block' }}>
-                  <rect x="0" y="0" width="260" height="70" rx="35" fill={letter.color} />
-                  <rect x="95" y="40" width="70" height="260" rx="35" fill={letter.color} />
+                  <rect x="0" y="0" width="260" height="40" rx="20" fill={letter.color} />
+                  <rect x="110" y="20" width="40" height="280" rx="20" fill={letter.color} />
                 </svg>
               )}
               {isSelected && (
