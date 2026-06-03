@@ -1,5 +1,5 @@
-import React, { useState } from 'react'
-import { Routes, Route, Navigate } from 'react-router-dom'
+import React, { useState, useRef } from 'react'
+import { Routes, Route, Navigate, useNavigate } from 'react-router-dom'
 import Sidebar from './components/Sidebar'
 import CreateDesign from './pages/CreateDesign'
 import DesignPlacement from './pages/DesignPlacement'
@@ -13,16 +13,19 @@ const STORAGE_KEY = 'aidesign_orders'
 function loadOrders() {
   try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || [] } catch { return [] }
 }
-
 function saveOrdersToStorage(orders) {
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(orders)) } catch {}
 }
 
-export default function App() {
+function AppInner() {
+  const navigate = useNavigate()
   const [designData, setDesignData] = useState(null)
   const [savedOrders, setSavedOrders] = useState(loadOrders)
+  // In-memory: full images + designData for orders saved this session
+  const orderExtras = useRef({}) // { [orderId]: { fullImage, designSnapshot } }
 
-  const handleSaveOrder = (order) => {
+  const handleSaveOrder = (order, extras) => {
+    if (extras) orderExtras.current[order.id] = extras
     setSavedOrders(prev => {
       const updated = [order, ...prev]
       saveOrdersToStorage(updated)
@@ -39,11 +42,21 @@ export default function App() {
   }
 
   const handleDeleteOrder = (id) => {
+    delete orderExtras.current[id]
     setSavedOrders(prev => {
       const updated = prev.filter(o => o.id !== id)
       saveOrdersToStorage(updated)
       return updated
     })
+  }
+
+  // Restore design from saved order and navigate to placement
+  const handleOpenOrder = (orderId) => {
+    const extras = orderExtras.current[orderId]
+    if (extras?.designSnapshot) {
+      setDesignData(extras.designSnapshot)
+    }
+    navigate('/placement')
   }
 
   return (
@@ -68,8 +81,10 @@ export default function App() {
             element={
               <MyOrders
                 savedOrders={savedOrders}
+                orderExtras={orderExtras.current}
                 onUpdateOrder={handleUpdateOrder}
                 onDeleteOrder={handleDeleteOrder}
+                onOpenOrder={handleOpenOrder}
               />
             }
           />
@@ -80,4 +95,8 @@ export default function App() {
       </main>
     </div>
   )
+}
+
+export default function App() {
+  return <AppInner />
 }
