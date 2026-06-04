@@ -131,12 +131,12 @@ function drawEstText(ctx, estEl, estText, W, H) {
 }
 
 // Full composite with white background (for regular download)
-async function renderEstToCanvas(letters, estEl, estText, showEstText, imageUrl, illus, letterStyle, ttoLetters) {
+async function renderEstToCanvas(letters, estEl, estText, showEstText, imageUrl, illus, letterStyle, ttoLetters, bgColor = '#f0f0f0') {
   const W = 1600, H = 900
   const canvas = document.createElement('canvas')
   canvas.width = W; canvas.height = H
   const ctx = canvas.getContext('2d')
-  ctx.fillStyle = '#f0f0f0'
+  ctx.fillStyle = bgColor || '#f0f0f0'
   ctx.fillRect(0, 0, W, H)
 
   if (imageUrl) {
@@ -214,6 +214,7 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
   const [illus, setIllus] = useState({ x: 50, y: 45, size: 52, cropBottom: 0 })
   const [cleanedUrl, setCleanedUrl] = useState(null)
   const [selected, setSelected] = useState(null)
+  const [bgColor, setBgColor] = useState('#f0f0f0')
 
   // Pre-process illustration: remove white background for transparent preview
   useEffect(() => {
@@ -232,9 +233,9 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
   }, [imageUrl])
 
   useImperativeHandle(ref, () => ({
-    exportToCanvas:      () => renderEstToCanvas(letters, estEl, estText, showEstText, imageUrl, illus, letterStyle, ttoLetters),
+    exportToCanvas:      () => renderEstToCanvas(letters, estEl, estText, showEstText, imageUrl, illus, letterStyle, ttoLetters, bgColor),
     exportTransparent:   () => renderEstTransparent(letters, estEl, estText, showEstText, imageUrl, illus, letterStyle, ttoLetters),
-  }), [letters, estEl, estText, showEstText, imageUrl, illus, letterStyle, ttoLetters])
+  }), [letters, estEl, estText, showEstText, imageUrl, illus, letterStyle, ttoLetters, bgColor])
 
   useEffect(() => {
     const onMove = (e) => {
@@ -319,9 +320,29 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
     else if (selectedTTOLetter) setTtoLetters(prev => prev.map(l => l.id === selected ? { ...l, color } : l))
   }
 
+  const BG_PALETTE = ['#f0f0f0', '#ffffff', '#1a1a1a', '#2d2d2d', '#f5eed6', '#dce8f5', '#e8f5e9', '#fce4ec', '#fff3e0']
+
   return (
-    <div style={{ background: '#f0f0f0', width: '100%', borderRadius: '12px' }}>
-      <div ref={containerRef} onClick={() => setSelected(null)} style={{ position: 'relative', width: '100%', aspectRatio: '16 / 9', background: '#f0f0f0', userSelect: 'none', touchAction: 'none', overflow: 'hidden', ...(showGrid ? { backgroundImage: 'linear-gradient(rgba(99,102,241,0.2) 1px, transparent 1px), linear-gradient(90deg, rgba(99,102,241,0.2) 1px, transparent 1px)', backgroundSize: '10% 10%' } : {}) }}>
+    <div style={{ background: bgColor, width: '100%', borderRadius: '12px' }}>
+      {/* Background color palette */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 12px', flexWrap: 'wrap' }}>
+        <span style={{ fontSize: '11px', color: '#6b7280', fontWeight: 500, marginRight: '2px' }}>Фон:</span>
+        {BG_PALETTE.map(c => (
+          <button
+            key={c}
+            onMouseDown={e => e.stopPropagation()}
+            onClick={e => { e.stopPropagation(); setBgColor(c) }}
+            title={c}
+            style={{
+              width: '22px', height: '22px', borderRadius: '50%', padding: 0, cursor: 'pointer', flexShrink: 0,
+              border: bgColor === c ? '2.5px solid #4f46e5' : '1.5px solid #d1d5db',
+              background: c,
+              boxShadow: bgColor === c ? '0 0 0 2px rgba(79,70,229,0.25)' : '0 1px 3px rgba(0,0,0,0.12)',
+            }}
+          />
+        ))}
+      </div>
+      <div ref={containerRef} onClick={() => setSelected(null)} style={{ position: 'relative', width: '100%', aspectRatio: '16 / 9', background: bgColor, userSelect: 'none', touchAction: 'none', overflow: 'hidden', ...(showGrid ? { backgroundImage: 'linear-gradient(rgba(99,102,241,0.2) 1px, transparent 1px), linear-gradient(90deg, rgba(99,102,241,0.2) 1px, transparent 1px)', backgroundSize: '10% 10%' } : {}) }}>
 
         {/* Grid toggle + Letter style switcher */}
         <div style={{ position: 'absolute', top: '8px', right: '8px', zIndex: 25, display: 'flex', gap: '6px', alignItems: 'center' }}>
