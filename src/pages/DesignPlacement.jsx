@@ -43,22 +43,59 @@ function loadImgEl(src) {
   })
 }
 
-// Remove white background by setting alpha based on pixel brightness
-function removeWhiteBg(img, threshold = 235) {
+// Remove white background using edge-seeded flood-fill — only removes pixels
+// connected to the image border, so internal white clothing is preserved.
+function removeWhiteBg(img, threshold = 230) {
   const canvas = document.createElement('canvas')
-  canvas.width = img.naturalWidth || img.width
-  canvas.height = img.naturalHeight || img.height
+  const W = img.naturalWidth || img.width
+  const H = img.naturalHeight || img.height
+  canvas.width = W; canvas.height = H
   const ctx = canvas.getContext('2d')
   ctx.drawImage(img, 0, 0)
-  const data = ctx.getImageData(0, 0, canvas.width, canvas.height)
-  const px = data.data
-  for (let i = 0; i < px.length; i += 4) {
-    const whiteness = Math.min(px[i], px[i + 1], px[i + 2])
-    if (whiteness > threshold) {
-      px[i + 3] = Math.round(255 * (1 - (whiteness - threshold) / (255 - threshold)))
+  const imageData = ctx.getImageData(0, 0, W, H)
+  const px = imageData.data
+
+  const isWhitish = (pos) => {
+    const i = pos * 4
+    return px[i] > threshold && px[i + 1] > threshold && px[i + 2] > threshold
+  }
+
+  const visited = new Uint8Array(W * H)
+  const queue = []
+
+  // Seed from every pixel on all four edges
+  for (let x = 0; x < W; x++) {
+    for (const y of [0, H - 1]) {
+      const pos = y * W + x
+      if (!visited[pos] && isWhitish(pos)) { visited[pos] = 1; queue.push(pos) }
     }
   }
-  ctx.putImageData(data, 0, 0)
+  for (let y = 1; y < H - 1; y++) {
+    for (const x of [0, W - 1]) {
+      const pos = y * W + x
+      if (!visited[pos] && isWhitish(pos)) { visited[pos] = 1; queue.push(pos) }
+    }
+  }
+
+  // BFS flood-fill
+  let head = 0
+  while (head < queue.length) {
+    const pos = queue[head++]
+    const x = pos % W, y = (pos / W) | 0
+    for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
+      const nx = x + dx, ny = y + dy
+      if (nx < 0 || nx >= W || ny < 0 || ny >= H) continue
+      const npos = ny * W + nx
+      if (!visited[npos] && isWhitish(npos)) { visited[npos] = 1; queue.push(npos) }
+    }
+  }
+
+  // Make only background (visited) pixels transparent
+  for (let i = 0; i < W * H; i++) {
+    if (visited[i]) px[i * 4 + 3] = 0
+  }
+
+  ctx.putImageData(imageData, 0, 0)
   return canvas
 }
 
@@ -154,17 +191,15 @@ async function renderEstToCanvas(letters, estEl, estText, showEstText, imageUrl,
   if (imageUrl) {
     try {
       const img = await loadImgEl(imageUrl)
+      const cleaned = removeWhiteBg(img)
       const iW = illus.size / 100 * W
-      const iH = iW * img.height / img.width
+      const iH = iW * cleaned.height / cleaned.width
       const cropFrac = (illus.cropBottom || 0) / 100
-      const srcH = img.height * (1 - cropFrac)
+      const srcH = cleaned.height * (1 - cropFrac)
       const destH = iH * (1 - cropFrac)
       const iX = illus.x / 100 * W - iW / 2
       const iY = illus.y / 100 * H - iH / 2
-      ctx.save()
-      ctx.globalCompositeOperation = 'multiply'
-      ctx.drawImage(img, 0, 0, img.width, srcH, iX, iY, iW, destH)
-      ctx.restore()
+      ctx.drawImage(cleaned, 0, 0, cleaned.width, srcH, iX, iY, iW, destH)
     } catch { /* skip */ }
   }
 
