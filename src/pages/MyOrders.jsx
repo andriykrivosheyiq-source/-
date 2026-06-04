@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { products as allProducts } from '../data/mockData'
 
 const STATUS_CONFIG = {
   new:      { label: 'В роботі',          dot: 'bg-blue-400',   bg: 'bg-blue-50 border-blue-100',       badge: 'bg-blue-100 text-blue-700' },
@@ -165,12 +166,27 @@ function OrderDetailModal({ order, extras, onClose, onStatusChange, onDelete, on
 
 // ─── TransferToDesignerModal ───────────────────────────────────────────────────
 
-function TransferToDesignerModal({ order, onConfirm, onClose }) {
+function TransferToDesignerModal({ order, extras, onConfirm, onClose }) {
   const [selectedDesigner, setSelectedDesigner] = useState(null)
   const [showDropdown, setShowDropdown] = useState(false)
   const [orderSize, setOrderSize] = useState(order.orderSize || '')
   const [embroiderySize, setEmbroiderySize] = useState(order.embroiderySize || '')
   const [comment, setComment] = useState(order.comment || '')
+  const [files, setFiles] = useState(() => {
+    const result = []
+    const designImage = extras?.fullImage || order.image
+    if (designImage) {
+      result.push({ id: 'design', label: 'Дизайн №1', thumbnail: designImage, checked: true })
+    }
+    const productIds = extras?.designSnapshot?.selectedProducts || (order.productId ? [order.productId] : [])
+    productIds.forEach((pid, i) => {
+      const product = allProducts.find(p => p.id === pid)
+      if (product) {
+        result.push({ id: `mockup-${i}`, label: `Мокап №${i + 1} — ${product.nameUk}`, thumbnail: product.image, checked: true })
+      }
+    })
+    return result
+  })
 
   const handleConfirm = () => {
     if (!selectedDesigner) return
@@ -224,6 +240,33 @@ function TransferToDesignerModal({ order, onConfirm, onClose }) {
               </div>
             </div>
           </div>
+
+          {/* Files */}
+          {files.length > 0 && (
+            <div>
+              <h3 className="text-base font-bold text-gray-900 mb-1">Файли для передачі</h3>
+              <p className="text-sm text-gray-500 mb-3">Оберіть файли, які передаються дизайнеру</p>
+              <div className="flex gap-3 overflow-x-auto pb-2">
+                {files.map((item, idx) => (
+                  <div
+                    key={item.id}
+                    className={`flex-shrink-0 w-44 border-2 rounded-xl p-3 cursor-pointer transition-all ${item.checked ? 'border-indigo-500 bg-indigo-50/40' : 'border-gray-200 bg-white'}`}
+                    onClick={() => setFiles(prev => prev.map((f, i) => i === idx ? { ...f, checked: !f.checked } : f))}
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <div className={`w-5 h-5 rounded flex items-center justify-center border-2 transition-colors ${item.checked ? 'bg-indigo-600 border-indigo-600' : 'border-gray-300 bg-white'}`}>
+                        {item.checked && <svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M2 6l3 3 5-5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                      </div>
+                    </div>
+                    <div className="w-full h-28 bg-white rounded-lg overflow-hidden border border-gray-100 flex items-center justify-center mb-2">
+                      <img src={item.thumbnail} alt="" className="w-full h-full object-contain" />
+                    </div>
+                    <p className="text-xs font-semibold text-gray-800 truncate">{item.label}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Designer + Comment */}
           <div>
@@ -525,7 +568,7 @@ export default function MyOrders({ savedOrders = [], ordersLoading = false, orde
   const handleStatusChange = (id, newStatus) => {
     if (newStatus === 'designer') {
       const order = allOrders.find(o => o.id === id) || { id }
-      setTransferPending(order)
+      setTransferPending({ order, extras: orderExtras[id] || {} })
       if (selectedOrder?.id === id) setSelectedOrder(null)
       return
     }
@@ -535,7 +578,7 @@ export default function MyOrders({ savedOrders = [], ordersLoading = false, orde
 
   const handleConfirmTransfer = (designerData) => {
     if (!transferPending) return
-    onUpdateOrder?.(transferPending.id, { status: 'designer', ...designerData })
+    onUpdateOrder?.(transferPending.order.id, { status: 'designer', ...designerData })
     setTransferPending(null)
   }
 
@@ -657,7 +700,8 @@ export default function MyOrders({ savedOrders = [], ordersLoading = false, orde
       {/* Transfer to designer modal */}
       {transferPending && (
         <TransferToDesignerModal
-          order={transferPending}
+          order={transferPending.order}
+          extras={transferPending.extras}
           onConfirm={handleConfirmTransfer}
           onClose={() => setTransferPending(null)}
         />
