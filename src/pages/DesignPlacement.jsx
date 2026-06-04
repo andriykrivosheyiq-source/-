@@ -1307,6 +1307,30 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
       }
     } catch {}
 
+    let mockupThumb = null
+    try {
+      if (currentProduct?.image) {
+        const SIZE = 320
+        const mCanvas = document.createElement('canvas')
+        mCanvas.width = SIZE; mCanvas.height = SIZE
+        const mCtx = mCanvas.getContext('2d')
+        const pImg = await loadImgEl(currentProduct.image)
+        mCtx.drawImage(pImg, 0, 0, SIZE, SIZE)
+        const dSrc = mockupDesignUrl || fullImage
+        if (dSrc) {
+          const dImg = await loadImgEl(dSrc)
+          const cleaned = removeWhiteBg(dImg)
+          const dW = mockupOverlay.size / 100 * SIZE
+          const dH = dW * cleaned.height / cleaned.width
+          mCtx.drawImage(cleaned, 0, 0, cleaned.width, cleaned.height,
+            mockupOverlay.x / 100 * SIZE - dW / 2,
+            mockupOverlay.y / 100 * SIZE - dH / 2,
+            dW, dH)
+        }
+        mockupThumb = mCanvas.toDataURL('image/jpeg', 0.82)
+      }
+    } catch {}
+
     const designSnapshot = {
       selectedProducts: [selectedProduct, ...extraMockupProducts],
       selectedStyle: designData?.selectedStyle,
@@ -1328,6 +1352,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
       onUpdateOrderFull?.(designData.editingOrderId, {
         name: fileName || `Дизайн від ${dateStr}`,
         image: thumb,
+        mockupThumb,
         colors: [designData?.productColors?.[selectedProduct] || '#1a1a1a'],
         productId: catMap[currentProduct?.category] || currentProduct?.category || 'hoodie',
         productName: currentProduct?.nameUk || '',
@@ -1342,6 +1367,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
         date: dateStr,
         colors: [designData?.productColors?.[selectedProduct] || '#1a1a1a'],
         image: thumb,
+        mockupThumb,
       }
       onSaveOrder?.(order, { fullImage, designSnapshot })
     }
@@ -1380,6 +1406,30 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
       }
     } catch {}
 
+    let mockupThumb = null
+    try {
+      if (currentProduct?.image) {
+        const SIZE = 320
+        const mCanvas = document.createElement('canvas')
+        mCanvas.width = SIZE; mCanvas.height = SIZE
+        const mCtx = mCanvas.getContext('2d')
+        const pImg = await loadImgEl(currentProduct.image)
+        mCtx.drawImage(pImg, 0, 0, SIZE, SIZE)
+        const dSrc = mockupDesignUrl || fullImage
+        if (dSrc) {
+          const dImg = await loadImgEl(dSrc)
+          const cleaned = removeWhiteBg(dImg)
+          const dW = mockupOverlay.size / 100 * SIZE
+          const dH = dW * cleaned.height / cleaned.width
+          mCtx.drawImage(cleaned, 0, 0, cleaned.width, cleaned.height,
+            mockupOverlay.x / 100 * SIZE - dW / 2,
+            mockupOverlay.y / 100 * SIZE - dH / 2,
+            dW, dH)
+        }
+        mockupThumb = mCanvas.toDataURL('image/jpeg', 0.82)
+      }
+    } catch {}
+
     const catMap = { 'hoodie-basic': 'hoodie', 'hoodie-fleece': 'hoodie', 'hoodie-premium': 'hoodie', 'tshirt-basic': 'tshirt', 'tshirt-oversized': 'oversized', 'sweatshirt': 'sweatshirt', 'cap': 'cap', 'shopper': 'totebag' }
     const transferDateStr = now.toLocaleString('uk-UA', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Kiev' }).replace(',', '')
     const order = {
@@ -1391,6 +1441,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
       date: dateStr,
       colors: [designData?.productColors?.[selectedProduct] || '#1a1a1a'],
       image: thumb,
+      mockupThumb,
       designer: selectedDesigner?.handle || '',
       designerName: selectedDesigner?.name || '',
       designerColor: selectedDesigner?.color || 'bg-blue-500',

@@ -383,6 +383,11 @@ function OrderCard({ order, onStatusChange, onDelete, onOpen }) {
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => { setHover(false); setConfirmDelete(false) }}
     >
+      {order.mockupThumb && (
+        <div className="h-36 rounded-t-xl overflow-hidden bg-gray-50">
+          <img src={order.mockupThumb} alt="mockup" className="w-full h-full object-contain" />
+        </div>
+      )}
       <div className="flex gap-3 p-3">
         <div className="w-16 h-16 rounded-lg flex-shrink-0 overflow-hidden bg-gray-50">
           {order.image ? (
