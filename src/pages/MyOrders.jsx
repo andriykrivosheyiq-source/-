@@ -152,8 +152,35 @@ function OrderDetailModal({ order, extras, onClose, onStatusChange, onDelete, on
 
 // ─── OrderCard ─────────────────────────────────────────────────────────────────
 
+function DeleteConfirmPopover({ orderId, onConfirm, onCancel }) {
+  return (
+    <div
+      className="absolute top-8 right-0 z-50 bg-white rounded-xl shadow-xl border border-gray-100 p-4 w-56"
+      onClick={e => e.stopPropagation()}
+    >
+      <p className="text-sm font-semibold text-gray-800 mb-1">Видалити замовлення?</p>
+      <p className="text-xs text-gray-500 mb-3">Цю дію неможливо скасувати.</p>
+      <div className="flex gap-2">
+        <button
+          onClick={onCancel}
+          className="flex-1 py-1.5 text-xs font-semibold border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50 transition-colors"
+        >
+          Ні
+        </button>
+        <button
+          onClick={() => onConfirm(orderId)}
+          className="flex-1 py-1.5 text-xs font-semibold bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors"
+        >
+          Так, видалити
+        </button>
+      </div>
+    </div>
+  )
+}
+
 function OrderCard({ order, onStatusChange, onDelete, onOpen }) {
   const [hover, setHover] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
   const cfg = STATUS_CONFIG[order.status] || STATUS_CONFIG.new
   const isOverdue = order.transferDate && (Date.now() - new Date(order.transferDate).getTime() > 24 * 3600 * 1000)
 
@@ -169,7 +196,7 @@ function OrderCard({ order, onStatusChange, onDelete, onOpen }) {
       onClick={() => onOpen?.(order)}
       className={`bg-white rounded-xl shadow-sm overflow-visible hover:shadow-md transition-all duration-200 cursor-grab active:cursor-grabbing active:opacity-70 active:scale-95 ${isOverdue ? 'border-2 border-red-400' : 'border border-gray-100'}`}
       onMouseEnter={() => setHover(true)}
-      onMouseLeave={() => setHover(false)}
+      onMouseLeave={() => { setHover(false); setConfirmDelete(false) }}
     >
       <div className="flex gap-3 p-3">
         <div className="w-16 h-16 rounded-lg flex-shrink-0 overflow-hidden bg-gray-50">
@@ -191,17 +218,26 @@ function OrderCard({ order, onStatusChange, onDelete, onOpen }) {
             </div>
             {/* Action buttons — stop propagation so clicking them doesn't open modal */}
             <div
-              className={`relative flex gap-1 transition-opacity shrink-0 ${hover ? 'opacity-100' : 'opacity-0'}`}
+              className={`relative flex gap-1 transition-opacity shrink-0 ${hover || confirmDelete ? 'opacity-100' : 'opacity-0'}`}
               onClick={e => e.stopPropagation()}
             >
               {order._saved && onDelete && (
-                <button
-                  onClick={() => onDelete(order.id)}
-                  className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                  title="Видалити"
-                >
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>
-                </button>
+                <>
+                  <button
+                    onClick={() => setConfirmDelete(v => !v)}
+                    className={`p-1.5 rounded-lg transition-colors ${confirmDelete ? 'text-red-500 bg-red-50' : 'text-gray-400 hover:text-red-500 hover:bg-red-50'}`}
+                    title="Видалити"
+                  >
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>
+                  </button>
+                  {confirmDelete && (
+                    <DeleteConfirmPopover
+                      orderId={order.id}
+                      onConfirm={(id) => { setConfirmDelete(false); onDelete(id) }}
+                      onCancel={() => setConfirmDelete(false)}
+                    />
+                  )}
+                </>
               )}
             </div>
           </div>
