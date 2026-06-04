@@ -860,6 +860,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
     () => designData?.extraMockupProducts ?? (designData?.selectedProducts || []).slice(1)
   )
   const [showAddMockupModal, setShowAddMockupModal] = useState(false)
+  const [changingMockupIndex, setChangingMockupIndex] = useState(null)
   const [downloadingMockupIndex, setDownloadingMockupIndex] = useState(null)
   const [showSendModal, setShowSendModal] = useState(false)
   const [sendItems, setSendItems] = useState([])
@@ -1215,7 +1216,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
     } catch {}
 
     const designSnapshot = {
-      selectedProducts: designData?.selectedProducts || [selectedProduct],
+      selectedProducts: [selectedProduct, ...extraMockupProducts],
       selectedStyle: designData?.selectedStyle,
       generatedDesigns: designData?.generatedDesigns,
       fileName,
@@ -1308,7 +1309,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
       embroiderySize: sendEmbroiderySize,
     }
     const designSnapshot = {
-      selectedProducts: designData?.selectedProducts || [selectedProduct],
+      selectedProducts: [selectedProduct, ...extraMockupProducts],
       selectedStyle: designData?.selectedStyle,
       generatedDesigns: designData?.generatedDesigns,
       fileName,
@@ -1455,10 +1456,6 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
                 </span>
               )}
             </div>
-            <button onClick={() => setShowChangeProduct(true)} className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-indigo-600 transition-colors">
-              Змінити товар
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-            </button>
           </div>
           <div className="divide-y divide-gray-50">
             {allMockupProducts.map((product, index) => (
@@ -1508,6 +1505,14 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
                     )}
                   </div>
                   <div className="flex gap-2">
+                    <button
+                      onClick={() => setChangingMockupIndex(index)}
+                      className="flex items-center justify-center gap-1.5 border border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-indigo-600 rounded-xl px-3 py-2 text-sm font-medium transition-colors"
+                      title="Змінити товар"
+                    >
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                      Змінити
+                    </button>
                     <button
                       onClick={() => handleDownloadMockupForProduct(product, index)}
                       disabled={downloadingMockupIndex === index}
@@ -1634,6 +1639,20 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
       {showChangeProduct && <ChangeProductModal current={selectedProduct} onSelect={setSelectedProduct} onClose={() => setShowChangeProduct(false)} />}
       {showMockup && <MockupEditorModal designImage={mockupDesignUrl} product={currentProduct} fileName={fileName} initialOverlay={mockupOverlay} onSave={setMockupOverlay} onClose={() => setShowMockup(false)} />}
       {showAddMockupModal && <ChangeProductModal current={null} onSelect={(id) => { setExtraMockupProducts(prev => [...prev, id]); setShowAddMockupModal(false) }} onClose={() => setShowAddMockupModal(false)} />}
+      {changingMockupIndex !== null && (
+        <ChangeProductModal
+          current={changingMockupIndex === 0 ? selectedProduct : extraMockupProducts[changingMockupIndex - 1]}
+          onSelect={(id) => {
+            if (changingMockupIndex === 0) {
+              setSelectedProduct(id)
+            } else {
+              setExtraMockupProducts(prev => prev.map((p, i) => i === changingMockupIndex - 1 ? id : p))
+            }
+            setChangingMockupIndex(null)
+          }}
+          onClose={() => setChangingMockupIndex(null)}
+        />
+      )}
 
       {showSendModal && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setShowSendModal(false)}>
