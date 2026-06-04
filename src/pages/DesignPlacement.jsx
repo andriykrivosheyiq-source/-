@@ -10,8 +10,10 @@ const D_PATH =
   'M262 198L191 207L227 470L298 461L317 436L288 221L285 215Z ' +
   'M259 209L277 224L306 433L291 451L238 458L235 453L203 218L205 216Z'
 
-// Outer boundary only — no inner cutouts, renders as a solid filled D
-const D_PATH_FILLED = 'M291 123L78 153L88 232L114 229L116 233L148 467L143 471L121 474L132 555L349 526L400 459L360 176Z'
+// Outer boundary + counter hole — renders as a solid D with visible counter (like a varsity letter)
+const D_PATH_FILLED =
+  'M291 123L78 153L88 232L114 229L116 233L148 467L143 471L121 474L132 555L349 526L400 459L360 176Z ' +
+  'M262 198L191 207L227 470L298 461L317 436L288 221L285 215Z'
 
 const PRESET_COLORS = ['#000000', '#1e3a5f', '#c0392b', '#2d5a27', '#d97706', '#7c3aed', '#9ca3af', '#8b5e3c', '#ffffff', '#f5eed6']
 
@@ -74,7 +76,7 @@ function drawDLetters(ctx, letters, W, H, filled = false) {
     ctx.scale(sc, sc)
     ctx.translate(-60, -110)
     ctx.fillStyle = letter.color
-    if (filled) ctx.fill(new Path2D(D_PATH_FILLED))
+    if (filled) ctx.fill(new Path2D(D_PATH_FILLED), 'evenodd')
     else ctx.fill(new Path2D(D_PATH), 'evenodd')
     ctx.restore()
   }
@@ -454,7 +456,7 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
           )}
         </div>}
 
-        {letterStyle === 'D' && letters.map(letter => {
+        {(letterStyle === 'D' || letterStyle === 'D_FILLED') && letters.map(letter => {
           const isSelected = selected === letter.id
           return (
             <div key={letter.id} onMouseDown={e => startDrag(letter.id, 'move', e)} onTouchStart={e => startDrag(letter.id, 'move', e)} onClick={e => handleClick(letter.id, e)} style={{ position: 'absolute', left: `${letter.x}%`, top: `${letter.y}%`, width: `${letter.size}%`, transform: `rotate(${letter.rotation}deg)`, transformOrigin: 'center center', cursor: isSelected ? 'grab' : 'pointer', zIndex: isSelected ? 20 : 10 }}>
@@ -471,7 +473,7 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
               )}
               <svg viewBox="60 110 360 460" style={{ width: '100%', height: 'auto', display: 'block' }}>
                 {letterStyle === 'D_FILLED'
-                  ? <path d={D_PATH_FILLED} fill={letter.color} />
+                  ? <path d={D_PATH_FILLED} fill={letter.color} fillRule="evenodd" />
                   : <path d={D_PATH} fill={letter.color} fillRule="evenodd" />
                 }
               </svg>
