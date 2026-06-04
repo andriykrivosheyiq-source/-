@@ -835,9 +835,9 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
   const [showChangeProduct, setShowChangeProduct] = useState(false)
   const [showMockup, setShowMockup] = useState(false)
   const [mockupDesignUrl, setMockupDesignUrl] = useState(null)
-  const [mockupOverlay, setMockupOverlay] = useState({ x: 50, y: 35, size: 32 })
-  const [estText, setEstText] = useState('EST.2025')
-  const [showEstText, setShowEstText] = useState(true)
+  const [mockupOverlay, setMockupOverlay] = useState(designData?.mockupOverlay || { x: 50, y: 35, size: 32 })
+  const [estText, setEstText] = useState(designData?.estText || 'EST.2025')
+  const [showEstText, setShowEstText] = useState(designData?.showEstText ?? true)
   const [regenerating, setRegenerating] = useState(false)
   const [regenError, setRegenError] = useState(null)
   const [showEditPrompt, setShowEditPrompt] = useState(false)
@@ -856,7 +856,9 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
     return `Design_${year}`
   })
   const [orderStatus, setOrderStatus] = useState('new')
-  const [extraMockupProducts, setExtraMockupProducts] = useState([])
+  const [extraMockupProducts, setExtraMockupProducts] = useState(
+    () => designData?.extraMockupProducts ?? (designData?.selectedProducts || []).slice(1)
+  )
   const [showAddMockupModal, setShowAddMockupModal] = useState(false)
   const [downloadingMockupIndex, setDownloadingMockupIndex] = useState(null)
   const [showSendModal, setShowSendModal] = useState(false)
@@ -1220,6 +1222,10 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
       productColors: designData?.productColors,
       uploadedFile: null,
       estPosterState: isEst ? estPosterRef.current?.getState() : null,
+      showEstText,
+      estText,
+      mockupOverlay,
+      extraMockupProducts,
     }
 
     const catMap = { 'hoodie-basic': 'hoodie', 'hoodie-fleece': 'hoodie', 'hoodie-premium': 'hoodie', 'tshirt-basic': 'tshirt', 'tshirt-oversized': 'oversized', 'sweatshirt': 'sweatshirt', 'cap': 'cap', 'shopper': 'totebag' }
@@ -1309,6 +1315,10 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
       productColors: designData?.productColors,
       uploadedFile: null,
       estPosterState: isEst ? estPosterRef.current?.getState() : null,
+      showEstText,
+      estText,
+      mockupOverlay,
+      extraMockupProducts,
     }
     onSaveOrder?.(order, { fullImage, designSnapshot })
     setShowSendModal(false)

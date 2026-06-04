@@ -353,7 +353,7 @@ function PhotoUpload({ file, onChange }) {
 export default function CreateDesign({ onGenerate }) {
   const navigate = useNavigate()
   const [fileName, setFileName] = useState('')
-  const [selectedProducts, setSelectedProducts] = useState(['hoodie-black'])
+  const [selectedProducts, setSelectedProducts] = useState([])
   const [selectedStyle, setSelectedStyle] = useState('est-face')
   const [showAllStyles, setShowAllStyles] = useState(false)
   const [productColors] = useState({})
