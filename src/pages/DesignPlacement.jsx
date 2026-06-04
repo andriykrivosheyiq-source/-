@@ -1198,10 +1198,14 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
       ctx.drawImage(productImg, pX, pY, pW, pH)
       if (overlayUrl) {
         const dImg = await loadImgEl(overlayUrl)
+        const cleaned = removeWhiteBg(dImg)
         const dW = mockupOverlay.size / 100 * SIZE
-        const aspect = (dImg.naturalHeight || dImg.height) / (dImg.naturalWidth || dImg.width)
+        const aspect = cleaned.height / cleaned.width
         const dH = dW * aspect
-        ctx.drawImage(dImg, mockupOverlay.x / 100 * SIZE - dW / 2, mockupOverlay.y / 100 * SIZE - dH / 2, dW, dH)
+        ctx.drawImage(cleaned, 0, 0, cleaned.width, cleaned.height,
+          mockupOverlay.x / 100 * SIZE - dW / 2,
+          mockupOverlay.y / 100 * SIZE - dH / 2,
+          dW, dH)
       }
       const mockupUrl = canvas.toDataURL('image/png')
       items.push({
