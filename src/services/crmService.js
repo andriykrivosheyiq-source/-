@@ -1,23 +1,25 @@
 /**
  * Sitniks CRM integration — sends design/mockup links to a client chat.
  *
- * Required env vars in .env:
- *   VITE_CRM_API_URL              — https://crm.sitniks.com/open-api
- *   VITE_CRM_API_KEY              — Bearer token
+ * Required env vars in .env (and GitHub Secrets):
+ *   VITE_CRM_API_URL              — Cloudflare Worker URL (NOT crm.sitniks.com directly — CORS)
+ *                                    e.g. https://sitniks-proxy.YOUR.workers.dev
  *   VITE_CLOUDINARY_CLOUD_NAME    — e.g. dgwiuq1lr
  *   VITE_CLOUDINARY_UPLOAD_PRESET — unsigned preset name
  *
+ * The Cloudflare Worker (cloudflare-worker/worker.js) adds Authorization header
+ * and CORS headers server-side, so VITE_CRM_API_KEY is no longer needed here.
+ *
  * Flow:
  *   1. Upload each selected image to Cloudinary → get public HTTPS URL
- *   2. POST /open-api/chats/{chatId}/messages  { text: "..." with URLs }
+ *   2. POST {VITE_CRM_API_URL}/chats/{chatId}/messages  { text: "..." with URLs }
  */
 import { uploadImageToCloudinary } from './imageUpload.js'
 
 export async function sendToClientCRM({ chatId, files, note }) {
   const apiUrl = import.meta.env.VITE_CRM_API_URL
-  const apiKey = import.meta.env.VITE_CRM_API_KEY
 
-  if (!apiUrl || !apiKey) {
+  if (!apiUrl) {
     throw new Error('CRM_NOT_CONFIGURED')
   }
 
@@ -45,14 +47,11 @@ export async function sendToClientCRM({ chatId, files, note }) {
   try {
     response = await fetch(`${apiUrl}/chats/${chatId}/messages`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ text }),
     })
   } catch (e) {
-    throw new Error(`Sitniks CORS/network: ${e.message}`)
+    throw new Error(`Мережева помилка: ${e.message}`)
   }
 
   if (!response.ok) {
