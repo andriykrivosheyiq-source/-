@@ -1207,7 +1207,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
       items.push({
         id: `mockup-${i}`,
         label: `Мокап №${i + 1} — ${product.nameUk}`,
-        thumbnail: product.image,
+        thumbnail: mockupUrl,
         dataUrl: mockupUrl,
         filename: `${fileName || 'mockup'}_Мокап_№${i + 1}.png`,
         size: formatFileSize(Math.round(mockupUrl.length * 0.75)),
@@ -1716,7 +1716,10 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
             </div>
             <select
               value={orderStatus}
-              onChange={e => setOrderStatus(e.target.value)}
+              onChange={e => {
+                if (e.target.value === 'designer') { handleOpenSendModal() }
+                else setOrderStatus(e.target.value)
+              }}
               className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white text-gray-700"
             >
               <option value="new">В роботі</option>
