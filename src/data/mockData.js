@@ -79,6 +79,7 @@ export const products = [
   { id: 'sweat-black',      nameUk: 'Чорний світшот',         category: 'sweatshirt', image: `${b}Чорний перед світшот базоваий.jpg` },
   { id: 'sweat-white',      nameUk: 'Білий світшот',          category: 'sweatshirt', image: `${b}Білий перед світшот базовий.jpg` },
   { id: 'sweat-gray',       nameUk: 'Сірий світшот',          category: 'sweatshirt', image: `${b}Сірий перед світшот базовий.jpg` },
+  { id: 'sweat-gray-new',   nameUk: 'Сірий світшот новий',    category: 'sweatshirt', image: `${b}Сірий  світшот новий перед.jpg` },
   { id: 'sweat-graphite',   nameUk: 'Графітовий світшот',     category: 'sweatshirt', image: `${b}Графіт перед базовий світот.jpg` },
   { id: 'sweat-beige',      nameUk: 'Бежевий світшот',        category: 'sweatshirt', image: `${b}Бежевий перед світшот базовий.jpg` },
   { id: 'sweat-blue',       nameUk: 'Синій світшот',          category: 'sweatshirt', image: `${b}Синій перед світшот базовий.jpg` },
