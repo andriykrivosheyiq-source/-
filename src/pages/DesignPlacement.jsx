@@ -1091,6 +1091,13 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder }) {
   }
 
   const handleOpenClientModal = async () => {
+    // Pre-fill chatId if saved for this file
+    if (!chatId && fileName) {
+      try {
+        const saved = JSON.parse(localStorage.getItem('aidesign_chat_ids') || '{}')
+        if (saved[fileName]) setChatId(saved[fileName])
+      } catch {}
+    }
     setShowClientModal(true)
     setClientSendResult(null)
     setPreparingSend(true)
@@ -1110,6 +1117,14 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder }) {
         note: clientNote,
       })
       setClientSendResult('success')
+      // Save chatId for this file so it's pre-filled next time
+      if (fileName && chatId) {
+        try {
+          const saved = JSON.parse(localStorage.getItem('aidesign_chat_ids') || '{}')
+          saved[fileName] = chatId
+          localStorage.setItem('aidesign_chat_ids', JSON.stringify(saved))
+        } catch {}
+      }
     } catch (e) {
       setClientSendResult(e.message === 'CRM_NOT_CONFIGURED' ? 'not_configured' : 'error')
     } finally {
