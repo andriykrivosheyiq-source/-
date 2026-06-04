@@ -965,6 +965,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
   const [clientNote, setClientNote] = useState('')
   const [sendingToClient, setSendingToClient] = useState(false)
   const [clientSendResult, setClientSendResult] = useState(null)
+  const [statusUpdateFailed, setStatusUpdateFailed] = useState(false)
   const [savedToast, setSavedToast] = useState(false)
 
   useEffect(() => {
@@ -1260,15 +1261,17 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
   const handleSendToClient = async () => {
     setSendingToClient(true)
     setClientSendResult(null)
+    setStatusUpdateFailed(false)
     try {
       await sendToClientCRM({
         chatId: crmOrderData?.chatId,
         files: sendItems.filter(i => i.checked),
         note: clientNote,
       })
-      // Change order status to "На перевірці" (id: 12677) — non-blocking
+      // Change order status to "На перевірці" (id: 12677)
       if (crmOrderData?.id) {
-        updateOrderStatus(crmOrderData.id, 12677).catch(() => {})
+        try { await updateOrderStatus(crmOrderData.id, 12677) }
+        catch { setStatusUpdateFailed(true) }
       }
       setClientSendResult('success')
     } catch (e) {
@@ -2080,9 +2083,20 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
 
               {/* Result feedback */}
               {clientSendResult === 'success' && (
-                <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#059669" strokeWidth="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-                  <span className="text-sm text-emerald-700 font-medium">Файли успішно відправлені клієнту!</span>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#059669" strokeWidth="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                    <span className="text-sm text-emerald-700 font-medium">Файли успішно відправлені клієнту!</span>
+                  </div>
+                  {statusUpdateFailed && (
+                    <div className="flex items-start gap-2 bg-amber-50 border border-amber-300 rounded-xl px-4 py-3">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#d97706" strokeWidth="2" className="flex-shrink-0 mt-0.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                      <div>
+                        <p className="text-sm font-semibold text-amber-800">Статус у CRM не змінився</p>
+                        <p className="text-xs text-amber-700 mt-0.5">Змініть вручну на «На перевірці» у замовленні #{crmOrderNumber} в Sitniks.</p>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
               {clientSendResult === 'not_configured' && (
