@@ -182,8 +182,6 @@ function OrderDetailModal({ order, extras, onClose, onStatusChange, onDelete, on
 // ─── TransferToDesignerModal ───────────────────────────────────────────────────
 
 function TransferToDesignerModal({ order, extras, onConfirm, onClose }) {
-  const [selectedDesigner, setSelectedDesigner] = useState(null)
-  const [showDropdown, setShowDropdown] = useState(false)
   const [orderSize, setOrderSize] = useState(order.orderSize || '')
   const [embroiderySize, setEmbroiderySize] = useState(order.embroiderySize || '')
   const [comment, setComment] = useState(order.comment || '')
@@ -211,11 +209,7 @@ function TransferToDesignerModal({ order, extras, onConfirm, onClose }) {
   })
 
   const handleConfirm = () => {
-    if (!selectedDesigner) return
     onConfirm({
-      designer: selectedDesigner.handle,
-      designerName: selectedDesigner.name,
-      designerColor: selectedDesigner.color,
       transferDate: new Date().toISOString(),
       comment,
       orderSize,
@@ -290,38 +284,9 @@ function TransferToDesignerModal({ order, extras, onConfirm, onClose }) {
             </div>
           )}
 
-          {/* Designer + Comment */}
+          {/* Comment */}
           <div>
-            <h3 className="text-base font-bold text-gray-900 mb-3">Передати дизайнеру</h3>
             <div className="space-y-3">
-              <div>
-                <label className="text-xs text-gray-500 block mb-1">Виберіть дизайнера <span className="text-red-400">*</span></label>
-                <div className="relative">
-                  <button
-                    type="button"
-                    onClick={() => setShowDropdown(v => !v)}
-                    className={`w-full flex items-center justify-between border rounded-xl px-3 py-2.5 text-sm transition-colors ${showDropdown ? 'border-indigo-400 ring-2 ring-indigo-200' : 'border-gray-200'}`}
-                  >
-                    {selectedDesigner ? (
-                      <span className="flex items-center gap-2">
-                        <span className={`w-6 h-6 rounded-full ${selectedDesigner.color} text-white text-[10px] font-bold flex items-center justify-center`}>{selectedDesigner.name[0]}</span>
-                        {selectedDesigner.name}
-                      </span>
-                    ) : <span className="text-gray-400">Виберіть дизайнера</span>}
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={`transition-transform ${showDropdown ? 'rotate-180' : ''}`}><polyline points="6 9 12 15 18 9"/></svg>
-                  </button>
-                  {showDropdown && (
-                    <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg z-10 overflow-hidden">
-                      {DESIGNERS.map(d => (
-                        <button key={d.id} type="button" onClick={() => { setSelectedDesigner(d); setShowDropdown(false) }} className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-indigo-50 transition-colors text-left">
-                          <span className={`w-8 h-8 rounded-full ${d.color} text-white text-xs font-bold flex items-center justify-center flex-shrink-0`}>{d.name[0]}</span>
-                          <span className="text-sm font-medium text-gray-800">{d.name}</span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
               <div>
                 <label className="text-xs text-gray-500 block mb-1">Коментар (необов'язково)</label>
                 <textarea
@@ -345,8 +310,7 @@ function TransferToDesignerModal({ order, extras, onConfirm, onClose }) {
           </button>
           <button
             onClick={handleConfirm}
-            disabled={!selectedDesigner}
-            className="flex-1 flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl py-3 text-sm font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex-1 flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl py-3 text-sm font-semibold transition-colors"
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
             Підтвердити передачу дизайнеру

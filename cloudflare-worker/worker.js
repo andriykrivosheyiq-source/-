@@ -57,21 +57,16 @@ async function handleTelegramSendOrder(request, env) {
   const token  = env.TELEGRAM_BOT_TOKEN
 
   const lines = [
-    '🎨 <b>Нове замовлення для дизайнера</b>',
-    '',
-    `📋 <b>Замовлення:</b> ${escapeHtml(order.id)}`,
-    order.productName    ? `👕 <b>Товар:</b> ${escapeHtml(order.productName)}`        : null,
-    order.orderSize      ? `📏 <b>Розмір:</b> ${escapeHtml(order.orderSize)}`         : null,
-    order.embroiderySize ? `🪡 <b>Вишивка:</b> ${escapeHtml(order.embroiderySize)}`  : null,
-    order.designer       ? `👨‍🎨 <b>Дизайнер:</b> ${escapeHtml(order.designer)}`      : null,
-    order.comment        ? `💬 <b>Коментар:</b> ${escapeHtml(order.comment)}`        : null,
-    order.date           ? `📅 <b>Дата:</b> ${escapeHtml(order.date)}`               : null,
+    `📋 Номер замовлення: ${escapeHtml(order.id)}`,
+    order.productName    ? `👕 Товар: ${escapeHtml(order.productName)}`             : null,
+    order.orderSize      ? `📏 Розмір: ${escapeHtml(order.orderSize)}`              : null,
+    order.embroiderySize ? `✅ Розмір вишивки: ${escapeHtml(order.embroiderySize)}` : null,
+    order.comment        ? `💬 Коментар: ${escapeHtml(order.comment)}`             : null,
   ].filter(Boolean).join('\n')
 
   await tgCall(token, 'sendMessage', {
     chat_id: chatId,
     text: lines,
-    parse_mode: 'HTML',
   })
 
   for (const file of files) {

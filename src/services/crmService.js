@@ -81,7 +81,7 @@ export async function sendToClientCRM({ chatId, files, note }) {
     })
   )
 
-  let text = '🎨 Ваш дизайн готовий!\n\n'
+  let text = 'Подивіться як гарно вийшло😍 Вам подобається?\n\n'
   for (const f of uploaded) {
     text += `${f.label}: ${f.url}\n`
   }

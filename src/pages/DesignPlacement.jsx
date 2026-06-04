@@ -1396,11 +1396,6 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
   }
 
   const handleConfirmTransfer = async () => {
-    // Download all checked files
-    sendItems.filter(i => i.checked).forEach(item => {
-      const a = document.createElement('a'); a.download = item.filename; a.href = item.dataUrl; a.click()
-    })
-
     const now = new Date()
     const dateStr = now.toLocaleString('uk-UA', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Kiev' })
     const orderNum = fileName ? `#${fileName}` : `#${String(now.getTime()).slice(-5)}`
@@ -1470,9 +1465,9 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
       image: thumb,
       mockupThumb,
       mockupThumbs,
-      designer: selectedDesigner?.handle || '',
-      designerName: selectedDesigner?.name || '',
-      designerColor: selectedDesigner?.color || 'bg-blue-500',
+      designer: '',
+      designerName: '',
+      designerColor: 'bg-blue-500',
       transferDate: now.toISOString(),
       transferDateStr,
       comment: designerComment,
@@ -1908,51 +1903,18 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
                 )}
               </div>
 
-              {/* Designer + Comment */}
+              {/* Comment */}
               <div>
-                <h3 className="text-base font-bold text-gray-900 mb-3">Передати дизайнеру</h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-xs text-gray-500 block mb-1">Виберіть дизайнера</label>
-                    <div className="relative">
-                      <button
-                        type="button"
-                        onClick={() => setShowDesignerDropdown(v => !v)}
-                        className={`w-full flex items-center justify-between border rounded-xl px-3 py-2.5 text-sm transition-colors ${showDesignerDropdown ? 'border-indigo-400 ring-2 ring-indigo-200' : 'border-gray-200'}`}
-                      >
-                        {selectedDesigner ? (
-                          <span className="flex items-center gap-2">
-                            <span className={`w-6 h-6 rounded-full ${selectedDesigner.color} text-white text-[10px] font-bold flex items-center justify-center`}>{selectedDesigner.name[0]}</span>
-                            {selectedDesigner.name}
-                          </span>
-                        ) : <span className="text-gray-400">Виберіть дизайнера</span>}
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={`transition-transform ${showDesignerDropdown ? 'rotate-180' : ''}`}><polyline points="6 9 12 15 18 9"/></svg>
-                      </button>
-                      {showDesignerDropdown && (
-                        <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg z-10 overflow-hidden">
-                          {DESIGNERS.map(d => (
-                            <button key={d.id} type="button" onClick={() => { setSelectedDesigner(d); setShowDesignerDropdown(false) }} className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-indigo-50 transition-colors text-left">
-                              <span className={`w-8 h-8 rounded-full ${d.color} text-white text-xs font-bold flex items-center justify-center flex-shrink-0`}>{d.name[0]}</span>
-                              <span className="text-sm font-medium text-gray-800">{d.name}</span>
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  <div>
-                    <label className="text-xs text-gray-500 block mb-1">Коментар (необов'язково)</label>
-                    <textarea
-                      value={designerComment}
-                      onChange={e => setDesignerComment(e.target.value.slice(0, 200))}
-                      placeholder="Додайте коментар для дизайнера..."
-                      className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm resize-none h-24 focus:outline-none focus:ring-2 focus:ring-indigo-300"
-                    />
-                    <div className="flex items-center justify-between mt-1">
-                      <p className="text-[11px] text-gray-400">Наприклад: Терміново, зберегти всі деталі обличчя тощо.</p>
-                      <span className="text-[11px] text-gray-400">{designerComment.length}/200</span>
-                    </div>
-                  </div>
+                <label className="text-xs text-gray-500 block mb-1">Коментар (необов'язково)</label>
+                <textarea
+                  value={designerComment}
+                  onChange={e => setDesignerComment(e.target.value.slice(0, 200))}
+                  placeholder="Додайте коментар для дизайнера..."
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm resize-none h-24 focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                />
+                <div className="flex items-center justify-between mt-1">
+                  <p className="text-[11px] text-gray-400">Наприклад: Терміново, зберегти всі деталі обличчя тощо.</p>
+                  <span className="text-[11px] text-gray-400">{designerComment.length}/200</span>
                 </div>
               </div>
             </div>
@@ -1964,7 +1926,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
               </button>
               <button
                 onClick={handleConfirmTransfer}
-                disabled={preparingSend || !selectedDesigner}
+                disabled={preparingSend}
                 className="flex-1 flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl py-3 text-sm font-semibold transition-colors disabled:opacity-50"
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
