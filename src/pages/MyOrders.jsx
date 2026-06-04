@@ -15,6 +15,14 @@ const KYIV_DATE = (iso) => new Date(iso).toLocaleString('uk-UA', {
   hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Kiev'
 }).replace(',', '')
 
+const DESIGNERS = [
+  { id: 'andrii',    name: 'Андрій',    handle: '@andrii_design',    color: 'bg-blue-500' },
+  { id: 'maksym',    name: 'Максим',    handle: '@maksym_design',    color: 'bg-green-500' },
+  { id: 'oleksandr', name: 'Олександр', handle: '@oleksandr_design', color: 'bg-orange-500' },
+  { id: 'mariia',    name: 'Марія',     handle: '@mariia_design',    color: 'bg-pink-500' },
+  { id: 'yuliia',    name: 'Юлія',      handle: '@yuliia_design',    color: 'bg-purple-500' },
+]
+
 // ─── Order Detail Modal ────────────────────────────────────────────────────────
 
 function OrderDetailModal({ order, extras, onClose, onStatusChange, onDelete, onOpenOrder, onUpdateOrder }) {
@@ -94,6 +102,11 @@ function OrderDetailModal({ order, extras, onClose, onStatusChange, onDelete, on
               {order.transferDate && (
                 <p className="text-xs text-gray-500">Дата передачі: {KYIV_DATE(order.transferDate)}</p>
               )}
+              {(order.orderSize || order.embroiderySize) && (
+                <p className="text-xs text-gray-500">
+                  {[order.orderSize && `Розмір: ${order.orderSize}`, order.embroiderySize && `Вишивка: ${order.embroiderySize}`].filter(Boolean).join(' · ')}
+                </p>
+              )}
               {order.comment && <p className="text-xs text-gray-500 italic">«{order.comment}»</p>}
             </div>
           )}
@@ -144,6 +157,135 @@ function OrderDetailModal({ order, extras, onClose, onStatusChange, onDelete, on
             </button>
           ) : <span />}
           <button onClick={onClose} className="btn-primary">Закрити</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── TransferToDesignerModal ───────────────────────────────────────────────────
+
+function TransferToDesignerModal({ order, onConfirm, onClose }) {
+  const [selectedDesigner, setSelectedDesigner] = useState(null)
+  const [showDropdown, setShowDropdown] = useState(false)
+  const [orderSize, setOrderSize] = useState(order.orderSize || '')
+  const [embroiderySize, setEmbroiderySize] = useState(order.embroiderySize || '')
+  const [comment, setComment] = useState(order.comment || '')
+
+  const handleConfirm = () => {
+    if (!selectedDesigner) return
+    onConfirm({
+      designer: selectedDesigner.handle,
+      designerName: selectedDesigner.name,
+      designerColor: selectedDesigner.color,
+      transferDate: new Date().toISOString(),
+      comment,
+      orderSize,
+      embroiderySize,
+    })
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+        <div className="flex items-start justify-between px-6 pt-6 pb-2">
+          <div>
+            <h2 className="text-xl font-bold text-gray-900">Підтвердити передачу дизайнеру</h2>
+            <p className="text-sm text-gray-500 mt-1 leading-relaxed">Перевірте деталі замовлення та виберіть дизайнера.<br/>Після підтвердження статус зміниться на «Передано дизайнеру».</p>
+          </div>
+          <button onClick={onClose} className="ml-4 flex-shrink-0 w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+
+        <div className="px-6 pb-6 space-y-5">
+          {/* Order info */}
+          <div>
+            <h3 className="text-base font-bold text-gray-900 mb-3">Інформація про замовлення</h3>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs text-gray-500 block mb-1">Номер замовлення</label>
+                <div className="border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-800 bg-gray-50">{order.id}</div>
+              </div>
+              <div>
+                <label className="text-xs text-gray-500 block mb-1">Тип одягу та колір</label>
+                <div className="border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-800 bg-gray-50 flex items-center gap-2">
+                  {order.colors?.[0] && <span className="w-4 h-4 rounded-full flex-shrink-0 border border-gray-200" style={{ backgroundColor: order.colors[0] }} />}
+                  {order.productName || '—'}
+                </div>
+              </div>
+              <div>
+                <label className="text-xs text-gray-500 block mb-1">Розмір</label>
+                <input value={orderSize} onChange={e => setOrderSize(e.target.value)} className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300" placeholder="XL" />
+              </div>
+              <div>
+                <label className="text-xs text-gray-500 block mb-1">Розмір вишивки</label>
+                <input value={embroiderySize} onChange={e => setEmbroiderySize(e.target.value)} className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300" placeholder="23 см" />
+              </div>
+            </div>
+          </div>
+
+          {/* Designer + Comment */}
+          <div>
+            <h3 className="text-base font-bold text-gray-900 mb-3">Передати дизайнеру</h3>
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs text-gray-500 block mb-1">Виберіть дизайнера <span className="text-red-400">*</span></label>
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setShowDropdown(v => !v)}
+                    className={`w-full flex items-center justify-between border rounded-xl px-3 py-2.5 text-sm transition-colors ${showDropdown ? 'border-indigo-400 ring-2 ring-indigo-200' : 'border-gray-200'}`}
+                  >
+                    {selectedDesigner ? (
+                      <span className="flex items-center gap-2">
+                        <span className={`w-6 h-6 rounded-full ${selectedDesigner.color} text-white text-[10px] font-bold flex items-center justify-center`}>{selectedDesigner.name[0]}</span>
+                        {selectedDesigner.name}
+                      </span>
+                    ) : <span className="text-gray-400">Виберіть дизайнера</span>}
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={`transition-transform ${showDropdown ? 'rotate-180' : ''}`}><polyline points="6 9 12 15 18 9"/></svg>
+                  </button>
+                  {showDropdown && (
+                    <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg z-10 overflow-hidden">
+                      {DESIGNERS.map(d => (
+                        <button key={d.id} type="button" onClick={() => { setSelectedDesigner(d); setShowDropdown(false) }} className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-indigo-50 transition-colors text-left">
+                          <span className={`w-8 h-8 rounded-full ${d.color} text-white text-xs font-bold flex items-center justify-center flex-shrink-0`}>{d.name[0]}</span>
+                          <span className="text-sm font-medium text-gray-800">{d.name}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div>
+                <label className="text-xs text-gray-500 block mb-1">Коментар (необов'язково)</label>
+                <textarea
+                  value={comment}
+                  onChange={e => setComment(e.target.value.slice(0, 200))}
+                  placeholder="Додайте коментар для дизайнера..."
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm resize-none h-24 focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                />
+                <div className="flex items-center justify-between mt-1">
+                  <p className="text-[11px] text-gray-400">Наприклад: Терміново, зберегти всі деталі обличчя тощо.</p>
+                  <span className="text-[11px] text-gray-400">{comment.length}/200</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="px-6 pb-6 flex gap-3">
+          <button onClick={onClose} className="flex-1 border border-gray-200 text-gray-700 hover:bg-gray-50 rounded-xl py-3 text-sm font-semibold transition-colors">
+            Скасувати
+          </button>
+          <button
+            onClick={handleConfirm}
+            disabled={!selectedDesigner}
+            className="flex-1 flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl py-3 text-sm font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+            Підтвердити передачу дизайнеру
+          </button>
         </div>
       </div>
     </div>
@@ -248,6 +390,11 @@ function OrderCard({ order, onStatusChange, onDelete, onOpen }) {
           )}
           {order.transferDate && (
             <p className="text-[10px] text-gray-400 truncate">Передано: {KYIV_DATE(order.transferDate)}</p>
+          )}
+          {(order.orderSize || order.embroiderySize) && (
+            <p className="text-[10px] text-gray-500 truncate">
+              {[order.orderSize && `Розмір: ${order.orderSize}`, order.embroiderySize && `Вишивка: ${order.embroiderySize}`].filter(Boolean).join(' · ')}
+            </p>
           )}
         </div>
       </div>
@@ -356,6 +503,7 @@ export default function MyOrders({ savedOrders = [], ordersLoading = false, orde
   const [viewMode, setViewMode] = useState('grid')
   const [sortBy, setSortBy] = useState('newest')
   const [selectedOrder, setSelectedOrder] = useState(null)
+  const [transferPending, setTransferPending] = useState(null)
 
   const allOrders = savedOrders.map(o => ({ ...o, _saved: true }))
 
@@ -375,8 +523,20 @@ export default function MyOrders({ savedOrders = [], ordersLoading = false, orde
   const byStatus = (status) => sorted.filter((o) => o.status === status)
 
   const handleStatusChange = (id, newStatus) => {
+    if (newStatus === 'designer') {
+      const order = allOrders.find(o => o.id === id) || { id }
+      setTransferPending(order)
+      if (selectedOrder?.id === id) setSelectedOrder(null)
+      return
+    }
     onUpdateOrder?.(id, { status: newStatus })
     if (selectedOrder?.id === id) setSelectedOrder(prev => ({ ...prev, status: newStatus }))
+  }
+
+  const handleConfirmTransfer = (designerData) => {
+    if (!transferPending) return
+    onUpdateOrder?.(transferPending.id, { status: 'designer', ...designerData })
+    setTransferPending(null)
   }
 
   return (
@@ -491,6 +651,15 @@ export default function MyOrders({ savedOrders = [], ordersLoading = false, orde
           onDelete={onDeleteOrder}
           onOpenOrder={onOpenOrder}
           onUpdateOrder={onUpdateOrder}
+        />
+      )}
+
+      {/* Transfer to designer modal */}
+      {transferPending && (
+        <TransferToDesignerModal
+          order={transferPending}
+          onConfirm={handleConfirmTransfer}
+          onClose={() => setTransferPending(null)}
         />
       )}
     </div>
