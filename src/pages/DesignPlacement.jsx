@@ -341,6 +341,26 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
             }}
           />
         ))}
+        {/* Custom color picker */}
+        <label
+          onMouseDown={e => e.stopPropagation()}
+          title="Довільний колір"
+          style={{
+            width: '22px', height: '22px', borderRadius: '50%', cursor: 'pointer', flexShrink: 0,
+            background: 'conic-gradient(red, yellow, lime, cyan, blue, magenta, red)',
+            border: !BG_PALETTE.includes(bgColor) ? '2.5px solid #4f46e5' : '1.5px solid #d1d5db',
+            boxShadow: !BG_PALETTE.includes(bgColor) ? '0 0 0 2px rgba(79,70,229,0.25)' : '0 1px 3px rgba(0,0,0,0.12)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative',
+          }}
+        >
+          <input
+            type="color"
+            value={BG_PALETTE.includes(bgColor) ? '#f0f0f0' : bgColor}
+            onChange={e => setBgColor(e.target.value)}
+            onClick={e => e.stopPropagation()}
+            style={{ position: 'absolute', opacity: 0, width: '100%', height: '100%', cursor: 'pointer', border: 'none', padding: 0 }}
+          />
+        </label>
       </div>
       <div ref={containerRef} onClick={() => setSelected(null)} style={{ position: 'relative', width: '100%', aspectRatio: '16 / 9', background: bgColor, userSelect: 'none', touchAction: 'none', overflow: 'hidden', ...(showGrid ? { backgroundImage: 'linear-gradient(rgba(99,102,241,0.2) 1px, transparent 1px), linear-gradient(90deg, rgba(99,102,241,0.2) 1px, transparent 1px)', backgroundSize: '10% 10%' } : {}) }}>
 
