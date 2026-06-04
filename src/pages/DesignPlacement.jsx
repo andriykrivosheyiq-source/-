@@ -320,8 +320,8 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
   }
 
   return (
-    <div style={{ background: '#ffffff', width: '100%', borderRadius: '12px' }}>
-      <div ref={containerRef} onClick={() => setSelected(null)} style={{ position: 'relative', width: '100%', aspectRatio: '16 / 9', background: '#ffffff', userSelect: 'none', touchAction: 'none', overflow: 'hidden', ...(showGrid ? { backgroundImage: 'linear-gradient(rgba(99,102,241,0.13) 1px, transparent 1px), linear-gradient(90deg, rgba(99,102,241,0.13) 1px, transparent 1px)', backgroundSize: '10% 10%' } : {}) }}>
+    <div style={{ background: '#f0f0f0', width: '100%', borderRadius: '12px' }}>
+      <div ref={containerRef} onClick={() => setSelected(null)} style={{ position: 'relative', width: '100%', aspectRatio: '16 / 9', background: '#f0f0f0', userSelect: 'none', touchAction: 'none', overflow: 'hidden', ...(showGrid ? { backgroundImage: 'linear-gradient(rgba(99,102,241,0.2) 1px, transparent 1px), linear-gradient(90deg, rgba(99,102,241,0.2) 1px, transparent 1px)', backgroundSize: '10% 10%' } : {}) }}>
 
         {/* Grid toggle + Letter style switcher */}
         <div style={{ position: 'absolute', top: '8px', right: '8px', zIndex: 25, display: 'flex', gap: '6px', alignItems: 'center' }}>
