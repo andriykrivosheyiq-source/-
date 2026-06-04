@@ -439,6 +439,9 @@ function OrderCard({ order, onStatusChange, onDelete, onOpen }) {
               {[order.orderSize && `Розмір: ${order.orderSize}`, order.embroiderySize && `Вишивка: ${order.embroiderySize}`].filter(Boolean).join(' · ')}
             </p>
           )}
+          {order.comment && (
+            <p className="text-[10px] text-gray-400 italic truncate">«{order.comment}»</p>
+          )}
         </div>
       </div>
       {isOverdue && (
