@@ -50,12 +50,21 @@ function AppInner() {
     })
   }
 
+  // Update existing order in-place (image + snapshot + metadata)
+  const handleUpdateOrderFull = (id, changes, extras) => {
+    if (extras) orderExtras.current[id] = extras
+    setSavedOrders(prev => {
+      const updated = prev.map(o => o.id === id ? { ...o, ...changes } : o)
+      saveOrdersToStorage(updated)
+      return updated
+    })
+  }
+
   // Restore design from saved order and navigate to placement
   const handleOpenOrder = (orderId) => {
     const extras = orderExtras.current[orderId]
-    if (extras?.designSnapshot) {
-      setDesignData(extras.designSnapshot)
-    }
+    const snapshot = extras?.designSnapshot || {}
+    setDesignData({ ...snapshot, editingOrderId: orderId })
     navigate('/placement')
   }
 
@@ -73,6 +82,7 @@ function AppInner() {
                 designData={designData}
                 onUpdate={(upd) => setDesignData(prev => ({ ...prev, ...upd }))}
                 onSaveOrder={handleSaveOrder}
+                onUpdateOrderFull={handleUpdateOrderFull}
               />
             }
           />

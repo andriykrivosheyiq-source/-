@@ -1,6 +1,5 @@
 import React, { useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { mockOrders } from '../data/mockData'
 
 const STATUS_CONFIG = {
   new:      { label: 'В роботі',          dot: 'bg-blue-400',   bg: 'bg-blue-50 border-blue-100',       badge: 'bg-blue-100 text-blue-700' },
@@ -322,10 +321,7 @@ export default function MyOrders({ savedOrders = [], orderExtras = {}, onUpdateO
   const [sortBy, setSortBy] = useState('newest')
   const [selectedOrder, setSelectedOrder] = useState(null)
 
-  const allOrders = [
-    ...savedOrders.map(o => ({ ...o, _saved: true })),
-    ...(savedOrders.length === 0 ? mockOrders : []),
-  ]
+  const allOrders = savedOrders.map(o => ({ ...o, _saved: true }))
 
   const filtered = allOrders.filter((o) => {
     const q = search.trim().toLowerCase()

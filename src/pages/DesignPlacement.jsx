@@ -826,7 +826,7 @@ function ChangeProductModal({ current, onSelect, onClose }) {
 
 // ─── DesignPlacement ──────────────────────────────────────────────────────────
 
-export default function DesignPlacement({ designData, onUpdate, onSaveOrder }) {
+export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onUpdateOrderFull }) {
   const navigate = useNavigate()
   const estPosterRef = useRef(null)
   const [activeTab, setActiveTab] = useState(0)
@@ -1223,17 +1223,29 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder }) {
     }
 
     const catMap = { 'hoodie-basic': 'hoodie', 'hoodie-fleece': 'hoodie', 'hoodie-premium': 'hoodie', 'tshirt-basic': 'tshirt', 'tshirt-oversized': 'oversized', 'sweatshirt': 'sweatshirt', 'cap': 'cap', 'shopper': 'totebag' }
-    const order = {
-      id: orderNum,
-      name: fileName || `Дизайн від ${dateStr}`,
-      status: orderStatus,
-      productId: catMap[currentProduct?.category] || currentProduct?.category || 'hoodie',
-      productName: currentProduct?.nameUk || '',
-      date: dateStr,
-      colors: [designData?.productColors?.[selectedProduct] || '#1a1a1a'],
-      image: thumb,
+
+    if (designData?.editingOrderId) {
+      // Update existing order — don't create a new card
+      onUpdateOrderFull?.(designData.editingOrderId, {
+        name: fileName || `Дизайн від ${dateStr}`,
+        image: thumb,
+        colors: [designData?.productColors?.[selectedProduct] || '#1a1a1a'],
+        productId: catMap[currentProduct?.category] || currentProduct?.category || 'hoodie',
+        productName: currentProduct?.nameUk || '',
+      }, { fullImage, designSnapshot: { ...designSnapshot, editingOrderId: designData.editingOrderId } })
+    } else {
+      const order = {
+        id: orderNum,
+        name: fileName || `Дизайн від ${dateStr}`,
+        status: orderStatus,
+        productId: catMap[currentProduct?.category] || currentProduct?.category || 'hoodie',
+        productName: currentProduct?.nameUk || '',
+        date: dateStr,
+        colors: [designData?.productColors?.[selectedProduct] || '#1a1a1a'],
+        image: thumb,
+      }
+      onSaveOrder?.(order, { fullImage, designSnapshot })
     }
-    onSaveOrder?.(order, { fullImage, designSnapshot })
     setSavedToast(true)
     setTimeout(() => setSavedToast(false), 2500)
   }
