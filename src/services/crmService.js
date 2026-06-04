@@ -37,6 +37,14 @@ export async function getOrderByCrmNumber(orderNumber) {
   return crmFetch(`/orders/${encodeURIComponent(orderNumber)}`)
 }
 
+/** Change the status of a Sitniks order. */
+export async function updateOrderStatus(orderId, statusId) {
+  return crmFetch(`/orders/${orderId}/status`, {
+    method: 'PUT',
+    body: JSON.stringify({ statusId }),
+  })
+}
+
 /** Upload files to Cloudinary then send their URLs as a text message to a Sitniks chat. */
 export async function sendToClientCRM({ chatId, files, note }) {
   const base = apiUrl()

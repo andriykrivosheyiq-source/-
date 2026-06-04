@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useImperativeHandle } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { products as allProducts, productCategories } from '../data/mockData'
 import { generateDesigns, clearCache, editDesign } from '../services/gemini'
-import { sendToClientCRM, getOrderByCrmNumber } from '../services/crmService'
+import { sendToClientCRM, getOrderByCrmNumber, updateOrderStatus } from '../services/crmService'
 
 const D_PATH =
   'M291 123L78 153L88 232L114 229L116 233L148 467L143 471L121 474L132 555L349 526L400 459L360 176Z ' +
@@ -1266,6 +1266,10 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
         files: sendItems.filter(i => i.checked),
         note: clientNote,
       })
+      // Change order status to "На перевірці" (id: 12677) — non-blocking
+      if (crmOrderData?.id) {
+        updateOrderStatus(crmOrderData.id, 12677).catch(() => {})
+      }
       setClientSendResult('success')
     } catch (e) {
       setClientSendResult(e.message === 'CRM_NOT_CONFIGURED' ? 'not_configured' : `error: ${e.message}`)
