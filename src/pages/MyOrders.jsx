@@ -36,7 +36,7 @@ function OrderDetailModal({ order, extras, onClose, onStatusChange, onDelete, on
     setSaved(true)
     setTimeout(() => setSaved(false), 1500)
   }
-  const displayImage = extras?.fullImage || order.image
+  const displayImage = order.mockupThumb || extras?.fullImage || order.image
 
   return (
     <div
@@ -182,7 +182,8 @@ function TransferToDesignerModal({ order, extras, onConfirm, onClose }) {
     productIds.forEach((pid, i) => {
       const product = allProducts.find(p => p.id === pid)
       if (product) {
-        result.push({ id: `mockup-${i}`, label: `Мокап №${i + 1} — ${product.nameUk}`, thumbnail: product.image, checked: true })
+        const thumbnail = (i === 0 && order.mockupThumb) ? order.mockupThumb : product.image
+        result.push({ id: `mockup-${i}`, label: `Мокап №${i + 1} — ${product.nameUk}`, thumbnail, checked: true })
       }
     })
     return result
@@ -383,11 +384,6 @@ function OrderCard({ order, onStatusChange, onDelete, onOpen }) {
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => { setHover(false); setConfirmDelete(false) }}
     >
-      {order.mockupThumb && (
-        <div className="h-36 rounded-t-xl overflow-hidden bg-gray-50">
-          <img src={order.mockupThumb} alt="mockup" className="w-full h-full object-contain" />
-        </div>
-      )}
       <div className="flex gap-3 p-3">
         <div className="w-16 h-16 rounded-lg flex-shrink-0 overflow-hidden bg-gray-50">
           {order.image ? (
