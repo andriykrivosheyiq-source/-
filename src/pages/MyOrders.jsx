@@ -44,48 +44,48 @@ function OrderDetailModal({ order, extras, onClose, onStatusChange, onDelete, on
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden"
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden max-h-[85vh] overflow-y-auto"
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-          <div className="flex items-center gap-3 min-w-0">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+          <div className="flex items-center gap-2 min-w-0">
             <div className="flex items-baseline gap-2 min-w-0">
               {order._saved && onOpenOrder ? (
                 <button
                   onClick={() => { onClose(); onOpenOrder(order.id) }}
-                  className="text-lg font-bold text-indigo-600 hover:text-indigo-800 hover:underline transition-colors"
+                  className="text-base font-bold text-indigo-600 hover:text-indigo-800 hover:underline transition-colors"
                   title="Відкрити в редакторі"
                 >
                   {order.id}
                 </button>
               ) : (
-                <span className="text-lg font-bold text-gray-900">{order.id}</span>
+                <span className="text-base font-bold text-gray-900">{order.id}</span>
               )}
             </div>
-            <span className={`text-xs font-semibold px-2.5 py-1 rounded-full shrink-0 ${cfg.badge}`}>{cfg.label}</span>
+            <span className={`text-xs font-semibold px-2 py-0.5 rounded-full shrink-0 ${cfg.badge}`}>{cfg.label}</span>
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
           </button>
         </div>
 
         {/* Image */}
         {displayImage && (
-          <div className="bg-gray-50 flex items-center justify-center" style={{ maxHeight: 380 }}>
-            <img src={displayImage} alt={order.name} className="max-h-96 w-full object-contain" style={{ imageRendering: 'auto' }} />
+          <div className="bg-gray-50 flex items-center justify-center" style={{ maxHeight: 220 }}>
+            <img src={displayImage} alt={order.name} className="max-h-56 w-full object-contain" style={{ imageRendering: 'auto' }} />
           </div>
         )}
 
         {/* Mockup strip */}
         {(order.mockupThumbs?.length > 0 || order.mockupThumb) && (
-          <div className="px-6 pt-4">
-            <p className="text-xs font-medium text-gray-500 mb-2">Мокапи</p>
+          <div className="px-4 pt-3">
+            <p className="text-xs font-medium text-gray-500 mb-1.5">Мокапи</p>
             <div className="flex gap-2 overflow-x-auto pb-1">
               {(order.mockupThumbs || [{ label: order.productName, thumbnail: order.mockupThumb }]).map((m, i) => (
                 <div key={i} className="flex-shrink-0 text-center">
-                  <img src={m.thumbnail} alt={m.label || `Мокап ${i + 1}`} className="h-28 w-28 object-contain rounded-xl border border-gray-100 bg-gray-50" />
-                  {m.label && <p className="text-[10px] text-gray-400 mt-1 w-28 truncate">{m.label}</p>}
+                  <img src={m.thumbnail} alt={m.label || `Мокап ${i + 1}`} className="h-20 w-20 object-contain rounded-lg border border-gray-100 bg-gray-50" />
+                  {m.label && <p className="text-[10px] text-gray-400 mt-0.5 w-20 truncate">{m.label}</p>}
                 </div>
               ))}
             </div>
@@ -93,11 +93,11 @@ function OrderDetailModal({ order, extras, onClose, onStatusChange, onDelete, on
         )}
 
         {/* Details */}
-        <div className="px-6 py-4 space-y-3">
+        <div className="px-4 py-3 space-y-2.5">
           <div>
-            <p className="text-base font-semibold text-gray-900">{order.name}</p>
-            {order.productName && <p className="text-sm text-gray-500 mt-0.5">{order.productName}</p>}
-            <p className="text-xs text-gray-400 mt-1">{order.date}</p>
+            <p className="text-sm font-semibold text-gray-900">{order.name}</p>
+            {order.productName && <p className="text-xs text-gray-500 mt-0.5">{order.productName}</p>}
+            <p className="text-xs text-gray-400 mt-0.5">{order.date}</p>
           </div>
 
           {/* Colors */}
@@ -105,14 +105,14 @@ function OrderDetailModal({ order, extras, onClose, onStatusChange, onDelete, on
             <div className="flex items-center gap-1.5">
               <span className="text-xs text-gray-500 mr-1">Колір:</span>
               {order.colors.map((hex, i) => (
-                <span key={i} className="w-5 h-5 rounded-full border border-gray-200 shadow-sm" style={{ backgroundColor: hex }} />
+                <span key={i} className="w-4 h-4 rounded-full border border-gray-200 shadow-sm" style={{ backgroundColor: hex }} />
               ))}
             </div>
           )}
 
           {/* Designer info */}
           {order.designer && (
-            <div className="bg-purple-50 border border-purple-100 rounded-xl px-4 py-3 space-y-1">
+            <div className="bg-purple-50 border border-purple-100 rounded-xl px-3 py-2 space-y-0.5">
               <p className="text-xs font-semibold text-purple-700">Вишивальний дизайнер</p>
               <p className="text-sm font-bold text-gray-800">{order.designer}</p>
               {order.transferDate && (
@@ -134,11 +134,11 @@ function OrderDetailModal({ order, extras, onClose, onStatusChange, onDelete, on
               value={comment}
               onChange={e => { setComment(e.target.value); setSaved(false) }}
               placeholder="Додайте нотатку до замовлення..."
-              className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm resize-none h-20 focus:outline-none focus:ring-2 focus:ring-indigo-300"
+              className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm resize-none h-16 focus:outline-none focus:ring-2 focus:ring-indigo-300"
             />
             <button
               onClick={handleSaveComment}
-              className={`mt-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${saved ? 'bg-green-100 text-green-700' : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100'}`}
+              className={`mt-1 px-3 py-1 text-xs font-semibold rounded-lg transition-all ${saved ? 'bg-green-100 text-green-700' : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100'}`}
             >
               {saved ? '✓ Збережено' : 'Зберегти коментар'}
             </button>
@@ -146,7 +146,7 @@ function OrderDetailModal({ order, extras, onClose, onStatusChange, onDelete, on
 
           {/* Status change */}
           <div>
-            <p className="text-xs font-medium text-gray-600 mb-2">Перемістити до:</p>
+            <p className="text-xs font-medium text-gray-600 mb-1.5">Перемістити до:</p>
             <div className="flex gap-2">
               {STATUSES.filter(s => s.key !== order.status).map(s => (
                 <button
@@ -162,13 +162,13 @@ function OrderDetailModal({ order, extras, onClose, onStatusChange, onDelete, on
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 border-t border-gray-100 flex items-center justify-between gap-3">
+        <div className="px-4 py-3 border-t border-gray-100 flex items-center justify-between gap-3">
           {order._saved && onDelete ? (
             <button
               onClick={() => { onDelete(order.id); onClose() }}
-              className="flex items-center gap-1.5 text-sm text-red-500 hover:text-red-700 transition-colors"
+              className="flex items-center gap-1 text-xs text-red-500 hover:text-red-700 transition-colors"
             >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>
               Видалити
             </button>
           ) : <span />}
