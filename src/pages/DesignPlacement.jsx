@@ -1702,10 +1702,10 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder }) {
                   type="text"
                   value={chatId}
                   onChange={e => setChatId(e.target.value.trim())}
-                  placeholder="Вставте ID з URL чату: crm.sitniks.com/chats/..."
+                  placeholder="684932ad1c64e4ac1386e98d"
                   className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300"
                 />
-                <p className="text-[11px] text-gray-400 mt-1">Знайдіть чат клієнта в Sitniks → скопіюйте ID з адресного рядка браузера</p>
+                <p className="text-[11px] text-gray-400 mt-1">Відкрийте чат клієнта в Sitniks → скопіюйте ID після /dialog/ в URL браузера</p>
               </div>
 
               {/* Files */}
