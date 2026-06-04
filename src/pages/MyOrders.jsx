@@ -44,7 +44,7 @@ function OrderDetailModal({ order, extras, onClose, onStatusChange, onDelete, on
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden max-h-[85vh] overflow-y-auto"
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden max-h-[90vh] overflow-y-auto"
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
@@ -72,20 +72,20 @@ function OrderDetailModal({ order, extras, onClose, onStatusChange, onDelete, on
 
         {/* Image */}
         {displayImage && (
-          <div className="bg-gray-50 flex items-center justify-center" style={{ maxHeight: 220 }}>
-            <img src={displayImage} alt={order.name} className="max-h-56 w-full object-contain" style={{ imageRendering: 'auto' }} />
+          <div className="bg-gray-50 flex items-center justify-center" style={{ maxHeight: 300 }}>
+            <img src={displayImage} alt={order.name} className="max-h-72 w-full object-contain" style={{ imageRendering: 'auto' }} />
           </div>
         )}
 
         {/* Mockup strip */}
         {(order.mockupThumbs?.length > 0 || order.mockupThumb) && (
-          <div className="px-4 pt-3">
-            <p className="text-xs font-medium text-gray-500 mb-1.5">Мокапи</p>
-            <div className="flex gap-2 overflow-x-auto pb-1">
+          <div className="px-5 pt-3">
+            <p className="text-xs font-medium text-gray-500 mb-2">Мокапи</p>
+            <div className="flex gap-3 overflow-x-auto pb-1">
               {(order.mockupThumbs || [{ label: order.productName, thumbnail: order.mockupThumb }]).map((m, i) => (
                 <div key={i} className="flex-shrink-0 text-center">
-                  <img src={m.thumbnail} alt={m.label || `Мокап ${i + 1}`} className="h-20 w-20 object-contain rounded-lg border border-gray-100 bg-gray-50" />
-                  {m.label && <p className="text-[10px] text-gray-400 mt-0.5 w-20 truncate">{m.label}</p>}
+                  <img src={m.thumbnail} alt={m.label || `Мокап ${i + 1}`} className="h-32 w-32 object-contain rounded-xl border border-gray-100 bg-gray-50" />
+                  {m.label && <p className="text-[11px] text-gray-500 mt-1 w-32 truncate">{m.label}</p>}
                 </div>
               ))}
             </div>
@@ -93,10 +93,10 @@ function OrderDetailModal({ order, extras, onClose, onStatusChange, onDelete, on
         )}
 
         {/* Details */}
-        <div className="px-4 py-3 space-y-2.5">
+        <div className="px-5 py-4 space-y-3">
           <div>
-            <p className="text-sm font-semibold text-gray-900">{order.name}</p>
-            {order.productName && <p className="text-xs text-gray-500 mt-0.5">{order.productName}</p>}
+            <p className="text-base font-semibold text-gray-900">{order.name}</p>
+            {order.productName && <p className="text-sm text-gray-500 mt-0.5">{order.productName}</p>}
             <p className="text-xs text-gray-400 mt-0.5">{order.date}</p>
           </div>
 
@@ -134,7 +134,7 @@ function OrderDetailModal({ order, extras, onClose, onStatusChange, onDelete, on
               value={comment}
               onChange={e => { setComment(e.target.value); setSaved(false) }}
               placeholder="Додайте нотатку до замовлення..."
-              className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm resize-none h-16 focus:outline-none focus:ring-2 focus:ring-indigo-300"
+              className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm resize-none h-20 focus:outline-none focus:ring-2 focus:ring-indigo-300"
             />
             <button
               onClick={handleSaveComment}
@@ -162,7 +162,7 @@ function OrderDetailModal({ order, extras, onClose, onStatusChange, onDelete, on
         </div>
 
         {/* Footer */}
-        <div className="px-4 py-3 border-t border-gray-100 flex items-center justify-between gap-3">
+        <div className="px-5 py-4 border-t border-gray-100 flex items-center justify-between gap-3">
           {order._saved && onDelete ? (
             <button
               onClick={() => { onDelete(order.id); onClose() }}
