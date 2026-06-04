@@ -29,6 +29,10 @@ jobs:
       - run: npm run build
         env:
           VITE_GEMINI_API_KEY: ${{ secrets.VITE_GEMINI_API_KEY }}
+          VITE_CRM_API_URL: ${{ secrets.VITE_CRM_API_URL }}
+          VITE_CRM_API_KEY: ${{ secrets.VITE_CRM_API_KEY }}
+          VITE_CLOUDINARY_CLOUD_NAME: ${{ secrets.VITE_CLOUDINARY_CLOUD_NAME }}
+          VITE_CLOUDINARY_UPLOAD_PRESET: ${{ secrets.VITE_CLOUDINARY_UPLOAD_PRESET }}
 
       - uses: actions/upload-pages-artifact@v3
         with:
