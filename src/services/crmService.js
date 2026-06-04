@@ -45,6 +45,26 @@ export async function updateOrderStatus(orderId, statusId) {
   })
 }
 
+/**
+ * Upload order files to Cloudinary then send order details + files to
+ * the designer Telegram group via the Cloudflare Worker.
+ */
+export async function sendOrderToDesignerTelegram({ order, files }) {
+  const uploaded = await Promise.all(
+    files.map(async (file) => {
+      if (!file.dataUrl) return null
+      try {
+        const url = await uploadImageToCloudinary(file.dataUrl, file.filename)
+        return { label: file.label, url }
+      } catch { return null }
+    })
+  )
+  return crmFetch('/tg/send-order', {
+    method: 'POST',
+    body: JSON.stringify({ order, files: uploaded.filter(Boolean) }),
+  })
+}
+
 /** Upload files to Cloudinary then send their URLs as a text message to a Sitniks chat. */
 export async function sendToClientCRM({ chatId, files, note }) {
   const base = apiUrl()

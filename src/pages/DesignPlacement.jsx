@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useImperativeHandle } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { products as allProducts, productCategories } from '../data/mockData'
 import { generateDesigns, clearCache, editDesign } from '../services/gemini'
-import { sendToClientCRM, getOrderByCrmNumber, updateOrderStatus } from '../services/crmService'
+import { sendToClientCRM, getOrderByCrmNumber, updateOrderStatus, sendOrderToDesignerTelegram } from '../services/crmService'
 
 const D_PATH =
   'M291 123L78 153L88 232L114 229L116 233L148 467L143 471L121 474L132 555L349 526L400 459L360 176Z ' +
@@ -1493,6 +1493,13 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
       extraMockupProducts,
     }
     onSaveOrder?.(order, { fullImage, designSnapshot })
+
+    // Send order details + files to designer Telegram group (non-blocking)
+    const checkedFiles = sendItems.filter(i => i.checked)
+    if (checkedFiles.length > 0) {
+      sendOrderToDesignerTelegram({ order, files: checkedFiles }).catch(console.error)
+    }
+
     setShowSendModal(false)
     setSavedToast(true)
     setTimeout(() => setSavedToast(false), 2500)

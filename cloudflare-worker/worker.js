@@ -1,18 +1,17 @@
 /**
- * Cloudflare Worker — проксі для Sitniks CRM Open API
+ * Cloudflare Worker — проксі для Sitniks CRM Open API + Telegram сповіщення
  *
  * Розгортання:
  *   1. workers.cloudflare.com → Create Worker → замінити код на цей
- *   2. Settings → Variables → Add variable:
- *        SITNIKS_API_KEY = Bvx5NlipuqUYJ1p8YrcxuzX7JAvnQOiVAPKPnxOjHzn
- *        (обов'язково позначте "Encrypt" щоб це був секрет)
- *   3. Save and Deploy → скопіюйте URL виду https://sitniks-proxy.YOUR.workers.dev
- *   4. У GitHub Secrets:
- *        VITE_CRM_API_URL = https://sitniks-proxy.YOUR.workers.dev
- *        VITE_CRM_API_KEY = (залиште будь-яке значення або видаліть — воно вже не використовується)
+ *   2. Settings → Variables → Add variable (обов'язково "Encrypt"):
+ *        SITNIKS_API_KEY     = Bvx5NlipuqUYJ1p8YrcxuzX7JAvnQOiVAPKPnxOjHzn
+ *        TELEGRAM_BOT_TOKEN  = <токен від @BotFather>
+ *        TELEGRAM_CHAT_ID    = <chat_id групи, наприклад -5013412966>
+ *   3. Save and Deploy
  */
 
 const SITNIKS_BASE = 'https://crm.sitniks.com/open-api'
+const TG_BASE      = 'https://api.telegram.org'
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -21,14 +20,86 @@ const CORS_HEADERS = {
   'Access-Control-Max-Age': '86400',
 }
 
+function jsonResp(data, status = 200) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
+  })
+}
+
+function escapeHtml(text) {
+  return String(text ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+}
+
+async function tgCall(token, method, body) {
+  const res = await fetch(`${TG_BASE}/bot${token}/${method}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  return res.json()
+}
+
+async function handleTelegramSendOrder(request, env) {
+  if (!env.TELEGRAM_BOT_TOKEN || !env.TELEGRAM_CHAT_ID) {
+    return jsonResp({ error: 'TELEGRAM_NOT_CONFIGURED' }, 500)
+  }
+
+  let data
+  try { data = await request.json() }
+  catch { return jsonResp({ error: 'Invalid JSON' }, 400) }
+
+  const { order = {}, files = [] } = data
+  const chatId = env.TELEGRAM_CHAT_ID
+  const token  = env.TELEGRAM_BOT_TOKEN
+
+  const lines = [
+    '🎨 <b>Нове замовлення для дизайнера</b>',
+    '',
+    `📋 <b>Замовлення:</b> ${escapeHtml(order.id)}`,
+    order.productName    ? `👕 <b>Товар:</b> ${escapeHtml(order.productName)}`        : null,
+    order.orderSize      ? `📏 <b>Розмір:</b> ${escapeHtml(order.orderSize)}`         : null,
+    order.embroiderySize ? `🪡 <b>Вишивка:</b> ${escapeHtml(order.embroiderySize)}`  : null,
+    order.designer       ? `👨‍🎨 <b>Дизайнер:</b> ${escapeHtml(order.designer)}`      : null,
+    order.comment        ? `💬 <b>Коментар:</b> ${escapeHtml(order.comment)}`        : null,
+    order.date           ? `📅 <b>Дата:</b> ${escapeHtml(order.date)}`               : null,
+  ].filter(Boolean).join('\n')
+
+  await tgCall(token, 'sendMessage', {
+    chat_id: chatId,
+    text: lines,
+    parse_mode: 'HTML',
+  })
+
+  for (const file of files) {
+    if (!file.url) continue
+    await tgCall(token, 'sendDocument', {
+      chat_id: chatId,
+      document: file.url,
+      caption: escapeHtml(file.label || ''),
+    })
+  }
+
+  return jsonResp({ ok: true })
+}
+
 export default {
   async fetch(request, env) {
-    // Preflight
     if (request.method === 'OPTIONS') {
       return new Response(null, { status: 204, headers: CORS_HEADERS })
     }
 
     const url = new URL(request.url)
+
+    // Telegram order notification
+    if (url.pathname === '/tg/send-order' && request.method === 'POST') {
+      return handleTelegramSendOrder(request, env)
+    }
+
+    // Sitniks CRM proxy
     const target = `${SITNIKS_BASE}${url.pathname}${url.search}`
 
     let body = undefined
