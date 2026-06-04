@@ -1312,26 +1312,33 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
     } catch {}
 
     let mockupThumb = null
+    let mockupThumbs = []
     try {
-      if (currentProduct?.image) {
-        const SIZE = 320
+      const SIZE = 320
+      const dSrc = mockupDesignUrl || fullImage
+      let cleanedDesign = null
+      if (dSrc) {
+        const dImg = await loadImgEl(dSrc)
+        cleanedDesign = removeWhiteBg(dImg)
+      }
+      for (const product of allMockupProducts) {
+        if (!product?.image) continue
         const mCanvas = document.createElement('canvas')
         mCanvas.width = SIZE; mCanvas.height = SIZE
         const mCtx = mCanvas.getContext('2d')
-        const pImg = await loadImgEl(currentProduct.image)
+        const pImg = await loadImgEl(product.image)
         mCtx.drawImage(pImg, 0, 0, SIZE, SIZE)
-        const dSrc = mockupDesignUrl || fullImage
-        if (dSrc) {
-          const dImg = await loadImgEl(dSrc)
-          const cleaned = removeWhiteBg(dImg)
+        if (cleanedDesign) {
           const dW = mockupOverlay.size / 100 * SIZE
-          const dH = dW * cleaned.height / cleaned.width
-          mCtx.drawImage(cleaned, 0, 0, cleaned.width, cleaned.height,
+          const dH = dW * cleanedDesign.height / cleanedDesign.width
+          mCtx.drawImage(cleanedDesign, 0, 0, cleanedDesign.width, cleanedDesign.height,
             mockupOverlay.x / 100 * SIZE - dW / 2,
             mockupOverlay.y / 100 * SIZE - dH / 2,
             dW, dH)
         }
-        mockupThumb = mCanvas.toDataURL('image/jpeg', 0.82)
+        const t = mCanvas.toDataURL('image/jpeg', 0.82)
+        if (!mockupThumb) mockupThumb = t
+        mockupThumbs.push({ productId: product.id, label: product.nameUk, thumbnail: t })
       }
     } catch {}
 
@@ -1357,6 +1364,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
         name: fileName || `Дизайн від ${dateStr}`,
         image: thumb,
         mockupThumb,
+        mockupThumbs,
         colors: [designData?.productColors?.[selectedProduct] || '#1a1a1a'],
         productId: catMap[currentProduct?.category] || currentProduct?.category || 'hoodie',
         productName: currentProduct?.nameUk || '',
@@ -1372,6 +1380,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
         colors: [designData?.productColors?.[selectedProduct] || '#1a1a1a'],
         image: thumb,
         mockupThumb,
+        mockupThumbs,
       }
       onSaveOrder?.(order, { fullImage, designSnapshot })
     }
@@ -1411,26 +1420,33 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
     } catch {}
 
     let mockupThumb = null
+    let mockupThumbs = []
     try {
-      if (currentProduct?.image) {
-        const SIZE = 320
+      const SIZE = 320
+      const dSrc = mockupDesignUrl || fullImage
+      let cleanedDesign = null
+      if (dSrc) {
+        const dImg = await loadImgEl(dSrc)
+        cleanedDesign = removeWhiteBg(dImg)
+      }
+      for (const product of allMockupProducts) {
+        if (!product?.image) continue
         const mCanvas = document.createElement('canvas')
         mCanvas.width = SIZE; mCanvas.height = SIZE
         const mCtx = mCanvas.getContext('2d')
-        const pImg = await loadImgEl(currentProduct.image)
+        const pImg = await loadImgEl(product.image)
         mCtx.drawImage(pImg, 0, 0, SIZE, SIZE)
-        const dSrc = mockupDesignUrl || fullImage
-        if (dSrc) {
-          const dImg = await loadImgEl(dSrc)
-          const cleaned = removeWhiteBg(dImg)
+        if (cleanedDesign) {
           const dW = mockupOverlay.size / 100 * SIZE
-          const dH = dW * cleaned.height / cleaned.width
-          mCtx.drawImage(cleaned, 0, 0, cleaned.width, cleaned.height,
+          const dH = dW * cleanedDesign.height / cleanedDesign.width
+          mCtx.drawImage(cleanedDesign, 0, 0, cleanedDesign.width, cleanedDesign.height,
             mockupOverlay.x / 100 * SIZE - dW / 2,
             mockupOverlay.y / 100 * SIZE - dH / 2,
             dW, dH)
         }
-        mockupThumb = mCanvas.toDataURL('image/jpeg', 0.82)
+        const t = mCanvas.toDataURL('image/jpeg', 0.82)
+        if (!mockupThumb) mockupThumb = t
+        mockupThumbs.push({ productId: product.id, label: product.nameUk, thumbnail: t })
       }
     } catch {}
 
@@ -1446,6 +1462,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
       colors: [designData?.productColors?.[selectedProduct] || '#1a1a1a'],
       image: thumb,
       mockupThumb,
+      mockupThumbs,
       designer: selectedDesigner?.handle || '',
       designerName: selectedDesigner?.name || '',
       designerColor: selectedDesigner?.color || 'bg-blue-500',

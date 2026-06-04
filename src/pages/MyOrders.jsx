@@ -77,6 +77,21 @@ function OrderDetailModal({ order, extras, onClose, onStatusChange, onDelete, on
           </div>
         )}
 
+        {/* Mockup strip */}
+        {(order.mockupThumbs?.length > 0 || order.mockupThumb) && (
+          <div className="px-6 pt-4">
+            <p className="text-xs font-medium text-gray-500 mb-2">Мокапи</p>
+            <div className="flex gap-2 overflow-x-auto pb-1">
+              {(order.mockupThumbs || [{ label: order.productName, thumbnail: order.mockupThumb }]).map((m, i) => (
+                <div key={i} className="flex-shrink-0 text-center">
+                  <img src={m.thumbnail} alt={m.label || `Мокап ${i + 1}`} className="h-28 w-28 object-contain rounded-xl border border-gray-100 bg-gray-50" />
+                  {m.label && <p className="text-[10px] text-gray-400 mt-1 w-28 truncate">{m.label}</p>}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Details */}
         <div className="px-6 py-4 space-y-3">
           <div>
@@ -178,14 +193,20 @@ function TransferToDesignerModal({ order, extras, onConfirm, onClose }) {
     if (designImage) {
       result.push({ id: 'design', label: 'Дизайн №1', thumbnail: designImage, checked: true })
     }
-    const productIds = extras?.designSnapshot?.selectedProducts || (order.productId ? [order.productId] : [])
-    productIds.forEach((pid, i) => {
-      const product = allProducts.find(p => p.id === pid)
-      if (product) {
-        const thumbnail = (i === 0 && order.mockupThumb) ? order.mockupThumb : product.image
-        result.push({ id: `mockup-${i}`, label: `Мокап №${i + 1} — ${product.nameUk}`, thumbnail, checked: true })
-      }
-    })
+    if (order.mockupThumbs?.length > 0) {
+      order.mockupThumbs.forEach((m, i) => {
+        result.push({ id: `mockup-${i}`, label: `Мокап №${i + 1} — ${m.label}`, thumbnail: m.thumbnail, checked: true })
+      })
+    } else {
+      const productIds = extras?.designSnapshot?.selectedProducts || (order.productId ? [order.productId] : [])
+      productIds.forEach((pid, i) => {
+        const product = allProducts.find(p => p.id === pid)
+        if (product) {
+          const thumbnail = (i === 0 && order.mockupThumb) ? order.mockupThumb : product.image
+          result.push({ id: `mockup-${i}`, label: `Мокап №${i + 1} — ${product.nameUk}`, thumbnail, checked: true })
+        }
+      })
+    }
     return result
   })
 
