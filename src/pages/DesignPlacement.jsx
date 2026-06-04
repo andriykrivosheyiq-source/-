@@ -957,6 +957,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
   const [selectedDesigner, setSelectedDesigner] = useState(null)
   const [designerComment, setDesignerComment] = useState('')
   const [showDesignerDropdown, setShowDesignerDropdown] = useState(false)
+  const [mockupEditProduct, setMockupEditProduct] = useState(null)
   const [showClientModal, setShowClientModal] = useState(false)
   const [crmOrderNumber, setCrmOrderNumber] = useState('')
   const [crmOrderData, setCrmOrderData] = useState(null)
@@ -1190,6 +1191,8 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
       const canvas = document.createElement('canvas')
       canvas.width = SIZE; canvas.height = SIZE
       const ctx = canvas.getContext('2d')
+      ctx.imageSmoothingEnabled = true
+      ctx.imageSmoothingQuality = 'high'
       ctx.fillStyle = '#f0f0f0'; ctx.fillRect(0, 0, SIZE, SIZE)
       const productImg = await loadImgEl(product.image)
       const pA = productImg.naturalWidth / productImg.naturalHeight
@@ -1333,6 +1336,8 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
         const mCanvas = document.createElement('canvas')
         mCanvas.width = SIZE; mCanvas.height = SIZE
         const mCtx = mCanvas.getContext('2d')
+        mCtx.imageSmoothingEnabled = true
+        mCtx.imageSmoothingQuality = 'high'
         const pImg = await loadImgEl(product.image)
         mCtx.drawImage(pImg, 0, 0, SIZE, SIZE)
         if (cleanedDesign) {
@@ -1436,6 +1441,8 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
         const mCanvas = document.createElement('canvas')
         mCanvas.width = SIZE; mCanvas.height = SIZE
         const mCtx = mCanvas.getContext('2d')
+        mCtx.imageSmoothingEnabled = true
+        mCtx.imageSmoothingQuality = 'high'
         const pImg = await loadImgEl(product.image)
         mCtx.drawImage(pImg, 0, 0, SIZE, SIZE)
         if (cleanedDesign) {
@@ -1635,7 +1642,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
               <div key={`${product?.id}-${index}`} className="p-5 flex gap-5 items-start">
                 {/* Product image with badge */}
                 <button
-                  onClick={handleOpenMockup}
+                  onClick={() => { setMockupEditProduct(product); handleOpenMockup() }}
                   disabled={preparingMockup}
                   className="relative w-44 h-44 flex-shrink-0 border border-gray-200 rounded-xl overflow-hidden flex items-center justify-center hover:ring-2 hover:ring-indigo-400 transition-all group" style={{ background: '#f0f0f0' }}
                   title="Редагувати мокап"
@@ -1813,7 +1820,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
 
       {showAIEdit && <AIEditModal onClose={() => setShowAIEdit(false)} />}
       {showChangeProduct && <ChangeProductModal current={selectedProduct} onSelect={setSelectedProduct} onClose={() => setShowChangeProduct(false)} />}
-      {showMockup && <MockupEditorModal designImage={mockupDesignUrl} product={currentProduct} fileName={fileName} initialOverlay={mockupOverlay} onSave={setMockupOverlay} onClose={() => setShowMockup(false)} />}
+      {showMockup && <MockupEditorModal designImage={mockupDesignUrl} product={mockupEditProduct || currentProduct} fileName={fileName} initialOverlay={mockupOverlay} onSave={setMockupOverlay} onClose={() => setShowMockup(false)} />}
       {showAddMockupModal && <ChangeProductModal current={null} onSelect={(id) => { setExtraMockupProducts(prev => [...prev, id]); setShowAddMockupModal(false) }} onClose={() => setShowAddMockupModal(false)} />}
       {changingMockupIndex !== null && (
         <ChangeProductModal
