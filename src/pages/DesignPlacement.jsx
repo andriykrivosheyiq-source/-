@@ -10,14 +10,11 @@ const D_PATH =
   'M262 198L191 207L227 470L298 461L317 436L288 221L285 215Z ' +
   'M259 209L277 224L306 433L291 451L238 458L235 453L203 218L205 216Z'
 
-// Outer boundary + counter hole — renders as a solid D with visible counter (like a varsity letter)
-const D_PATH_FILLED =
+// Two-color D: border layer — path1+path3 with evenodd = full D silhouette minus counter hole
+const D_PATH_OUTER =
   'M291 123L78 153L88 232L114 229L116 233L148 467L143 471L121 474L132 555L349 526L400 459L360 176Z ' +
   'M262 198L191 207L227 470L298 461L317 436L288 221L285 215Z'
-
-// Two-color D: outer silhouette (filled with border color)
-const D_PATH_OUTER = 'M291 123L78 153L88 232L114 229L116 233L148 467L143 471L121 474L132 555L349 526L400 459L360 176Z'
-// Two-color D: body layer (filled with fill color) — paths 2+3 with evenodd = body minus counter
+// Two-color D: fill layer — path2+path3 with evenodd = body area minus counter hole (no border ring)
 const D_PATH_INNER =
   'M289 135L350 183L388 456L343 515L142 542L140 537L133 484L159 480L160 476L125 219L124 217L102 220L98 219L90 163L115 158Z ' +
   'M262 198L191 207L227 470L298 461L317 436L288 221L285 215Z'
@@ -84,12 +81,9 @@ function drawDLetters(ctx, letters, W, H, style = 'D') {
     ctx.translate(-60, -110)
     if (style === 'D_TWO_COLOR') {
       ctx.fillStyle = letter.color
-      ctx.fill(new Path2D(D_PATH_OUTER))
+      ctx.fill(new Path2D(D_PATH_OUTER), 'evenodd')
       ctx.fillStyle = letter.fillColor || '#ffffff'
       ctx.fill(new Path2D(D_PATH_INNER), 'evenodd')
-    } else if (style === 'D_FILLED') {
-      ctx.fillStyle = letter.color
-      ctx.fill(new Path2D(D_PATH_FILLED), 'evenodd')
     } else {
       ctx.fillStyle = letter.color
       ctx.fill(new Path2D(D_PATH), 'evenodd')
@@ -409,17 +403,6 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
           >D D</button>
           <button
             onMouseDown={e => e.stopPropagation()}
-            onClick={e => { e.stopPropagation(); setLetterStyle('D_FILLED'); setSelected(null) }}
-            title="Заповнена буква D"
-            style={{ padding: '3px 8px', borderRadius: '7px', fontSize: '11px', fontWeight: 700, border: 'none', cursor: 'pointer', background: letterStyle === 'D_FILLED' ? '#4f46e5' : 'transparent', color: letterStyle === 'D_FILLED' ? '#fff' : '#6b7280', display: 'flex', alignItems: 'center', gap: '3px' }}
-          >
-            <svg viewBox="60 110 360 460" width="9" height="12" style={{ display: 'block', flexShrink: 0 }}>
-              <path d={D_PATH_FILLED} fill="currentColor" />
-            </svg>
-            D
-          </button>
-          <button
-            onMouseDown={e => e.stopPropagation()}
             onClick={e => { e.stopPropagation(); setLetterStyle('D_TWO_COLOR'); setSelected(null) }}
             title="D з обводкою та заповненням"
             style={{ padding: '3px 8px', borderRadius: '7px', fontSize: '11px', fontWeight: 700, border: 'none', cursor: 'pointer', background: letterStyle === 'D_TWO_COLOR' ? '#4f46e5' : 'transparent', color: letterStyle === 'D_TWO_COLOR' ? '#fff' : '#6b7280', display: 'flex', alignItems: 'center', gap: '3px' }}
@@ -488,7 +471,7 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
           )}
         </div>}
 
-        {(letterStyle === 'D' || letterStyle === 'D_FILLED' || letterStyle === 'D_TWO_COLOR') && letters.map(letter => {
+        {(letterStyle === 'D' || letterStyle === 'D_TWO_COLOR') && letters.map(letter => {
           const isSelected = selected === letter.id
           return (
             <div key={letter.id} onMouseDown={e => startDrag(letter.id, 'move', e)} onTouchStart={e => startDrag(letter.id, 'move', e)} onClick={e => handleClick(letter.id, e)} style={{ position: 'absolute', left: `${letter.x}%`, top: `${letter.y}%`, width: `${letter.size}%`, transform: `rotate(${letter.rotation}deg)`, transformOrigin: 'center center', cursor: isSelected ? 'grab' : 'pointer', zIndex: isSelected ? 20 : 10 }}>
@@ -506,11 +489,9 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
               <svg viewBox="60 110 360 460" style={{ width: '100%', height: 'auto', display: 'block' }}>
                 {letterStyle === 'D_TWO_COLOR' ? (
                   <>
-                    <path d={D_PATH_OUTER} fill={letter.color} />
+                    <path d={D_PATH_OUTER} fill={letter.color} fillRule="evenodd" />
                     <path d={D_PATH_INNER} fill={letter.fillColor || '#ffffff'} fillRule="evenodd" />
                   </>
-                ) : letterStyle === 'D_FILLED' ? (
-                  <path d={D_PATH_FILLED} fill={letter.color} fillRule="evenodd" />
                 ) : (
                   <path d={D_PATH} fill={letter.color} fillRule="evenodd" />
                 )}
