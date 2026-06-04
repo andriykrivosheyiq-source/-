@@ -1,29 +1,46 @@
 /**
- * Sitniks CRM integration — sends design/mockup links to a client chat.
+ * Sitniks CRM integration
  *
- * Required env vars in .env (and GitHub Secrets):
- *   VITE_CRM_API_URL              — Cloudflare Worker URL (NOT crm.sitniks.com directly — CORS)
- *                                    e.g. https://sitniks-proxy.YOUR.workers.dev
- *   VITE_CLOUDINARY_CLOUD_NAME    — e.g. dgwiuq1lr
- *   VITE_CLOUDINARY_UPLOAD_PRESET — unsigned preset name
+ * Required env vars:
+ *   VITE_CRM_API_URL  — Cloudflare Worker URL (proxies crm.sitniks.com, adds Auth header, adds CORS)
  *
- * The Cloudflare Worker (cloudflare-worker/worker.js) adds Authorization header
- * and CORS headers server-side, so VITE_CRM_API_KEY is no longer needed here.
- *
- * Flow:
- *   1. Upload each selected image to Cloudinary → get public HTTPS URL
- *   2. POST {VITE_CRM_API_URL}/chats/{chatId}/messages  { text: "..." with URLs }
+ * Flow for sending to client:
+ *   1. getOrderByCrmNumber(num) → { chatId, clientName, ... }
+ *   2. Upload images to Cloudinary → get public HTTPS URLs
+ *   3. POST /chats/{chatId}/messages  { text: "..." with URLs }
  */
 import { uploadImageToCloudinary } from './imageUpload.js'
 
-export async function sendToClientCRM({ chatId, files, note }) {
-  const apiUrl = import.meta.env.VITE_CRM_API_URL
+function apiUrl() {
+  const url = import.meta.env.VITE_CRM_API_URL
+  if (!url) throw new Error('CRM_NOT_CONFIGURED')
+  return url.replace(/\/$/, '')
+}
 
-  if (!apiUrl) {
-    throw new Error('CRM_NOT_CONFIGURED')
+async function crmFetch(path, options = {}) {
+  const base = apiUrl()
+  const res = await fetch(`${base}${path}`, {
+    headers: { 'Content-Type': 'application/json' },
+    ...options,
+  })
+  if (!res.ok) {
+    const text = await res.text().catch(() => '')
+    let msg = `HTTP ${res.status}`
+    try { msg = JSON.parse(text)?.message || msg } catch {}
+    throw new Error(msg)
   }
+  return res.json().catch(() => ({}))
+}
 
-  // Upload each image to Cloudinary to get a public URL
+/** Fetch a Sitniks order by its number and return the full order object. */
+export async function getOrderByCrmNumber(orderNumber) {
+  return crmFetch(`/orders/${encodeURIComponent(orderNumber)}`)
+}
+
+/** Upload files to Cloudinary then send their URLs as a text message to a Sitniks chat. */
+export async function sendToClientCRM({ chatId, files, note }) {
+  const base = apiUrl()
+
   const uploaded = await Promise.all(
     files.map(async (file) => {
       let url
@@ -36,7 +53,6 @@ export async function sendToClientCRM({ chatId, files, note }) {
     })
   )
 
-  // Build the message text
   let text = '🎨 Ваш дизайн готовий!\n\n'
   for (const f of uploaded) {
     text += `${f.label}: ${f.url}\n`
@@ -45,7 +61,7 @@ export async function sendToClientCRM({ chatId, files, note }) {
 
   let response
   try {
-    response = await fetch(`${apiUrl}/chats/${chatId}/messages`, {
+    response = await fetch(`${base}/chats/${chatId}/messages`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ text }),
@@ -56,7 +72,9 @@ export async function sendToClientCRM({ chatId, files, note }) {
 
   if (!response.ok) {
     const errText = await response.text().catch(() => '')
-    throw new Error(`Sitniks HTTP ${response.status}${errText ? ': ' + errText : ''}`)
+    let msg = `Sitniks HTTP ${response.status}`
+    try { msg = JSON.parse(errText)?.message || msg } catch {}
+    throw new Error(msg)
   }
 
   return response.json().catch(() => ({}))

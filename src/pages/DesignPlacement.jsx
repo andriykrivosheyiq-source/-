@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useImperativeHandle } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { products as allProducts, productCategories } from '../data/mockData'
 import { generateDesigns, clearCache, editDesign } from '../services/gemini'
-import { sendToClientCRM } from '../services/crmService'
+import { sendToClientCRM, getOrderByCrmNumber } from '../services/crmService'
 
 const D_PATH =
   'M291 123L78 153L88 232L114 229L116 233L148 467L143 471L121 474L132 555L349 526L400 459L360 176Z ' +
@@ -871,7 +871,10 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
   const [designerComment, setDesignerComment] = useState('')
   const [showDesignerDropdown, setShowDesignerDropdown] = useState(false)
   const [showClientModal, setShowClientModal] = useState(false)
-  const [chatId, setChatId] = useState('')
+  const [crmOrderNumber, setCrmOrderNumber] = useState('')
+  const [crmOrderData, setCrmOrderData] = useState(null)
+  const [lookingUpOrder, setLookingUpOrder] = useState(false)
+  const [orderLookupError, setOrderLookupError] = useState(null)
   const [clientNote, setClientNote] = useState('')
   const [sendingToClient, setSendingToClient] = useState(false)
   const [clientSendResult, setClientSendResult] = useState(null)
@@ -1137,15 +1140,10 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
   }
 
   const handleOpenClientModal = async () => {
-    // Pre-fill chatId if saved for this file
-    if (!chatId && fileName) {
-      try {
-        const saved = JSON.parse(localStorage.getItem('aidesign_chat_ids') || '{}')
-        if (saved[fileName]) setChatId(saved[fileName])
-      } catch {}
-    }
     setShowClientModal(true)
     setClientSendResult(null)
+    setCrmOrderData(null)
+    setOrderLookupError(null)
     setPreparingSend(true)
     setSendItems([])
     try { setSendItems(await buildSendItems()) }
@@ -1153,24 +1151,31 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
     finally { setPreparingSend(false) }
   }
 
+  const handleLookupOrder = async () => {
+    if (!crmOrderNumber.trim()) return
+    setLookingUpOrder(true)
+    setOrderLookupError(null)
+    setCrmOrderData(null)
+    try {
+      const data = await getOrderByCrmNumber(crmOrderNumber.trim())
+      setCrmOrderData(data)
+    } catch (e) {
+      setOrderLookupError(e.message === 'CRM_NOT_CONFIGURED' ? 'CRM API не налаштовано (потрібен Cloudflare Worker)' : e.message)
+    } finally {
+      setLookingUpOrder(false)
+    }
+  }
+
   const handleSendToClient = async () => {
     setSendingToClient(true)
     setClientSendResult(null)
     try {
       await sendToClientCRM({
-        chatId,
+        chatId: crmOrderData?.chatId,
         files: sendItems.filter(i => i.checked),
         note: clientNote,
       })
       setClientSendResult('success')
-      // Save chatId for this file so it's pre-filled next time
-      if (fileName && chatId) {
-        try {
-          const saved = JSON.parse(localStorage.getItem('aidesign_chat_ids') || '{}')
-          saved[fileName] = chatId
-          localStorage.setItem('aidesign_chat_ids', JSON.stringify(saved))
-        } catch {}
-      }
     } catch (e) {
       setClientSendResult(e.message === 'CRM_NOT_CONFIGURED' ? 'not_configured' : `error: ${e.message}`)
     } finally {
@@ -1808,17 +1813,61 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
             </div>
 
             <div className="px-6 pb-6 space-y-5">
-              {/* Chat ID */}
+              {/* Order lookup */}
               <div>
-                <label className="text-xs text-gray-500 block mb-1">Chat ID в Sitniks</label>
-                <input
-                  type="text"
-                  value={chatId}
-                  onChange={e => setChatId(e.target.value.trim())}
-                  placeholder="684932ad1c64e4ac1386e98d"
-                  className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300"
-                />
-                <p className="text-[11px] text-gray-400 mt-1">Відкрийте чат клієнта в Sitniks → скопіюйте ID після /dialog/ в URL браузера</p>
+                <label className="text-xs text-gray-500 block mb-1">Номер замовлення в Sitniks CRM</label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={crmOrderNumber}
+                    onChange={e => { setCrmOrderNumber(e.target.value); setCrmOrderData(null); setOrderLookupError(null) }}
+                    onKeyDown={e => e.key === 'Enter' && handleLookupOrder()}
+                    placeholder="12345"
+                    className="flex-1 border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300"
+                  />
+                  <button
+                    onClick={handleLookupOrder}
+                    disabled={!crmOrderNumber.trim() || lookingUpOrder}
+                    className="flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-semibold transition-colors disabled:opacity-50"
+                  >
+                    {lookingUpOrder
+                      ? <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" className="opacity-25"/><path d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" fill="currentColor"/></svg>
+                      : <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>}
+                    Знайти
+                  </button>
+                </div>
+
+                {/* Order found */}
+                {crmOrderData && (
+                  <div className={`mt-2 rounded-xl px-3 py-2.5 text-sm flex items-start gap-2 ${crmOrderData.chatId ? 'bg-emerald-50 border border-emerald-200' : 'bg-amber-50 border border-amber-200'}`}>
+                    {crmOrderData.chatId ? (
+                      <>
+                        <svg className="flex-shrink-0 mt-0.5" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#059669" strokeWidth="2.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                        <div>
+                          <p className="font-semibold text-emerald-800">Чат знайдено</p>
+                          {crmOrderData.clientName && <p className="text-emerald-700 text-xs mt-0.5">Клієнт: {crmOrderData.clientName}</p>}
+                          <p className="text-emerald-600 text-xs font-mono mt-0.5">chatId: {crmOrderData.chatId}</p>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <svg className="flex-shrink-0 mt-0.5" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#d97706" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                        <div>
+                          <p className="font-semibold text-amber-800">Замовлення знайдено, але чат не прив'язаний</p>
+                          <p className="text-amber-700 text-xs mt-0.5">Відправка через CRM недоступна для цього замовлення</p>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+
+                {/* Lookup error */}
+                {orderLookupError && (
+                  <div className="mt-2 rounded-xl px-3 py-2.5 bg-red-50 border border-red-200 flex items-start gap-2 text-sm">
+                    <svg className="flex-shrink-0 mt-0.5" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                    <p className="text-red-700">{orderLookupError}</p>
+                  </div>
+                )}
               </div>
 
               {/* Files */}
@@ -1873,7 +1922,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
               {clientSendResult === 'not_configured' && (
                 <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 space-y-1">
                   <p className="text-sm font-semibold text-amber-700">CRM API не налаштовано</p>
-                  <p className="text-xs text-amber-600">Додайте <code className="bg-amber-100 px-1 rounded">VITE_CRM_API_URL</code> та <code className="bg-amber-100 px-1 rounded">VITE_CRM_API_KEY</code> у файл <code className="bg-amber-100 px-1 rounded">.env</code></p>
+                  <p className="text-xs text-amber-600">Додайте <code className="bg-amber-100 px-1 rounded">VITE_CRM_API_URL</code> (URL Cloudflare Worker) у GitHub Secrets та перезапустіть деплой</p>
                 </div>
               )}
               {clientSendResult?.startsWith('error') && (
@@ -1894,7 +1943,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
               {clientSendResult !== 'success' && (
                 <button
                   onClick={handleSendToClient}
-                  disabled={preparingSend || sendingToClient || !chatId.trim() || sendItems.filter(i => i.checked).length === 0}
+                  disabled={preparingSend || sendingToClient || !crmOrderData?.chatId || sendItems.filter(i => i.checked).length === 0}
                   className="flex-1 flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl py-3 text-sm font-semibold transition-colors disabled:opacity-50"
                 >
                   {sendingToClient
