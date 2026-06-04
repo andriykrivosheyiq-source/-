@@ -36,7 +36,7 @@ function OrderDetailModal({ order, extras, onClose, onStatusChange, onDelete, on
     setSaved(true)
     setTimeout(() => setSaved(false), 1500)
   }
-  const displayImage = order.mockupThumb || extras?.fullImage || order.image
+  const displayImage = extras?.fullImage || order.image
 
   return (
     <div
