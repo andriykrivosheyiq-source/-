@@ -1126,7 +1126,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder }) {
         } catch {}
       }
     } catch (e) {
-      setClientSendResult(e.message === 'CRM_NOT_CONFIGURED' ? 'not_configured' : 'error')
+      setClientSendResult(e.message === 'CRM_NOT_CONFIGURED' ? 'not_configured' : `error: ${e.message}`)
     } finally {
       setSendingToClient(false)
     }
@@ -1778,10 +1778,13 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder }) {
                   <p className="text-xs text-amber-600">Додайте <code className="bg-amber-100 px-1 rounded">VITE_CRM_API_URL</code> та <code className="bg-amber-100 px-1 rounded">VITE_CRM_API_KEY</code> у файл <code className="bg-amber-100 px-1 rounded">.env</code></p>
                 </div>
               )}
-              {clientSendResult === 'error' && (
-                <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-                  <span className="text-sm text-red-700">Помилка відправки. Перевірте налаштування CRM.</span>
+              {clientSendResult?.startsWith('error') && (
+                <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 space-y-1">
+                  <div className="flex items-center gap-2">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                    <span className="text-sm font-semibold text-red-700">Помилка відправки</span>
+                  </div>
+                  <p className="text-xs text-red-600 font-mono break-all">{clientSendResult.replace('error: ', '')}</p>
                 </div>
               )}
             </div>
