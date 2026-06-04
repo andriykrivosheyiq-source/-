@@ -192,29 +192,29 @@ async function renderEstTransparent(letters, estEl, estText, showEstText, imageU
 
 // ─── EstPosterView ────────────────────────────────────────────────────────────
 
-const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estText, showEstText }, ref) {
+const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estText, showEstText, initialState }, ref) {
   const containerRef = useRef(null)
   const illusImgRef = useRef(null)
   const dragRef = useRef(null)
   const dragMovedRef = useRef(false)
   const wasSelectedRef = useRef(false)
 
-  const [letters, setLetters] = useState([
+  const [letters, setLetters] = useState(initialState?.letters || [
     { id: 'left',  x: 20, y: 20, size: 22, rotation: -4,  color: '#000000' },
     { id: 'right', x: 63, y: 20, size: 22, rotation: 19,  color: '#000000' },
   ])
-  const [letterStyle, setLetterStyle] = useState('D')
+  const [letterStyle, setLetterStyle] = useState(initialState?.letterStyle || 'D')
   const [showGrid, setShowGrid] = useState(false)
-  const [ttoLetters, setTtoLetters] = useState([
+  const [ttoLetters, setTtoLetters] = useState(initialState?.ttoLetters || [
     { id: 'tLeft',  x: 5,  y: 25, size: 20, rotation: 0, color: '#000000' },
     { id: 'tRight', x: 54, y: 25, size: 20, rotation: 0, color: '#000000' },
     { id: 'o',      x: 76, y: 25, size: 22, rotation: 0, color: '#000000' },
   ])
-  const [estEl, setEstEl] = useState({ x: 50, y: 88, color: '#000000', fontSize: 2.8 })
-  const [illus, setIllus] = useState({ x: 50, y: 45, size: 52, cropBottom: 0 })
+  const [estEl, setEstEl] = useState(initialState?.estEl || { x: 50, y: 88, color: '#000000', fontSize: 2.8 })
+  const [illus, setIllus] = useState(initialState?.illus || { x: 50, y: 45, size: 52, cropBottom: 0 })
   const [cleanedUrl, setCleanedUrl] = useState(null)
   const [selected, setSelected] = useState(null)
-  const [bgColor, setBgColor] = useState('#f0f0f0')
+  const [bgColor, setBgColor] = useState(initialState?.bgColor || '#f0f0f0')
 
   // Pre-process illustration: remove white background for transparent preview
   useEffect(() => {
@@ -233,8 +233,9 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
   }, [imageUrl])
 
   useImperativeHandle(ref, () => ({
-    exportToCanvas:      () => renderEstToCanvas(letters, estEl, estText, showEstText, imageUrl, illus, letterStyle, ttoLetters, bgColor),
-    exportTransparent:   () => renderEstTransparent(letters, estEl, estText, showEstText, imageUrl, illus, letterStyle, ttoLetters),
+    exportToCanvas:    () => renderEstToCanvas(letters, estEl, estText, showEstText, imageUrl, illus, letterStyle, ttoLetters, bgColor),
+    exportTransparent: () => renderEstTransparent(letters, estEl, estText, showEstText, imageUrl, illus, letterStyle, ttoLetters),
+    getState:          () => ({ letters, letterStyle, bgColor, ttoLetters, estEl, illus }),
   }), [letters, estEl, estText, showEstText, imageUrl, illus, letterStyle, ttoLetters, bgColor])
 
   useEffect(() => {
@@ -871,6 +872,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder }) {
   const [clientNote, setClientNote] = useState('')
   const [sendingToClient, setSendingToClient] = useState(false)
   const [clientSendResult, setClientSendResult] = useState(null)
+  const [savedToast, setSavedToast] = useState(false)
 
   useEffect(() => {
     if (!designData?.uploadedFile) return
@@ -1217,6 +1219,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder }) {
       fileName,
       productColors: designData?.productColors,
       uploadedFile: null,
+      estPosterState: isEst ? estPosterRef.current?.getState() : null,
     }
 
     const catMap = { 'hoodie-basic': 'hoodie', 'hoodie-fleece': 'hoodie', 'hoodie-premium': 'hoodie', 'tshirt-basic': 'tshirt', 'tshirt-oversized': 'oversized', 'sweatshirt': 'sweatshirt', 'cap': 'cap', 'shopper': 'totebag' }
@@ -1231,7 +1234,8 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder }) {
       image: thumb,
     }
     onSaveOrder?.(order, { fullImage, designSnapshot })
-    navigate('/orders')
+    setSavedToast(true)
+    setTimeout(() => setSavedToast(false), 2500)
   }
 
   const handleConfirmTransfer = async () => {
@@ -1292,10 +1296,12 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder }) {
       fileName,
       productColors: designData?.productColors,
       uploadedFile: null,
+      estPosterState: isEst ? estPosterRef.current?.getState() : null,
     }
     onSaveOrder?.(order, { fullImage, designSnapshot })
     setShowSendModal(false)
-    navigate('/orders')
+    setSavedToast(true)
+    setTimeout(() => setSavedToast(false), 2500)
   }
 
   return (
@@ -1351,7 +1357,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder }) {
             ) : (
               <div className="w-full rounded-xl overflow-hidden" style={{ background: '#f0f0f0' }}>
                 {isEst ? (
-                  <EstPosterView ref={estPosterRef} imageUrl={currentDesignImage} estText={estText} showEstText={showEstText} />
+                  <EstPosterView ref={estPosterRef} imageUrl={currentDesignImage} estText={estText} showEstText={showEstText} initialState={designData?.estPosterState} />
                 ) : currentDesignImage ? (
                   <img src={currentDesignImage} alt="Generated design" className="w-full h-auto block" style={{ maxHeight: '80vh' }} />
                 ) : (
@@ -1569,8 +1575,10 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder }) {
               onClick={handleSaveDesign}
               className="w-full flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl py-2.5 text-sm font-semibold transition-colors"
             >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-              Зберегти дизайн
+              {savedToast
+                ? <><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Збережено</>
+                : <><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>Зберегти дизайн</>
+              }
             </button>
             <button
               onClick={handleOpenClientModal}
