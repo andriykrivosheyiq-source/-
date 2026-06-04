@@ -10,6 +10,9 @@ const D_PATH =
   'M262 198L191 207L227 470L298 461L317 436L288 221L285 215Z ' +
   'M259 209L277 224L306 433L291 451L238 458L235 453L203 218L205 216Z'
 
+// Outer boundary only — no inner cutouts, renders as a solid filled D
+const D_PATH_FILLED = 'M291 123L78 153L88 232L114 229L116 233L148 467L143 471L121 474L132 555L349 526L400 459L360 176Z'
+
 const PRESET_COLORS = ['#000000', '#1e3a5f', '#c0392b', '#2d5a27', '#d97706', '#7c3aed', '#9ca3af', '#8b5e3c', '#ffffff', '#f5eed6']
 
 const DESIGNERS = [
@@ -57,7 +60,7 @@ function removeWhiteBg(img, threshold = 235) {
   return canvas
 }
 
-function drawDLetters(ctx, letters, W, H) {
+function drawDLetters(ctx, letters, W, H, filled = false) {
   for (const letter of letters) {
     const lx = letter.x / 100 * W
     const ly = letter.y / 100 * H
@@ -71,7 +74,8 @@ function drawDLetters(ctx, letters, W, H) {
     ctx.scale(sc, sc)
     ctx.translate(-60, -110)
     ctx.fillStyle = letter.color
-    ctx.fill(new Path2D(D_PATH), 'evenodd')
+    if (filled) ctx.fill(new Path2D(D_PATH_FILLED))
+    else ctx.fill(new Path2D(D_PATH), 'evenodd')
     ctx.restore()
   }
 }
@@ -157,7 +161,7 @@ async function renderEstToCanvas(letters, estEl, estText, showEstText, imageUrl,
   }
 
   if (letterStyle === 'TTO') drawTTOLetters(ctx, ttoLetters, W, H)
-  else drawDLetters(ctx, letters, W, H)
+  else drawDLetters(ctx, letters, W, H, letterStyle === 'D_FILLED')
   if (showEstText) drawEstText(ctx, estEl, estText, W, H)
   return canvas
 }
@@ -185,7 +189,7 @@ async function renderEstTransparent(letters, estEl, estText, showEstText, imageU
   }
 
   if (letterStyle === 'TTO') drawTTOLetters(ctx, ttoLetters, W, H)
-  else drawDLetters(ctx, letters, W, H)
+  else drawDLetters(ctx, letters, W, H, letterStyle === 'D_FILLED')
   if (showEstText) drawEstText(ctx, estEl, estText, W, H)
   return canvas
 }
@@ -383,6 +387,17 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
           >D D</button>
           <button
             onMouseDown={e => e.stopPropagation()}
+            onClick={e => { e.stopPropagation(); setLetterStyle('D_FILLED'); setSelected(null) }}
+            title="Заповнена буква D"
+            style={{ padding: '3px 8px', borderRadius: '7px', fontSize: '11px', fontWeight: 700, border: 'none', cursor: 'pointer', background: letterStyle === 'D_FILLED' ? '#4f46e5' : 'transparent', color: letterStyle === 'D_FILLED' ? '#fff' : '#6b7280', display: 'flex', alignItems: 'center', gap: '3px' }}
+          >
+            <svg viewBox="60 110 360 460" width="9" height="12" style={{ display: 'block', flexShrink: 0 }}>
+              <path d={D_PATH_FILLED} fill="currentColor" />
+            </svg>
+            D
+          </button>
+          <button
+            onMouseDown={e => e.stopPropagation()}
             onClick={e => { e.stopPropagation(); setLetterStyle('TTO'); setSelected(null); setTtoLetters(prev => [
               { id: 'tLeft',  x: 5,  y: 25, size: 20, rotation: 0, color: prev[0]?.color || '#000000' },
               { id: 'tRight', x: 54, y: 25, size: 20, rotation: 0, color: prev[1]?.color || '#000000' },
@@ -455,7 +470,10 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
                 </>
               )}
               <svg viewBox="60 110 360 460" style={{ width: '100%', height: 'auto', display: 'block' }}>
-                <path d={D_PATH} fill={letter.color} fillRule="evenodd" />
+                {letterStyle === 'D_FILLED'
+                  ? <path d={D_PATH_FILLED} fill={letter.color} />
+                  : <path d={D_PATH} fill={letter.color} fillRule="evenodd" />
+                }
               </svg>
               {isSelected && (
                 <div onMouseDown={e => startDrag(letter.id, 'resize', e)} onTouchStart={e => startDrag(letter.id, 'resize', e)} onClick={e => e.stopPropagation()} style={{ position: 'absolute', bottom: '-10px', right: '-10px', width: '20px', height: '20px', background: '#4f46e5', border: '2px solid #fff', borderRadius: '4px', cursor: 'nwse-resize', zIndex: 30, boxShadow: '0 1px 4px rgba(0,0,0,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
