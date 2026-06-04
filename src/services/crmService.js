@@ -24,7 +24,12 @@ export async function sendToClientCRM({ chatId, files, note }) {
   // Upload each image to Cloudinary to get a public URL
   const uploaded = await Promise.all(
     files.map(async (file) => {
-      const url = await uploadImageToCloudinary(file.dataUrl, file.filename)
+      let url
+      try {
+        url = await uploadImageToCloudinary(file.dataUrl, file.filename)
+      } catch (e) {
+        throw new Error(`Cloudinary: ${e.message}`)
+      }
       return { label: file.label, url }
     })
   )
@@ -36,18 +41,23 @@ export async function sendToClientCRM({ chatId, files, note }) {
   }
   if (note) text += `\n${note}`
 
-  const response = await fetch(`${apiUrl}/chats/${chatId}/messages`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({ text }),
-  })
+  let response
+  try {
+    response = await fetch(`${apiUrl}/chats/${chatId}/messages`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({ text }),
+    })
+  } catch (e) {
+    throw new Error(`Sitniks CORS/network: ${e.message}`)
+  }
 
   if (!response.ok) {
     const errText = await response.text().catch(() => '')
-    throw new Error(`HTTP ${response.status}${errText ? ': ' + errText : ''}`)
+    throw new Error(`Sitniks HTTP ${response.status}${errText ? ': ' + errText : ''}`)
   }
 
   return response.json().catch(() => ({}))
