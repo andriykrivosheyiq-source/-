@@ -12,7 +12,7 @@ function ProductSelector({ selected, onChange }) {
     if (selected.includes(id)) {
       onChange(selected.filter(s => s !== id))
     } else {
-      onChange([...selected, id])
+      onChange([id, ...selected]) // most recently selected becomes primary product
     }
   }
 

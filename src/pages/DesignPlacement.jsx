@@ -10,7 +10,7 @@ const D_PATH =
   'M262 198L191 207L227 470L298 461L317 436L288 221L285 215Z ' +
   'M259 209L277 224L306 433L291 451L238 458L235 453L203 218L205 216Z'
 
-const PRESET_COLORS = ['#000000', '#1e3a5f', '#c0392b', '#2d5a27', '#d97706', '#7c3aed', '#9ca3af', '#8b5e3c']
+const PRESET_COLORS = ['#000000', '#1e3a5f', '#c0392b', '#2d5a27', '#d97706', '#7c3aed', '#9ca3af', '#8b5e3c', '#ffffff', '#f5eed6']
 
 const DESIGNERS = [
   { id: 'andrii',    name: 'Андрій',    handle: '@andrii_design',    color: 'bg-blue-500' },
@@ -136,7 +136,7 @@ async function renderEstToCanvas(letters, estEl, estText, showEstText, imageUrl,
   const canvas = document.createElement('canvas')
   canvas.width = W; canvas.height = H
   const ctx = canvas.getContext('2d')
-  ctx.fillStyle = '#ffffff'
+  ctx.fillStyle = '#f0f0f0'
   ctx.fillRect(0, 0, W, H)
 
   if (imageUrl) {
@@ -599,7 +599,7 @@ function MockupEditorModal({ designImage, product, fileName, initialOverlay, onS
       canvas.width = SIZE; canvas.height = SIZE
       const ctx = canvas.getContext('2d')
 
-      ctx.fillStyle = '#ffffff'
+      ctx.fillStyle = '#f0f0f0'
       ctx.fillRect(0, 0, SIZE, SIZE)
       const productImg = await loadImgEl(product.image)
       const pA = productImg.naturalWidth / productImg.naturalHeight
@@ -944,7 +944,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder }) {
       const canvas = document.createElement('canvas')
       canvas.width = SIZE; canvas.height = SIZE
       const ctx = canvas.getContext('2d')
-      ctx.fillStyle = '#ffffff'
+      ctx.fillStyle = '#f0f0f0'
       ctx.fillRect(0, 0, SIZE, SIZE)
       const productImg = await loadImgEl(currentProduct.image)
       const pA2 = productImg.naturalWidth / productImg.naturalHeight
@@ -987,7 +987,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder }) {
       const canvas = document.createElement('canvas')
       canvas.width = SIZE; canvas.height = SIZE
       const ctx = canvas.getContext('2d')
-      ctx.fillStyle = '#ffffff'
+      ctx.fillStyle = '#f0f0f0'
       ctx.fillRect(0, 0, SIZE, SIZE)
       const productImg = await loadImgEl(product.image)
       const pA2 = productImg.naturalWidth / productImg.naturalHeight
@@ -1053,7 +1053,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder }) {
       const canvas = document.createElement('canvas')
       canvas.width = SIZE; canvas.height = SIZE
       const ctx = canvas.getContext('2d')
-      ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, SIZE, SIZE)
+      ctx.fillStyle = '#f0f0f0'; ctx.fillRect(0, 0, SIZE, SIZE)
       const productImg = await loadImgEl(product.image)
       const pA = productImg.naturalWidth / productImg.naturalHeight
       let pW, pH, pX, pY
@@ -1308,7 +1308,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder }) {
                 <p className="text-sm text-gray-500 font-medium">Генерую новий дизайн... (15–30 сек)</p>
               </div>
             ) : (
-              <div className="w-full bg-gray-50 rounded-xl overflow-hidden">
+              <div className="w-full rounded-xl overflow-hidden" style={{ background: '#f0f0f0' }}>
                 {isEst ? (
                   <EstPosterView ref={estPosterRef} imageUrl={currentDesignImage} estText={estText} showEstText={showEstText} />
                 ) : currentDesignImage ? (
@@ -1390,7 +1390,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder }) {
                 <button
                   onClick={handleOpenMockup}
                   disabled={preparingMockup}
-                  className="relative w-44 h-44 flex-shrink-0 bg-white border border-gray-100 rounded-xl overflow-hidden flex items-center justify-center hover:ring-2 hover:ring-indigo-400 transition-all group"
+                  className="relative w-44 h-44 flex-shrink-0 border border-gray-200 rounded-xl overflow-hidden flex items-center justify-center hover:ring-2 hover:ring-indigo-400 transition-all group" style={{ background: '#f0f0f0' }}
                   title="Редагувати мокап"
                 >
                   <span className="absolute top-2 left-2 z-10 text-xs font-semibold bg-white text-indigo-600 border border-indigo-200 px-2 py-1 rounded-lg shadow-sm">Мокап №{index + 1}</span>
