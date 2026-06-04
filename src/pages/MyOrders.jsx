@@ -348,7 +348,7 @@ function Column({ status, orders, onStatusChange, onDelete, onOpen }) {
 
 // ─── Main Page ─────────────────────────────────────────────────────────────────
 
-export default function MyOrders({ savedOrders = [], orderExtras = {}, onUpdateOrder, onDeleteOrder, onOpenOrder }) {
+export default function MyOrders({ savedOrders = [], ordersLoading = false, orderExtras = {}, onUpdateOrder, onDeleteOrder, onOpenOrder }) {
   const navigate = useNavigate()
   const [search, setSearch] = useState('')
   const [filterProduct, setFilterProduct] = useState('all')
@@ -441,7 +441,15 @@ export default function MyOrders({ savedOrders = [], orderExtras = {}, onUpdateO
       </div>
 
       {/* Kanban */}
-      <div className="flex-1 overflow-x-auto overflow-y-hidden">
+      <div className="flex-1 overflow-x-auto overflow-y-hidden" style={{ position: 'relative' }}>
+        {ordersLoading && (
+          <div className="absolute inset-0 flex items-center justify-center bg-white/70 z-10">
+            <div className="flex flex-col items-center gap-3">
+              <svg className="animate-spin w-8 h-8 text-indigo-500" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" className="opacity-25"/><path d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" fill="currentColor"/></svg>
+              <span className="text-sm text-gray-500 font-medium">Завантаження замовлень...</span>
+            </div>
+          </div>
+        )}
         <div className="h-full p-6 flex gap-5 min-w-0">
           {(['new', 'review', 'approved', 'designer', 'done']).map((status) => (
             <div key={status} className="flex-1 min-w-[280px] flex flex-col overflow-hidden">
