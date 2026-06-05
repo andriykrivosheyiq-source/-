@@ -1013,7 +1013,15 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
 
   // Initialize drawing canvas when tool is activated — bake design (or existing edits) into canvas
   useEffect(() => {
-    if (!drawingTool) { setDrawZoom(1); return }
+    if (!drawingTool) {
+      setDrawZoom(1)
+      // Save canvas state when tool is deactivated so drawingDataUrl is always up to date
+      const canvas = drawingCanvasRef.current
+      if (canvas && canvas.width > 0 && canvas.height > 0) {
+        setDrawingDataUrl(canvas.toDataURL('image/png'))
+      }
+      return
+    }
     const canvas = drawingCanvasRef.current
     if (!canvas || !currentDesignImage) return
     const img = new Image()
@@ -1732,19 +1740,21 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
               <div
                 ref={drawZoomWrapRef}
                 className="w-full rounded-xl overflow-auto"
-                style={{ background: designBgColor || '#f0f0f0', maxHeight: drawingTool ? '75vh' : undefined }}
+                style={{ background: designBgColor || '#f0f0f0', maxHeight: '75vh' }}
               >
                 {isEst ? (
                   <EstPosterView ref={estPosterRef} imageUrl={currentDesignImage} estText={estText} showEstText={showEstText} initialState={designData?.estPosterState} />
                 ) : currentDesignImage ? (
                   <div style={{ width: drawingTool ? `${drawZoom * 100}%` : '100%', minWidth: '100%' }}>
                   <div style={{ position: 'relative', width: '100%' }}>
-                    {/* Show original or edited image; visibility:hidden when canvas is active so layout is preserved */}
+                    {/* When bg color set: use mockupDesignUrl (white bg already removed). Otherwise show edited or original. */}
                     <img
-                      src={drawingDataUrl || currentDesignImage}
+                      src={designBgColor && mockupDesignUrl
+                        ? mockupDesignUrl
+                        : (drawingDataUrl || currentDesignImage)}
                       alt="Generated design"
                       className="w-full h-auto block"
-                      style={{ visibility: drawingTool ? 'hidden' : 'visible' }}
+                      style={{ visibility: drawingTool ? 'hidden' : 'visible', maxHeight: '75vh', objectFit: 'contain' }}
                     />
                     {/* Canvas covers the img when tool is active with design baked in */}
                     <canvas
