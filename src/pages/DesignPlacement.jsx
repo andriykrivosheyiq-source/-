@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useImperativeHandle } from 'react'
+import React, { useState, useEffect, useLayoutEffect, useRef, useImperativeHandle } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { products as allProducts, productCategories } from '../data/mockData'
 import { generateDesigns, clearCache, editDesign } from '../services/gemini'
@@ -980,6 +980,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
   const [drawZoom, setDrawZoom] = useState(1)
   const drawingCanvasRef = useRef(null)
   const drawZoomWrapRef = useRef(null)
+  const pendingScrollRef = useRef(null)
   const isDrawingRef = useRef(false)
   const lastDrawPosRef = useRef(null)
 
@@ -1040,12 +1041,32 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
     if (!el || !drawingTool) return
     const handler = (e) => {
       e.preventDefault()
+      const rect = el.getBoundingClientRect()
+      const cx = e.clientX - rect.left  // cursor x relative to container
+      const cy = e.clientY - rect.top
       const factor = e.deltaY < 0 ? 1.15 : 1 / 1.15
-      setDrawZoom(prev => Math.max(1, Math.min(4, prev * factor)))
+      setDrawZoom(prev => {
+        const next = Math.max(1, Math.min(4, prev * factor))
+        // Cursor-anchored scroll: keep same content point under cursor
+        pendingScrollRef.current = {
+          scrollLeft: Math.max(0, (cx + el.scrollLeft) * (next / prev) - cx),
+          scrollTop:  Math.max(0, (cy + el.scrollTop)  * (next / prev) - cy),
+        }
+        return next
+      })
     }
     el.addEventListener('wheel', handler, { passive: false })
     return () => el.removeEventListener('wheel', handler)
   }, [drawingTool])
+
+  // Apply cursor-anchored scroll after zoom re-render
+  useLayoutEffect(() => {
+    const pending = pendingScrollRef.current
+    if (!pending || !drawZoomWrapRef.current) return
+    drawZoomWrapRef.current.scrollLeft = pending.scrollLeft
+    drawZoomWrapRef.current.scrollTop  = pending.scrollTop
+    pendingScrollRef.current = null
+  })
 
   // Keep mockupDesignUrl in sync whenever the design or EST settings change
   useEffect(() => {
@@ -1228,7 +1249,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
       const canvas = await estPosterRef.current.exportToCanvas()
       designUrl = canvas.toDataURL('image/png')
     } else if (currentDesignImage) {
-      designUrl = currentDesignImage
+      designUrl = drawingDataUrl || currentDesignImage
     }
     if (designUrl) {
       items.push({
@@ -1383,10 +1404,12 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
       let srcCanvas = null
       if (isEst && estPosterRef.current) {
         srcCanvas = await estPosterRef.current.exportToCanvas()
-      } else if (currentDesignImage && currentDesignImage.startsWith('data:')) {
-        const img = await loadImgEl(currentDesignImage)
+      } else if (currentDesignImage) {
+        const srcUrl = drawingDataUrl || currentDesignImage
+        const img = await loadImgEl(srcUrl)
         srcCanvas = document.createElement('canvas')
-        srcCanvas.width = img.width; srcCanvas.height = img.height
+        srcCanvas.width = img.naturalWidth || img.width
+        srcCanvas.height = img.naturalHeight || img.height
         srcCanvas.getContext('2d').drawImage(img, 0, 0)
       }
       if (srcCanvas) {
@@ -1557,10 +1580,12 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
       let srcCanvas = null
       if (isEst && estPosterRef.current) {
         srcCanvas = await estPosterRef.current.exportToCanvas()
-      } else if (currentDesignImage && currentDesignImage.startsWith('data:')) {
-        const img = await loadImgEl(currentDesignImage)
+      } else if (currentDesignImage) {
+        const srcUrl = drawingDataUrl || currentDesignImage
+        const img = await loadImgEl(srcUrl)
         srcCanvas = document.createElement('canvas')
-        srcCanvas.width = img.width; srcCanvas.height = img.height
+        srcCanvas.width = img.naturalWidth || img.width
+        srcCanvas.height = img.naturalHeight || img.height
         srcCanvas.getContext('2d').drawImage(img, 0, 0)
       }
       if (srcCanvas) {
