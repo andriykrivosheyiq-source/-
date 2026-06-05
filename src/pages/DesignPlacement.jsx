@@ -969,6 +969,18 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
   const [statusUpdateFailed, setStatusUpdateFailed] = useState(false)
   const [savedToast, setSavedToast] = useState(false)
 
+  // Feature 1: Background color picker (non-EST only)
+  const [designBgColor, setDesignBgColor] = useState(null)
+
+  // Feature 2: Drawing tools
+  const [drawingTool, setDrawingTool] = useState(null)  // null | 'pen' | 'eraser'
+  const [brushColor, setBrushColor] = useState('#000000')
+  const [brushSize, setBrushSize] = useState(8)
+  const [drawingDataUrl, setDrawingDataUrl] = useState(null)
+  const drawingCanvasRef = useRef(null)
+  const isDrawingRef = useRef(false)
+  const lastDrawPosRef = useRef(null)
+
   useEffect(() => {
     if (!designData?.uploadedFile) return
     const url = URL.createObjectURL(designData.uploadedFile)
@@ -984,6 +996,37 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
   const currentProduct = allProducts.find(p => p.id === selectedProduct) || allProducts[0]
   const allMockupProducts = [currentProduct, ...extraMockupProducts.map(id => allProducts.find(p => p.id === id)).filter(Boolean)]
 
+  // Reset drawing state when active design changes
+  useEffect(() => {
+    setDrawingDataUrl(null)
+    setDrawingTool(null)
+    const canvas = drawingCanvasRef.current
+    if (canvas) {
+      const ctx = canvas.getContext('2d')
+      ctx.clearRect(0, 0, canvas.width, canvas.height)
+    }
+  }, [currentDesignImage])
+
+  // Initialize drawing canvas when tool is activated
+  useEffect(() => {
+    if (!drawingTool) return
+    const canvas = drawingCanvasRef.current
+    if (!canvas || !currentDesignImage) return
+    const img = new Image()
+    img.onload = () => {
+      canvas.width = img.naturalWidth || 1600
+      canvas.height = img.naturalHeight || 900
+      const ctx = canvas.getContext('2d')
+      ctx.clearRect(0, 0, canvas.width, canvas.height)
+      if (drawingDataUrl) {
+        const drawImg = new Image()
+        drawImg.onload = () => ctx.drawImage(drawImg, 0, 0)
+        drawImg.src = drawingDataUrl
+      }
+    }
+    img.src = currentDesignImage
+  }, [drawingTool, currentDesignImage])
+
   // Keep mockupDesignUrl in sync whenever the design or EST settings change
   useEffect(() => {
     let cancelled = false
@@ -997,9 +1040,15 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
           // Load without crossOrigin — data URLs are same-origin, crossOrigin taints the canvas
           await new Promise((resolve) => {
             const img = new Image()
-            img.onload = () => {
+            img.onload = async () => {
               try {
                 const cleaned = removeWhiteBg(img)
+                if (drawingDataUrl) {
+                  const ctx = cleaned.getContext('2d')
+                  await new Promise(res => {
+                    const d = new Image(); d.onload = () => { ctx.drawImage(d, 0, 0); res() }; d.onerror = res; d.src = drawingDataUrl
+                  })
+                }
                 if (!cancelled) setMockupDesignUrl(cleaned.toDataURL('image/png'))
               } catch {
                 if (!cancelled) setMockupDesignUrl(currentDesignImage)
@@ -1014,7 +1063,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
     }
     update()
     return () => { cancelled = true }
-  }, [currentDesignImage, isEst, estText, showEstText])
+  }, [currentDesignImage, isEst, estText, showEstText, drawingDataUrl])
 
   const handleRegenerate = async () => {
     if (!designData?.uploadedFile || !designData?.selectedStyle) { navigate('/create'); return }
@@ -1201,6 +1250,18 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
       if (pA >= 1) { pW = SIZE; pH = SIZE / pA; pX = 0; pY = (SIZE - pH) / 2 }
       else          { pH = SIZE; pW = SIZE * pA; pX = (SIZE - pW) / 2; pY = 0 }
       ctx.drawImage(productImg, pX, pY, pW, pH)
+      if (designBgColor && overlayUrl) {
+        const tmpImg = await loadImgEl(overlayUrl)
+        const dW = mockupOverlay.size / 100 * SIZE
+        const aspect = (tmpImg.naturalHeight || tmpImg.height) / (tmpImg.naturalWidth || tmpImg.width)
+        const dH = dW * aspect
+        ctx.fillStyle = designBgColor
+        ctx.fillRect(
+          mockupOverlay.x / 100 * SIZE - dW / 2,
+          mockupOverlay.y / 100 * SIZE - dH / 2,
+          dW, dH
+        )
+      }
       if (overlayUrl) {
         const dImg = await loadImgEl(overlayUrl)
         const cleaned = removeWhiteBg(dImg)
@@ -1401,6 +1462,70 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
     setTimeout(() => setSavedToast(false), 2500)
   }
 
+  // Drawing event handlers
+  const getCanvasPos = (e, canvas) => {
+    const rect = canvas.getBoundingClientRect()
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY
+    return {
+      x: (clientX - rect.left) * (canvas.width / rect.width),
+      y: (clientY - rect.top) * (canvas.height / rect.height),
+    }
+  }
+
+  const handleDrawStart = (e) => {
+    if (!drawingTool) return
+    e.preventDefault()
+    isDrawingRef.current = true
+    const canvas = drawingCanvasRef.current
+    if (!canvas) return
+    const pos = getCanvasPos(e, canvas)
+    lastDrawPosRef.current = pos
+    const ctx = canvas.getContext('2d')
+    ctx.globalCompositeOperation = drawingTool === 'eraser' ? 'destination-out' : 'source-over'
+    ctx.fillStyle = drawingTool === 'eraser' ? 'rgba(0,0,0,1)' : brushColor
+    ctx.beginPath()
+    ctx.arc(pos.x, pos.y, brushSize / 2, 0, Math.PI * 2)
+    ctx.fill()
+  }
+
+  const handleDrawMove = (e) => {
+    if (!isDrawingRef.current || !drawingTool) return
+    e.preventDefault()
+    const canvas = drawingCanvasRef.current
+    if (!canvas) return
+    const ctx = canvas.getContext('2d')
+    const pos = getCanvasPos(e, canvas)
+    const last = lastDrawPosRef.current || pos
+    ctx.globalCompositeOperation = drawingTool === 'eraser' ? 'destination-out' : 'source-over'
+    ctx.strokeStyle = drawingTool === 'eraser' ? 'rgba(0,0,0,1)' : brushColor
+    ctx.lineWidth = brushSize
+    ctx.lineCap = 'round'
+    ctx.lineJoin = 'round'
+    ctx.beginPath()
+    ctx.moveTo(last.x, last.y)
+    ctx.lineTo(pos.x, pos.y)
+    ctx.stroke()
+    lastDrawPosRef.current = pos
+  }
+
+  const handleDrawEnd = () => {
+    if (!isDrawingRef.current) return
+    isDrawingRef.current = false
+    lastDrawPosRef.current = null
+    const canvas = drawingCanvasRef.current
+    if (canvas) setDrawingDataUrl(canvas.toDataURL('image/png'))
+  }
+
+  const clearDrawing = () => {
+    setDrawingDataUrl(null)
+    const canvas = drawingCanvasRef.current
+    if (canvas) {
+      const ctx = canvas.getContext('2d')
+      ctx.clearRect(0, 0, canvas.width, canvas.height)
+    }
+  }
+
   const handleConfirmTransfer = async () => {
     const now = new Date()
     const dateStr = now.toLocaleString('uk-UA', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Kiev' })
@@ -1559,11 +1684,26 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
                 <p className="text-sm text-gray-500 font-medium">Генерую новий дизайн... (15–30 сек)</p>
               </div>
             ) : (
-              <div className="w-full rounded-xl overflow-hidden" style={{ background: '#f0f0f0' }}>
+              <div className="w-full rounded-xl overflow-hidden" style={{ background: designBgColor || '#f0f0f0' }}>
                 {isEst ? (
                   <EstPosterView ref={estPosterRef} imageUrl={currentDesignImage} estText={estText} showEstText={showEstText} initialState={designData?.estPosterState} />
                 ) : currentDesignImage ? (
-                  <img src={currentDesignImage} alt="Generated design" className="w-full h-auto block" style={{ maxHeight: '80vh' }} />
+                  <div style={{ position: 'relative', width: '100%' }}>
+                    <img src={currentDesignImage} alt="Generated design" className="w-full h-auto block" style={{ maxHeight: '80vh' }} />
+                    {drawingTool !== null && (
+                      <canvas
+                        ref={drawingCanvasRef}
+                        style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', cursor: drawingTool === 'pen' ? 'crosshair' : 'cell', touchAction: 'none' }}
+                        onMouseDown={handleDrawStart}
+                        onMouseMove={handleDrawMove}
+                        onMouseUp={handleDrawEnd}
+                        onMouseLeave={handleDrawEnd}
+                        onTouchStart={handleDrawStart}
+                        onTouchMove={handleDrawMove}
+                        onTouchEnd={handleDrawEnd}
+                      />
+                    )}
+                  </div>
                 ) : (
                   <div className="flex flex-col items-center gap-3 text-gray-400 py-20">
                     <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
@@ -1597,6 +1737,57 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
                     : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
                   }
                 </button>
+              </div>
+            )}
+
+            {!isEst && currentDesignImage && !regenerating && (
+              <div className="mt-4 space-y-3">
+                {/* Background color */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-xs text-gray-500 font-medium whitespace-nowrap">Фон:</span>
+                  {['#ffffff', '#f0f0f0', '#f5eed6', '#dce8f5', '#fce4ec', '#1a1a1a', '#2d5a27', '#7c3aed'].map(c => (
+                    <button key={c} onClick={() => setDesignBgColor(prev => prev === c ? null : c)}
+                      style={{ width: 22, height: 22, borderRadius: '50%', background: c, border: designBgColor === c ? '2.5px solid #4f46e5' : '1.5px solid #d1d5db', cursor: 'pointer', padding: 0, flexShrink: 0 }} />
+                  ))}
+                  <label style={{ width: 22, height: 22, borderRadius: '50%', cursor: 'pointer', background: 'conic-gradient(red,yellow,lime,cyan,blue,magenta,red)', border: '1.5px solid #d1d5db', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', flexShrink: 0 }}>
+                    <input type="color" value={designBgColor || '#ffffff'} onChange={e => setDesignBgColor(e.target.value)} style={{ position: 'absolute', opacity: 0, width: '100%', height: '100%', cursor: 'pointer' }} />
+                  </label>
+                  {designBgColor && <button onClick={() => setDesignBgColor(null)} className="text-xs text-gray-400 hover:text-gray-600 ml-1">✕</button>}
+                </div>
+                {/* Drawing tools */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  <button
+                    onClick={() => setDrawingTool(prev => prev === 'pen' ? null : 'pen')}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium border transition-colors ${drawingTool === 'pen' ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-gray-200 text-gray-600 hover:border-indigo-300 bg-white'}`}
+                  >
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                    Олівець
+                  </button>
+                  <button
+                    onClick={() => setDrawingTool(prev => prev === 'eraser' ? null : 'eraser')}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium border transition-colors ${drawingTool === 'eraser' ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-gray-200 text-gray-600 hover:border-indigo-300 bg-white'}`}
+                  >
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 20H7L3 16l13-13 6 6-4 4"/><path d="M6.5 17.5l4-4"/></svg>
+                    Стирачка
+                  </button>
+                  {drawingTool === 'pen' && (
+                    <>
+                      <input type="color" value={brushColor} onChange={e => setBrushColor(e.target.value)}
+                        style={{ width: 26, height: 26, padding: 0, border: '2px solid #d1d5db', cursor: 'pointer', borderRadius: '50%', background: 'none' }} />
+                      <input type="range" min={2} max={40} value={brushSize} onChange={e => setBrushSize(Number(e.target.value))} className="w-20" />
+                      <span className="text-xs text-gray-400">{brushSize}px</span>
+                    </>
+                  )}
+                  {drawingTool === 'eraser' && (
+                    <>
+                      <input type="range" min={5} max={60} value={brushSize} onChange={e => setBrushSize(Number(e.target.value))} className="w-20" />
+                      <span className="text-xs text-gray-400">{brushSize}px</span>
+                    </>
+                  )}
+                  {drawingDataUrl && (
+                    <button onClick={clearDrawing} className="text-xs text-red-400 hover:text-red-600 border border-red-200 px-2 py-1 rounded-lg">Очистити малювання</button>
+                  )}
+                </div>
               </div>
             )}
 
