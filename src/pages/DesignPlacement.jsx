@@ -985,6 +985,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
   const lastDrawPosRef = useRef(null)
   const drawingHistoryRef = useRef([])
   const [historyLen, setHistoryLen] = useState(0)
+  const canvasReadyRef = useRef(false)
 
   useEffect(() => {
     if (!designData?.uploadedFile) return
@@ -1017,9 +1018,13 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
 
   // Initialize drawing canvas when tool is activated — bake design (or existing edits) into canvas
   useEffect(() => {
-    if (!drawingTool) { setDrawZoom(1); return }
+    if (!drawingTool) { setDrawZoom(1); canvasReadyRef.current = false; return }
     const canvas = drawingCanvasRef.current
     if (!canvas || !currentDesignImage) return
+    // New editing session: mark canvas not ready and reset undo history
+    canvasReadyRef.current = false
+    drawingHistoryRef.current = []
+    setHistoryLen(0)
     const img = new Image()
     img.onload = () => {
       canvas.width = img.naturalWidth || 1600
@@ -1029,11 +1034,15 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
       if (drawingDataUrl) {
         // drawingDataUrl already contains design + previous edits
         const editImg = new Image()
-        editImg.onload = () => ctx.drawImage(editImg, 0, 0, canvas.width, canvas.height)
+        editImg.onload = () => {
+          ctx.drawImage(editImg, 0, 0, canvas.width, canvas.height)
+          canvasReadyRef.current = true
+        }
         editImg.src = drawingDataUrl
       } else {
         // Fresh start: bake the original design directly into the canvas
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+        canvasReadyRef.current = true
       }
     }
     img.src = currentDesignImage
@@ -1527,8 +1536,9 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
     e.preventDefault()
     const canvas = drawingCanvasRef.current
     if (!canvas) return
-    // Snapshot current canvas state BEFORE the stroke so it can be undone
-    if (canvas.width > 0 && canvas.height > 0) {
+    // Snapshot current canvas state BEFORE the stroke so it can be undone.
+    // Guard: only snapshot after the design has been fully drawn onto the canvas.
+    if (canvasReadyRef.current && canvas.width > 0 && canvas.height > 0) {
       const snap = canvas.toDataURL('image/png')
       const next = [...drawingHistoryRef.current.slice(-14), snap]
       drawingHistoryRef.current = next
