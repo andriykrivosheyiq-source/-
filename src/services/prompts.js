@@ -17,7 +17,7 @@ CANVAS SPECIFICATIONS
 ────────────────────────
 • Size: 1920x1080px
 • Landscape orientation
-• Background: pure white #FFFFFF only
+• Background: light gray #E8E8E8 only
 • No texture
 • No gradients
 • No shadows
@@ -141,11 +141,11 @@ OUTLINES
 BACKGROUND REMOVAL
 ────────────────────────
 • Remove original photo background completely
-• Replace with pure white #FFFFFF
+• Replace with light gray #E8E8E8
 • NO rectangle
 • NO frame
 • NO border around illustration
-• Illustration floats directly on white background
+• Illustration floats directly on light gray #E8E8E8 background
 
 ────────────────────────
 CENTER POSITIONING
@@ -174,7 +174,7 @@ Luxury minimalist sports-inspired family poster.
 Visual structure:
 [D]  [flat vector family illustration]  [D]
 
-Pure white background.
+Light gray #E8E8E8 background.
 Clean bold black outlines.
 Minimal vector aesthetic.
 Professional apparel graphic style.
@@ -233,7 +233,7 @@ CANVAS SPECIFICATIONS
 ────────────────────────
 • Size: 1920x1080px
 • Landscape orientation
-• Background: pure white #FFFFFF only
+• Background: light gray #E8E8E8 only
 • No texture
 • No gradients
 • No shadows
@@ -493,13 +493,13 @@ Minimize unnecessary internal contour lines.
 BACKGROUND REMOVAL
 ────────────────────────
 • Remove original background completely
-• Replace with pure white #FFFFFF
+• Replace with light gray #E8E8E8
 • No frame
 • No border
 • No rectangle
 • No background objects
 
-Illustration must float directly on white background.
+Illustration must float directly on light gray #E8E8E8 background.
 
 ────────────────────────
 CENTER POSITIONING
@@ -518,7 +518,7 @@ Visual structure:
 
 [flat vector family illustration]
 
-Pure white background.
+Light gray #E8E8E8 background.
 Clean bold black outlines.
 Premium vector aesthetic.
 Professional apparel graphic style.
@@ -622,7 +622,7 @@ CANVAS SPECIFICATIONS
 ────────────────────────
 • Size: 1920x1080px
 • Landscape orientation
-• Background: pure white #FFFFFF only
+• Background: light gray #E8E8E8 only
 • No texture
 • No gradients
 • No shadows
@@ -778,14 +778,14 @@ OUTLINES
 BACKGROUND REMOVAL
 ────────────────────────
 • Remove original background completely
-• Replace with pure white #FFFFFF
+• Replace with light gray #E8E8E8
 • No frame
 • No border
 • No background objects
 • No scenery
 • No decorative elements
 
-Illustration must float directly on the white background.
+Illustration must float directly on the light gray #E8E8E8 background.
 
 ────────────────────────
 POSITIONING
@@ -800,7 +800,7 @@ FINAL VISUAL STYLE
 ────────────────────────
 Luxury minimalist FACELESS family poster.
 
-Pure white background.
+Light gray #E8E8E8 background.
 Bold black outlines.
 Premium vector aesthetic.
 Professional apparel graphic style.
