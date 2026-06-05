@@ -146,15 +146,11 @@ function drawDLetters(ctx, letters, W, H, style = 'D') {
     ctx.translate(-lw / 2, -lh / 2)
     ctx.scale(sc, sc)
     ctx.translate(-60, -110)
-    if (style === 'D_TWO_COLOR') {
-      ctx.fillStyle = letter.color
-      ctx.fill(new Path2D(D_PATH), 'evenodd')
-      ctx.fillStyle = letter.fillColor || '#ffffff'
-      ctx.fill(new Path2D(D_PATH_INNER), 'evenodd')
-    } else {
-      ctx.fillStyle = letter.color
-      ctx.fill(new Path2D(D_PATH), 'evenodd')
-    }
+    ctx.fillStyle = letter.color
+    ctx.fill(new Path2D(D_PATH), 'evenodd')
+    // Always fill inner body with white (or custom fillColor) so D stays visible on any bg
+    ctx.fillStyle = (style === 'D_TWO_COLOR' ? (letter.fillColor || '#ffffff') : '#ffffff')
+    ctx.fill(new Path2D(D_PATH_INNER), 'evenodd')
     ctx.restore()
   }
 }
@@ -559,14 +555,8 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
                 </>
               )}
               <svg viewBox="60 110 360 460" style={{ width: '100%', height: 'auto', display: 'block' }}>
-                {letterStyle === 'D_TWO_COLOR' ? (
-                  <>
-                    <path d={D_PATH} fill={letter.color} fillRule="evenodd" />
-                    <path d={D_PATH_INNER} fill={letter.fillColor || '#ffffff'} fillRule="evenodd" />
-                  </>
-                ) : (
-                  <path d={D_PATH} fill={letter.color} fillRule="evenodd" />
-                )}
+                <path d={D_PATH} fill={letter.color} fillRule="evenodd" />
+                <path d={D_PATH_INNER} fill={letterStyle === 'D_TWO_COLOR' ? (letter.fillColor || '#ffffff') : '#ffffff'} fillRule="evenodd" />
               </svg>
               {isSelected && (
                 <div onMouseDown={e => startDrag(letter.id, 'resize', e)} onTouchStart={e => startDrag(letter.id, 'resize', e)} onClick={e => e.stopPropagation()} style={{ position: 'absolute', bottom: '-10px', right: '-10px', width: '20px', height: '20px', background: '#4f46e5', border: '2px solid #fff', borderRadius: '4px', cursor: 'nwse-resize', zIndex: 30, boxShadow: '0 1px 4px rgba(0,0,0,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
