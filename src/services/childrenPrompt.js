@@ -48,11 +48,23 @@ Do not beautify anything.
 
 Do not optimize anything.
 
+OUTPUT RULE — ABSOLUTE
+
+Produce ONE single final image only.
+
+Do NOT produce multiple versions.
+
+Do NOT produce before/after comparisons.
+
+Do NOT place two or more drawings side by side.
+
+ONE drawing. ONE output. Nothing else.
+
 CANVAS
 
-1920 x 1080 px
+1080 x 1080 px
 
-Landscape orientation
+Square format
 
 Background: Pure White (#FFFFFF)
 
