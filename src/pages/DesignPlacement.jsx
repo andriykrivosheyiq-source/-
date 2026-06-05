@@ -994,7 +994,9 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
           const canvas = await estPosterRef.current.exportTransparent()
           if (!cancelled) setMockupDesignUrl(canvas.toDataURL('image/png'))
         } else {
-          if (!cancelled) setMockupDesignUrl(currentDesignImage)
+          const img = await loadImgEl(currentDesignImage)
+          const cleaned = removeWhiteBg(img)
+          if (!cancelled) setMockupDesignUrl(cleaned.toDataURL('image/png'))
         }
       } catch { if (!cancelled) setMockupDesignUrl(currentDesignImage) }
     }
@@ -1654,7 +1656,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
                       className="absolute pointer-events-none"
                       style={{ left: `${mockupOverlay.x}%`, top: `${mockupOverlay.y}%`, width: `${mockupOverlay.size}%`, transform: 'translate(-50%, -50%)' }}
                     >
-                      <img src={mockupDesignUrl} alt="design overlay" className="w-full mix-blend-multiply" />
+                      <img src={mockupDesignUrl} alt="design overlay" className="w-full" />
                     </div>
                   )}
                   {preparingMockup && (
