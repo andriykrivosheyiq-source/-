@@ -49,7 +49,7 @@ function loadImgEl(src) {
 // Pass 2: dilate the removed region by JUMP pixels to cross thin colored outlines
 //   (drawn borders block the BFS in pass 1), then BFS again to flood the white
 //   paper enclosed inside those outlines.
-function removeWhiteBg(img, threshold = 220) {
+function removeWhiteBg(img, threshold = 220, noDilation = false) {
   const canvas = document.createElement('canvas')
   const W = img.naturalWidth || img.width
   const H = img.naturalHeight || img.height
@@ -99,29 +99,30 @@ function removeWhiteBg(img, threshold = 220) {
 
   // ── Pass 2: dilate removal zone by JUMP px (crosses drawn outlines), ──────
   //           then BFS-fill any enclosed background that was behind them.
-  // JUMP scales with image size so it covers thick strokes in large photos.
-  const JUMP = Math.min(80, Math.max(20, Math.round((W + H) / 60)))
-  const dist = new Int16Array(W * H).fill(-1)
-  const dq = []
-  for (let i = 0; i < W * H; i++) if (visited[i]) { dist[i] = 0; dq.push(i) }
-  let dHead = 0
-  while (dHead < dq.length) {
-    const pos = dq[dHead++]
-    if (dist[pos] >= JUMP) continue
-    const x = pos % W, y = (pos / W) | 0
-    for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
-      const nx = x + dx, ny = y + dy
-      if (nx < 0 || nx >= W || ny < 0 || ny >= H) continue
-      const npos = ny * W + nx
-      if (dist[npos] < 0) { dist[npos] = dist[pos] + 1; dq.push(npos) }
+  // Skipped when noDilation=true (e.g. digital illustrations with white clothing).
+  if (!noDilation) {
+    const JUMP = Math.min(80, Math.max(20, Math.round((W + H) / 60)))
+    const dist = new Int16Array(W * H).fill(-1)
+    const dq = []
+    for (let i = 0; i < W * H; i++) if (visited[i]) { dist[i] = 0; dq.push(i) }
+    let dHead = 0
+    while (dHead < dq.length) {
+      const pos = dq[dHead++]
+      if (dist[pos] >= JUMP) continue
+      const x = pos % W, y = (pos / W) | 0
+      for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
+        const nx = x + dx, ny = y + dy
+        if (nx < 0 || nx >= W || ny < 0 || ny >= H) continue
+        const npos = ny * W + nx
+        if (dist[npos] < 0) { dist[npos] = dist[pos] + 1; dq.push(npos) }
+      }
     }
+    const seeds2 = []
+    for (let i = 0; i < W * H; i++) {
+      if (dist[i] > 0 && !visited[i] && isBackground(i)) { visited[i] = 1; seeds2.push(i) }
+    }
+    bfsFill(seeds2)
   }
-
-  const seeds2 = []
-  for (let i = 0; i < W * H; i++) {
-    if (dist[i] > 0 && !visited[i] && isBackground(i)) { visited[i] = 1; seeds2.push(i) }
-  }
-  bfsFill(seeds2)
 
   // ── Make every removed pixel transparent ─────────────────────────────────
   for (let i = 0; i < W * H; i++) {
@@ -224,7 +225,7 @@ async function renderEstToCanvas(letters, estEl, estText, showEstText, imageUrl,
   if (imageUrl) {
     try {
       const img = await loadImgEl(imageUrl)
-      const cleaned = removeWhiteBg(img)
+      const cleaned = removeWhiteBg(img, 220, true)
       const iW = illus.size / 100 * W
       const iH = iW * cleaned.height / cleaned.width
       const cropFrac = (illus.cropBottom || 0) / 100
@@ -252,7 +253,7 @@ async function renderEstTransparent(letters, estEl, estText, showEstText, imageU
   if (imageUrl) {
     try {
       const img = await loadImgEl(imageUrl)
-      const cleaned = removeWhiteBg(img)
+      const cleaned = removeWhiteBg(img, 220, true)
       const iW = illus.size / 100 * W
       const iH = iW * cleaned.height / cleaned.width
       const cropFrac = (illus.cropBottom || 0) / 100
@@ -302,7 +303,7 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
     let active = true
     loadImgEl(imageUrl).then(img => {
       if (!active) return
-      const c = removeWhiteBg(img)
+      const c = removeWhiteBg(img, 220, true)
       c.toBlob(blob => {
         if (!active) return
         const url = URL.createObjectURL(blob)
