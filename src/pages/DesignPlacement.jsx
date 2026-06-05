@@ -68,7 +68,7 @@ function removeWhiteBg(img, threshold = 220, noDilation = false) {
   // For noDilation (EST illustrations): build a barrier zone around dark outline
   // pixels so BFS cannot cross outlined boundaries into white clothing areas
   if (noDilation) {
-    const BARRIER = 6
+    const BARRIER = 30
     const darkDist = new Int16Array(W * H).fill(-1)
     const barrierQ = []
     for (let i = 0; i < W * H; i++) {
