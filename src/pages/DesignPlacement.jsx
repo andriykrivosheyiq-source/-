@@ -1013,15 +1013,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
 
   // Initialize drawing canvas when tool is activated — bake design (or existing edits) into canvas
   useEffect(() => {
-    if (!drawingTool) {
-      setDrawZoom(1)
-      // Save canvas state when tool is deactivated so drawingDataUrl is always up to date
-      const canvas = drawingCanvasRef.current
-      if (canvas && canvas.width > 0 && canvas.height > 0) {
-        setDrawingDataUrl(canvas.toDataURL('image/png'))
-      }
-      return
-    }
+    if (!drawingTool) { setDrawZoom(1); return }
     const canvas = drawingCanvasRef.current
     if (!canvas || !currentDesignImage) return
     const img = new Image()
@@ -1563,6 +1555,13 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
     if (canvas) setDrawingDataUrl(canvas.toDataURL('image/png'))
   }
 
+  const commitCanvas = () => {
+    const canvas = drawingCanvasRef.current
+    if (canvas && canvas.width > 0 && canvas.height > 0) {
+      setDrawingDataUrl(canvas.toDataURL('image/png'))
+    }
+  }
+
   const clearDrawing = () => {
     setDrawingDataUrl(null)
     const canvas = drawingCanvasRef.current
@@ -1831,14 +1830,14 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
                   <button
-                    onClick={() => setDrawingTool(prev => prev === 'pen' ? null : 'pen')}
+                    onClick={() => { if (drawingTool === 'pen') commitCanvas(); setDrawingTool(prev => prev === 'pen' ? null : 'pen') }}
                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium border transition-colors ${drawingTool === 'pen' ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-gray-200 text-gray-600 hover:border-indigo-300 bg-white'}`}
                   >
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                     Олівець
                   </button>
                   <button
-                    onClick={() => setDrawingTool(prev => prev === 'eraser' ? null : 'eraser')}
+                    onClick={() => { if (drawingTool === 'eraser') commitCanvas(); setDrawingTool(prev => prev === 'eraser' ? null : 'eraser') }}
                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium border transition-colors ${drawingTool === 'eraser' ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-gray-200 text-gray-600 hover:border-indigo-300 bg-white'}`}
                   >
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 20H7L3 16l13-13 6 6-4 4"/><path d="M6.5 17.5l4-4"/></svg>
