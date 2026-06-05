@@ -977,7 +977,9 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
   const [brushColor, setBrushColor] = useState('#000000')
   const [brushSize, setBrushSize] = useState(8)
   const [drawingDataUrl, setDrawingDataUrl] = useState(null)
+  const [drawZoom, setDrawZoom] = useState(1)
   const drawingCanvasRef = useRef(null)
+  const drawZoomWrapRef = useRef(null)
   const isDrawingRef = useRef(false)
   const lastDrawPosRef = useRef(null)
 
@@ -1000,6 +1002,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
   useEffect(() => {
     setDrawingDataUrl(null)
     setDrawingTool(null)
+    setDrawZoom(1)
     const canvas = drawingCanvasRef.current
     if (canvas) {
       const ctx = canvas.getContext('2d')
@@ -1007,9 +1010,9 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
     }
   }, [currentDesignImage])
 
-  // Initialize drawing canvas when tool is activated
+  // Initialize drawing canvas when tool is activated — bake design (or existing edits) into canvas
   useEffect(() => {
-    if (!drawingTool) return
+    if (!drawingTool) { setDrawZoom(1); return }
     const canvas = drawingCanvasRef.current
     if (!canvas || !currentDesignImage) return
     const img = new Image()
@@ -1019,13 +1022,30 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
       const ctx = canvas.getContext('2d')
       ctx.clearRect(0, 0, canvas.width, canvas.height)
       if (drawingDataUrl) {
-        const drawImg = new Image()
-        drawImg.onload = () => ctx.drawImage(drawImg, 0, 0)
-        drawImg.src = drawingDataUrl
+        // drawingDataUrl already contains design + previous edits
+        const editImg = new Image()
+        editImg.onload = () => ctx.drawImage(editImg, 0, 0, canvas.width, canvas.height)
+        editImg.src = drawingDataUrl
+      } else {
+        // Fresh start: bake the original design directly into the canvas
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
       }
     }
     img.src = currentDesignImage
   }, [drawingTool, currentDesignImage])
+
+  // Scroll-to-zoom on the drawing container (non-passive so preventDefault works)
+  useEffect(() => {
+    const el = drawZoomWrapRef.current
+    if (!el || !drawingTool) return
+    const handler = (e) => {
+      e.preventDefault()
+      const factor = e.deltaY < 0 ? 1.15 : 1 / 1.15
+      setDrawZoom(prev => Math.max(1, Math.min(4, prev * factor)))
+    }
+    el.addEventListener('wheel', handler, { passive: false })
+    return () => el.removeEventListener('wheel', handler)
+  }, [drawingTool])
 
   // Keep mockupDesignUrl in sync whenever the design or EST settings change
   useEffect(() => {
@@ -1037,26 +1057,21 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
           const canvas = await estPosterRef.current.exportTransparent()
           if (!cancelled) setMockupDesignUrl(canvas.toDataURL('image/png'))
         } else {
-          // Load without crossOrigin — data URLs are same-origin, crossOrigin taints the canvas
+          // drawingDataUrl already contains design+edits when tool was used; fall back to original
+          const sourceUrl = drawingDataUrl || currentDesignImage
           await new Promise((resolve) => {
             const img = new Image()
-            img.onload = async () => {
+            img.onload = () => {
               try {
                 const cleaned = removeWhiteBg(img)
-                if (drawingDataUrl) {
-                  const ctx = cleaned.getContext('2d')
-                  await new Promise(res => {
-                    const d = new Image(); d.onload = () => { ctx.drawImage(d, 0, 0); res() }; d.onerror = res; d.src = drawingDataUrl
-                  })
-                }
                 if (!cancelled) setMockupDesignUrl(cleaned.toDataURL('image/png'))
               } catch {
-                if (!cancelled) setMockupDesignUrl(currentDesignImage)
+                if (!cancelled) setMockupDesignUrl(sourceUrl)
               }
               resolve()
             }
-            img.onerror = () => { if (!cancelled) setMockupDesignUrl(currentDesignImage); resolve() }
-            img.src = currentDesignImage
+            img.onerror = () => { if (!cancelled) setMockupDesignUrl(sourceUrl); resolve() }
+            img.src = sourceUrl
           })
         }
       } catch { if (!cancelled) setMockupDesignUrl(currentDesignImage) }
@@ -1520,9 +1535,14 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
   const clearDrawing = () => {
     setDrawingDataUrl(null)
     const canvas = drawingCanvasRef.current
-    if (canvas) {
-      const ctx = canvas.getContext('2d')
-      ctx.clearRect(0, 0, canvas.width, canvas.height)
+    if (!canvas) return
+    const ctx = canvas.getContext('2d')
+    ctx.clearRect(0, 0, canvas.width, canvas.height)
+    // Re-bake original design so canvas still shows something while tool is active
+    if (drawingTool && currentDesignImage) {
+      const img = new Image()
+      img.onload = () => ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+      img.src = currentDesignImage
     }
   }
 
@@ -1684,16 +1704,27 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
                 <p className="text-sm text-gray-500 font-medium">Генерую новий дизайн... (15–30 сек)</p>
               </div>
             ) : (
-              <div className="w-full rounded-xl overflow-hidden" style={{ background: designBgColor || '#f0f0f0' }}>
+              <div
+                ref={drawZoomWrapRef}
+                className="w-full rounded-xl overflow-auto"
+                style={{ background: designBgColor || '#f0f0f0', maxHeight: drawingTool ? '75vh' : undefined }}
+              >
                 {isEst ? (
                   <EstPosterView ref={estPosterRef} imageUrl={currentDesignImage} estText={estText} showEstText={showEstText} initialState={designData?.estPosterState} />
                 ) : currentDesignImage ? (
+                  <div style={{ width: drawingTool ? `${drawZoom * 100}%` : '100%', minWidth: '100%' }}>
                   <div style={{ position: 'relative', width: '100%' }}>
-                    <img src={currentDesignImage} alt="Generated design" className="w-full h-auto block" style={{ maxHeight: '80vh' }} />
-                    {drawingTool !== null && (
-                      <canvas
+                    {/* Show original or edited image; visibility:hidden when canvas is active so layout is preserved */}
+                    <img
+                      src={drawingDataUrl || currentDesignImage}
+                      alt="Generated design"
+                      className="w-full h-auto block"
+                      style={{ visibility: drawingTool ? 'hidden' : 'visible' }}
+                    />
+                    {/* Canvas covers the img when tool is active with design baked in */}
+                    <canvas
                         ref={drawingCanvasRef}
-                        style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', cursor: drawingTool === 'pen' ? 'crosshair' : 'cell', touchAction: 'none' }}
+                        style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', cursor: drawingTool === 'pen' ? 'crosshair' : 'cell', touchAction: 'none', display: drawingTool ? 'block' : 'none' }}
                         onMouseDown={handleDrawStart}
                         onMouseMove={handleDrawMove}
                         onMouseUp={handleDrawEnd}
@@ -1702,7 +1733,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
                         onTouchMove={handleDrawMove}
                         onTouchEnd={handleDrawEnd}
                       />
-                    )}
+                  </div>
                   </div>
                 ) : (
                   <div className="flex flex-col items-center gap-3 text-gray-400 py-20">
@@ -1756,6 +1787,14 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
                 </div>
                 {/* Drawing tools */}
                 <div className="flex items-center gap-2 flex-wrap">
+                  {drawingTool && drawZoom > 1 && (
+                    <span className="text-xs text-indigo-500 font-medium bg-indigo-50 px-2 py-0.5 rounded-lg flex items-center gap-1">
+                      {Math.round(drawZoom * 100)}%
+                      <button onClick={() => setDrawZoom(1)} className="text-indigo-400 hover:text-indigo-600 ml-0.5">↺</button>
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2 flex-wrap">
                   <button
                     onClick={() => setDrawingTool(prev => prev === 'pen' ? null : 'pen')}
                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium border transition-colors ${drawingTool === 'pen' ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-gray-200 text-gray-600 hover:border-indigo-300 bg-white'}`}
@@ -1787,6 +1826,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
                   {drawingDataUrl && (
                     <button onClick={clearDrawing} className="text-xs text-red-400 hover:text-red-600 border border-red-200 px-2 py-1 rounded-lg">Очистити малювання</button>
                   )}
+                  {drawingTool && <span className="text-xs text-gray-300 ml-auto">скрол = зум</span>}
                 </div>
               </div>
             )}
