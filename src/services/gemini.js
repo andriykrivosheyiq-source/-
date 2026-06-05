@@ -1,4 +1,7 @@
 import { PROMPTS } from './prompts'
+import { CHILDREN_PROMPT } from './childrenPrompt'
+
+const ALL_PROMPTS = { ...PROMPTS, ...CHILDREN_PROMPT }
 
 const BASE_URL = 'https://generativelanguage.googleapis.com/v1beta'
 
@@ -182,7 +185,7 @@ export async function generateDesigns(photoFile, styleId) {
   ])
 
   const mimeType = 'image/jpeg'
-  const pair = PROMPTS[styleId]
+  const pair = ALL_PROMPTS[styleId]
   if (!pair) throw new Error(`Немає промпту для стилю: ${styleId}`)
 
   const results = await Promise.all(
@@ -241,7 +244,7 @@ export async function editDesign(currentImageDataUrl, editPrompt) {
   return `data:${imgData.mime_type || imgData.mimeType};base64,${imgData.data}`
 }
 
-export const GENERATIVE_STYLES = ['dad-face', 'est-face', 'faceless-face']
+export const GENERATIVE_STYLES = ['dad-face', 'est-face', 'faceless-face', 'children-drawing']
 
 export function clearCache(photoFile, styleId) {
   const cacheKey = `${photoFile.size}-${photoFile.lastModified}-${styleId}`

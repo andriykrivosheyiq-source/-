@@ -127,6 +127,12 @@ export const designStyles = [
     nameUk: 'Без рис обличчя',
     image: `${b}без рис обличчя.jpg`,
   },
+  {
+    id: 'children-drawing',
+    name: 'Дитячий малюнок',
+    nameUk: 'Дитячий малюнок',
+    image: `${b}cee576d6-e400-4ce2-9e11-81fbb13453cd.jpg`,
+  },
 ]
 
 export const mockOrders = [
