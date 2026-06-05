@@ -1943,20 +1943,16 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
                       Готово
                     </button>
                   )}
-                  {drawingDataUrl && (
+                  {drawingDataUrl && !drawingTool && (
                     <button
                       onClick={clearDrawing}
                       title="Скасувати всі зміни та відновити оригінальний дизайн"
-                      className={drawingTool
-                        ? 'text-xs text-red-400 hover:text-red-600 border border-red-200 px-2 py-1 rounded-lg'
-                        : 'flex items-center gap-1.5 text-xs font-medium text-orange-500 hover:text-orange-600 border border-orange-200 hover:bg-orange-50 px-2.5 py-1.5 rounded-xl transition-colors bg-white'}
+                      className="flex items-center gap-1.5 text-xs font-medium text-orange-500 hover:text-orange-600 border border-orange-200 hover:bg-orange-50 px-2.5 py-1.5 rounded-xl transition-colors bg-white"
                     >
-                      {!drawingTool && (
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/>
-                        </svg>
-                      )}
-                      {drawingTool ? 'Очистити' : 'Відновити оригінал'}
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/>
+                      </svg>
+                      Відновити оригінал
                     </button>
                   )}
                   {drawingTool && <span className="text-xs text-gray-300 ml-auto">скрол = зум</span>}
