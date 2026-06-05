@@ -45,7 +45,10 @@ function loadImgEl(src) {
 
 // Remove white background using edge-seeded flood-fill — only removes pixels
 // connected to the image border, so internal white clothing is preserved.
-function removeWhiteBg(img, threshold = 240) {
+// threshold=220 catches off-white/cream paper (photo scans often have blue
+// channel ~230, which failed the old 240 cutoff). Transparent pixels (alpha<10)
+// are also treated as background so erased areas don't block the BFS spread.
+function removeWhiteBg(img, threshold = 220) {
   const canvas = document.createElement('canvas')
   const W = img.naturalWidth || img.width
   const H = img.naturalHeight || img.height
@@ -55,8 +58,9 @@ function removeWhiteBg(img, threshold = 240) {
   const imageData = ctx.getImageData(0, 0, W, H)
   const px = imageData.data
 
-  const isWhitish = (pos) => {
+  const isBackground = (pos) => {
     const i = pos * 4
+    if (px[i + 3] < 10) return true  // already transparent = background
     return px[i] > threshold && px[i + 1] > threshold && px[i + 2] > threshold
   }
 
@@ -67,13 +71,13 @@ function removeWhiteBg(img, threshold = 240) {
   for (let x = 0; x < W; x++) {
     for (const y of [0, H - 1]) {
       const pos = y * W + x
-      if (!visited[pos] && isWhitish(pos)) { visited[pos] = 1; queue.push(pos) }
+      if (!visited[pos] && isBackground(pos)) { visited[pos] = 1; queue.push(pos) }
     }
   }
   for (let y = 1; y < H - 1; y++) {
     for (const x of [0, W - 1]) {
       const pos = y * W + x
-      if (!visited[pos] && isWhitish(pos)) { visited[pos] = 1; queue.push(pos) }
+      if (!visited[pos] && isBackground(pos)) { visited[pos] = 1; queue.push(pos) }
     }
   }
 
@@ -86,7 +90,7 @@ function removeWhiteBg(img, threshold = 240) {
       const nx = x + dx, ny = y + dy
       if (nx < 0 || nx >= W || ny < 0 || ny >= H) continue
       const npos = ny * W + nx
-      if (!visited[npos] && isWhitish(npos)) { visited[npos] = 1; queue.push(npos) }
+      if (!visited[npos] && isBackground(npos)) { visited[npos] = 1; queue.push(npos) }
     }
   }
 
@@ -983,8 +987,6 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
   const pendingScrollRef = useRef(null)
   const isDrawingRef = useRef(false)
   const lastDrawPosRef = useRef(null)
-  const drawingHistoryRef = useRef([])
-  const [historyLen, setHistoryLen] = useState(0)
   const canvasReadyRef = useRef(false)
 
   useEffect(() => {
@@ -1007,8 +1009,6 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
     setDrawingDataUrl(null)
     setDrawingTool(null)
     setDrawZoom(1)
-    drawingHistoryRef.current = []
-    setHistoryLen(0)
     const canvas = drawingCanvasRef.current
     if (canvas) {
       const ctx = canvas.getContext('2d')
@@ -1021,10 +1021,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
     if (!drawingTool) { setDrawZoom(1); canvasReadyRef.current = false; return }
     const canvas = drawingCanvasRef.current
     if (!canvas || !currentDesignImage) return
-    // New editing session: mark canvas not ready and reset undo history
     canvasReadyRef.current = false
-    drawingHistoryRef.current = []
-    setHistoryLen(0)
     const img = new Image()
     img.onload = () => {
       canvas.width = img.naturalWidth || 1600
@@ -1536,14 +1533,6 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
     e.preventDefault()
     const canvas = drawingCanvasRef.current
     if (!canvas) return
-    // Snapshot current canvas state BEFORE the stroke so it can be undone.
-    // Guard: only snapshot after the design has been fully drawn onto the canvas.
-    if (canvasReadyRef.current && canvas.width > 0 && canvas.height > 0) {
-      const snap = canvas.toDataURL('image/png')
-      const next = [...drawingHistoryRef.current.slice(-14), snap]
-      drawingHistoryRef.current = next
-      setHistoryLen(next.length)
-    }
     isDrawingRef.current = true
     const pos = getCanvasPos(e, canvas)
     lastDrawPosRef.current = pos
@@ -1603,31 +1592,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
     }
   }
 
-  const handleUndo = () => {
-    const hist = drawingHistoryRef.current
-    if (!hist.length) return
-    const prevSnap = hist[hist.length - 1]
-    const next = hist.slice(0, -1)
-    drawingHistoryRef.current = next
-    setHistoryLen(next.length)
-    const canvas = drawingCanvasRef.current
-    if (!canvas) return
-    const img = new Image()
-    img.onload = () => {
-      const ctx = canvas.getContext('2d')
-      ctx.clearRect(0, 0, canvas.width, canvas.height)
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
-      const url = canvas.toDataURL('image/png')
-      setDrawingDataUrl(url)
-      try { setMockupDesignUrl(removeWhiteBg(canvas).toDataURL('image/png')) }
-      catch { setMockupDesignUrl(url) }
-    }
-    img.src = prevSnap
-  }
-
   const clearDrawing = () => {
-    drawingHistoryRef.current = []
-    setHistoryLen(0)
     setDrawingDataUrl(null)
     const canvas = drawingCanvasRef.current
     if (!canvas) return
@@ -1929,16 +1894,6 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
                       <input type="range" min={5} max={60} value={brushSize} onChange={e => setBrushSize(Number(e.target.value))} className="w-20" />
                       <span className="text-xs text-gray-400">{brushSize}px</span>
                     </>
-                  )}
-                  {drawingTool && historyLen > 0 && (
-                    <button
-                      onClick={handleUndo}
-                      className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-sm font-medium border border-gray-200 text-gray-600 hover:border-indigo-300 hover:text-indigo-600 bg-white transition-colors"
-                      title="Відмінити останню дію"
-                    >
-                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg>
-                      Назад
-                    </button>
                   )}
                   {drawingTool && (
                     <button
