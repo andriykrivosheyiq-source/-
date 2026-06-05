@@ -1061,22 +1061,9 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
     } catch (e) { console.error(e) } finally { setDownloading(false) }
   }
 
-  const handleOpenMockup = async () => {
-    setPreparingMockup(true)
-    try {
-      let url = currentDesignImage
-      if (isEst && estPosterRef.current) {
-        const canvas = await estPosterRef.current.exportTransparent()
-        url = canvas.toDataURL('image/png')
-      }
-      setMockupDesignUrl(url)
-      setShowMockup(true)
-    } catch (e) {
-      setMockupDesignUrl(currentDesignImage)
-      setShowMockup(true)
-    } finally {
-      setPreparingMockup(false)
-    }
+  const handleOpenMockup = () => {
+    // mockupDesignUrl is already kept in sync (with bg removed) by the useEffect above
+    setShowMockup(true)
   }
 
   const handleDownloadMockup = async () => {
