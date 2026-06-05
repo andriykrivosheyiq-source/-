@@ -1343,18 +1343,6 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
       if (pA >= 1) { pW = SIZE; pH = SIZE / pA; pX = 0; pY = (SIZE - pH) / 2 }
       else          { pH = SIZE; pW = SIZE * pA; pX = (SIZE - pW) / 2; pY = 0 }
       ctx.drawImage(productImg, pX, pY, pW, pH)
-      if (designBgColor && overlayUrl) {
-        const tmpImg = await loadImgEl(overlayUrl)
-        const dW = mockupOverlay.size / 100 * SIZE
-        const aspect = (tmpImg.naturalHeight || tmpImg.height) / (tmpImg.naturalWidth || tmpImg.width)
-        const dH = dW * aspect
-        ctx.fillStyle = designBgColor
-        ctx.fillRect(
-          mockupOverlay.x / 100 * SIZE - dW / 2,
-          mockupOverlay.y / 100 * SIZE - dH / 2,
-          dW, dH
-        )
-      }
       if (overlayUrl) {
         const dImg = await loadImgEl(overlayUrl)
         const cleaned = removeWhiteBg(dImg)
