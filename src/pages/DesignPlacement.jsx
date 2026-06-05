@@ -1294,7 +1294,16 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
       designUrl = canvas.toDataURL('image/png')
     } else if (currentDesignImage) {
       const c = drawingTool && drawingCanvasRef.current
-      designUrl = (c && c.width > 0) ? c.toDataURL('image/png') : (drawingDataUrl || currentDesignImage)
+      const rawUrl = (c && c.width > 0) ? c.toDataURL('image/png') : (drawingDataUrl || currentDesignImage)
+      const flatImg = await loadImgEl(rawUrl)
+      const flatCanvas = document.createElement('canvas')
+      flatCanvas.width = flatImg.naturalWidth || flatImg.width
+      flatCanvas.height = flatImg.naturalHeight || flatImg.height
+      const flatCtx = flatCanvas.getContext('2d')
+      flatCtx.fillStyle = '#ffffff'
+      flatCtx.fillRect(0, 0, flatCanvas.width, flatCanvas.height)
+      flatCtx.drawImage(flatImg, 0, 0)
+      designUrl = flatCanvas.toDataURL('image/png')
     }
     if (designUrl) {
       items.push({
