@@ -1,246 +1,330 @@
-const CHILDREN_DRAWING = `PREMIUM CHILDREN'S DRAWING EXACT VECTOR RECREATION
+const CHILDREN_DRAWING = `EXACT CHILDREN'S DRAWING VECTOR TRACE
 
-TASK
+MISSION CRITICAL
 
-Transform the uploaded children's drawing into a premium high-quality flat vector illustration while preserving the original artwork with maximum accuracy.
+Transform the uploaded children's drawing into a clean SVG-quality vector image while preserving the original artwork with maximum possible accuracy.
 
-The objective is to create a professional SVG/vector version of the drawing that looks as close as possible to the original artwork created by the child.
+THIS IS NOT AN ILLUSTRATION TASK.
 
-This is NOT a redesign, reinterpretation, modernization, enhancement, stylization, or simplification task.
+THIS IS NOT A REDESIGN TASK.
 
-The final artwork must preserve the exact appearance, personality, and creative decisions of the original drawing while converting it into clean, scalable vector artwork suitable for:
+THIS IS NOT A BEAUTIFICATION TASK.
 
-* Apparel printing
-* Embroidery-ready artwork
-* Cricut SVG designs
-* Stickers
-* Posters
-* Canvas prints
-* Nursery wall art
-* Personalized gifts
-* Merchandise
-* Digital artwork
+THIS IS NOT A MODERNIZATION TASK.
 
-CANVAS SPECIFICATIONS
+THIS IS NOT AN ENHANCEMENT TASK.
 
-* Size: 1920x1080 px
-* Landscape orientation
-* Background: pure white (#FFFFFF)
-* No texture
-* No gradients
-* No shadows
-* No decorative elements
-* No borders
-* No frames
+THIS IS A STRICT VECTOR TRACING TASK.
 
-LAYOUT — COMPOSITION PRESERVATION
+Act as a professional vector artist manually tracing the original drawing line-by-line and color-by-color.
 
-Preserve the original composition exactly as shown in the uploaded drawing.
+The uploaded drawing is the ONLY source of truth.
 
-Maintain:
-* Original placement of all elements
-* Original spacing
-* Original proportions
-* Original scale relationships
-* Original orientation
-* Original visual balance
+No creative interpretation is allowed.
 
-Do not rearrange any objects.
-Do not reposition characters.
-Do not crop artwork.
+HIGHEST PRIORITY RULE
 
-Center the complete illustration on the canvas while maintaining the original composition.
-The artwork should occupy approximately 80-85% of the canvas height.
+The final artwork must look like the exact same drawing created by the child.
 
-EXACT ARTWORK PRESERVATION — ABSOLUTE PRIORITY
+The objective is not to improve the drawing.
 
-Preserve every intentional element visible in the original drawing.
+The objective is to preserve the drawing.
 
-Maintain exactly:
-* Characters
-* Animals
-* Faces
-* Eyes
-* Pupils
-* Eyebrows
-* Eyelashes
-* Noses
-* Mouths
-* Teeth
-* Ears
-* Hair
-* Clothing
-* Hands
-* Feet
-* Wings
-* Hearts
-* Symbols
-* Accessories
-* Decorations
-* Shapes
-* Patterns
-* Scribbles
-* Hand-drawn marks
-* Handwritten text
-* Color placement
-* Character expressions
+Every visible artistic decision made by the child must remain intact.
 
-The final vector illustration should look like the same drawing recreated professionally.
+If something looks imperfect, preserve the imperfection.
 
-FACIAL FEATURES — PRESERVE EXACTLY
+If something looks asymmetrical, preserve the asymmetry.
 
-Maintain all facial details exactly as drawn.
+If something looks unfinished, preserve the unfinished appearance.
+
+If something looks awkward, preserve the awkwardness.
+
+Do not improve anything.
+
+Do not fix anything.
+
+Do not beautify anything.
+
+Do not optimize anything.
+
+CANVAS
+
+1920 x 1080 px
+
+Landscape orientation
+
+Background: Pure White (#FFFFFF)
+
+No shadows
+
+No gradients
+
+No texture
+
+No decorative elements
+
+No borders
+
+No frames
+
+Center the complete artwork.
+
+Maintain original composition.
+
+Artwork occupies approximately 80-85% of canvas height.
+
+STRICT COMPOSITION PRESERVATION
+
+Preserve exactly:
+
+* Position of all objects
+* Position of all characters
+* Relative scale
+* Relative spacing
+* Relative proportions
+* Orientation
+* Visual balance
+* Empty spaces
+
+Do not move any object.
+
+Do not rearrange anything.
+
+Do not resize selected objects independently.
+
+Do not crop any part of the drawing.
+
+STRICT LINE TRACING MODE
+
+Trace every visible line.
+
+Trace every visible contour.
+
+Trace every visible scribble.
+
+Trace every visible mark intentionally made by the child.
 
 Preserve:
+
+* Line placement
+* Line direction
+* Line curvature
+* Line irregularity
+* Line character
+* Hand-drawn appearance
+
+Only remove:
+
+* Camera artifacts
+* Compression artifacts
+* Scanning artifacts
+
+Do not redraw.
+
+Do not reinterpret.
+
+Do not replace with cleaner professional linework.
+
+FACIAL FEATURES LOCK
+
+Preserve exactly:
+
 * Eye shape
-* Eye size
 * Eye placement
 * Pupil placement
 * Eyebrows
 * Eyelashes
 * Nose shape
-* Nose position
+* Nose placement
 * Mouth shape
 * Smile shape
 * Teeth
-* Facial expressions
-* Cheek markings
-* Character personality
+* Ears
+* Facial proportions
+* Facial asymmetry
+* Character expression
 
-Do not remove facial features.
-Do not simplify faces.
-Do not convert characters into faceless illustrations.
-Do not reinterpret expressions.
+Do not enhance faces.
 
-LINEWORK PRESERVATION
+Do not beautify faces.
 
-Preserve the original line structure exactly.
+Do not add missing facial details.
 
-Maintain:
-* Original contours
-* Original line placement
-* Original drawing style
-* Original hand-drawn character
+Do not remove facial details.
 
-Only improve:
-* Jagged scanning artifacts
-* Broken contour gaps
-* Accidental image distortions
+COLOR SAMPLING MODE — HIGHEST PRIORITY
 
-Do not redraw in another style.
-Do not replace hand-drawn character with modern vector aesthetics.
-Do not over-clean the artwork.
+Color accuracy is more important than visual attractiveness.
 
-The child's unique drawing style must remain visible.
+Extract colors directly from the uploaded drawing.
 
-COLOR PRESERVATION
-
-Match the original colors as accurately as possible.
+Match colors as closely as possible.
 
 Preserve:
-* Marker colors
-* Crayon colors
-* Paint colors
-* Neon colors
-* Mixed colors
-* Color intensity
-* Color placement
+
+* Original hue
+* Original saturation
+* Original brightness
+* Original marker colors
+* Original crayon colors
+* Original paint colors
+* Original pencil colors
+
+Preserve uneven coloring.
+
+Preserve color inconsistencies.
+
+Preserve overlapping marker strokes.
+
+Preserve lighter areas.
+
+Preserve darker areas.
+
+Preserve accidental marker density variations.
+
+Preserve visible color imperfections.
 
 Do not recolor.
-Do not replace colors.
+
 Do not harmonize colors.
-Do not apply modern color grading.
-Do not alter the child's original palette.
 
-TEXT PRESERVATION
+Do not improve colors.
 
-Preserve all handwritten text exactly as shown.
+Do not increase saturation.
+
+Do not increase contrast.
+
+Do not color-correct.
+
+Do not white-balance.
+
+Do not normalize colors.
+
+Do not substitute colors with visually similar colors.
+
+Use colors sampled from the original artwork.
+
+DETAIL INVENTION PROHIBITION
+
+Absolutely do not add:
+
+* Extra eyes
+* Extra eyelashes
+* Extra eyebrows
+* Extra fingers
+* Extra toes
+* Extra hair strands
+* Extra clothing details
+* Extra decorations
+* Extra symbols
+* Extra outlines
+* Extra contours
+* Extra textures
+* Extra highlights
+* Extra shadows
+* Extra patterns
+* Extra accessories
+* Extra color transitions
+
+Only elements explicitly visible in the original drawing may appear in the final artwork.
+
+Any detail not visible in the source image is prohibited.
+
+HANDWRITING PRESERVATION
+
+Preserve all handwritten text exactly as drawn.
 
 Maintain:
-* Letter shapes
-* Spacing
-* Orientation
-* Placement
-* Handwriting style
-* Misspellings
-* Child-created typography
 
-Do not replace handwritten text with fonts.
-Do not correct spelling.
+* Letter shapes
+* Child handwriting style
+* Placement
+* Orientation
+* Spacing
+* Uneven lettering
+* Misspellings
+
+Do not replace handwriting with fonts.
+
 Do not redesign lettering.
 
-VECTORIZATION STYLE
+Do not correct spelling.
 
-Convert the drawing into professional vector artwork.
-
-Requirements:
-* Clean vector paths
-* Smooth scalable curves
-* Crisp edges
-* SVG-quality artwork
-* High-resolution output
-* Print-ready quality
-
-The vectorization must remain visually faithful to the original drawing.
-
-CLEANUP RULES
-
-Remove only:
-* Paper texture
-* Notebook lines
-* Fold marks
-* Scanning shadows
-* Camera shadows
-* Wrinkles
-* Background stains
-* Dust
-* Image artifacts
-
-Preserve all intentional drawing elements.
-When uncertain, preserve the element rather than remove it.
-
-BACKGROUND REMOVAL
+BACKGROUND CLEANUP
 
 Remove completely:
-* Paper background
-* Notebook lines
-* Page folds
-* Shadows
-* Creases
-* Surface texture
 
-Replace with: Pure white background (#FFFFFF). No additional elements.
+* Notebook lines
+* Paper texture
+* Fold marks
+* Wrinkles
+* Creases
+* Stains
+* Shadows
+* Dust
+* Scanning artifacts
+* Camera artifacts
+
+Replace with: Pure White Background (#FFFFFF). Nothing else.
+
+VECTORIZATION RULES
+
+Create:
+
+* Clean vector paths
+* Smooth scalable curves
+* SVG-quality artwork
+* Print-ready vector quality
+
+However: Vector quality must never alter the appearance of the drawing. Vectorization must behave like tracing. Not illustration. Not enhancement. Not redesign.
 
 ABSOLUTE RESTRICTIONS
 
-Do not:
-* Redesign characters
-* Stylize characters
-* Modernize artwork
-* Simplify details
-* Remove facial features
-* Change expressions
-* Change proportions
-* Change colors
+Do NOT:
+
+* Redesign
+* Stylize
+* Modernize
+* Beautify
+* Enhance
+* Improve
+* Interpret
+* Correct proportions
+* Correct anatomy
+* Correct perspective
+* Correct symmetry
+* Correct facial features
+* Correct handwriting
 * Add realism
-* Add gradients
 * Add shadows
+* Add gradients
 * Add highlights
-* Add texture
-* Add 3D effects
+* Add textures
 * Add decorative elements
 * Add new objects
 * Remove intentional objects
-* Correct artistic imperfections
-* Replace handwriting with fonts
 
-QUALITY TARGET
+If a detail exists in the drawing, preserve it.
 
-The final result must appear as:
+If a detail does not exist in the drawing, do not create it.
 
-An exact premium vector recreation of the original children's drawing, preserving every visible artistic decision, every facial feature, every expression, every color, every handwritten element, every shape, every symbol, and every detail while removing only the paper background and scan artifacts.
+FINAL QUALITY TARGET
 
-The artwork should look as if the original drawing was recreated perfectly by a professional vector illustrator while remaining completely faithful to the child's original creation.`
+The final image must appear as if a professional vector artist manually traced every visible line and every visible color from the original children's drawing without making a single creative decision.
+
+The result must preserve:
+
+* Same composition
+* Same proportions
+* Same expressions
+* Same handwriting
+* Same colors
+* Same imperfections
+* Same personality
+* Same artistic decisions
+
+The output should be visually indistinguishable from the original drawing except that the paper background, notebook lines, folds, shadows and scan artifacts have been removed and the artwork has been converted into clean vector format.`
 
 export const CHILDREN_PROMPT = {
   'children-drawing': [
