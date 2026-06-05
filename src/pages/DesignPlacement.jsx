@@ -1300,7 +1300,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
       flatCanvas.width = flatImg.naturalWidth || flatImg.width
       flatCanvas.height = flatImg.naturalHeight || flatImg.height
       const flatCtx = flatCanvas.getContext('2d')
-      flatCtx.fillStyle = '#ffffff'
+      flatCtx.fillStyle = designBgColor || '#ffffff'
       flatCtx.fillRect(0, 0, flatCanvas.width, flatCanvas.height)
       flatCtx.drawImage(flatImg, 0, 0)
       designUrl = flatCanvas.toDataURL('image/png')
