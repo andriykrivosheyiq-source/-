@@ -272,7 +272,7 @@ async function renderEstTransparent(letters, estEl, estText, showEstText, imageU
 
 // ─── EstPosterView ────────────────────────────────────────────────────────────
 
-const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estText, showEstText, initialState }, ref) {
+const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estText, showEstText, initialState, onStateChange }, ref) {
   const containerRef = useRef(null)
   const illusImgRef = useRef(null)
   const dragRef = useRef(null)
@@ -317,6 +317,13 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
     exportTransparent: () => renderEstTransparent(letters, estEl, estText, showEstText, imageUrl, illus, letterStyle, ttoLetters),
     getState:          () => ({ letters, letterStyle, bgColor, ttoLetters, estEl, illus }),
   }), [letters, estEl, estText, showEstText, imageUrl, illus, letterStyle, ttoLetters, bgColor])
+
+  // Notify parent when letter positions/style change so mockup stays in sync
+  const estMountedRef = useRef(false)
+  useEffect(() => {
+    if (!estMountedRef.current) { estMountedRef.current = true; return }
+    onStateChange?.()
+  }, [letters, ttoLetters, estEl, illus, letterStyle]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const onMove = (e) => {
@@ -949,6 +956,7 @@ function ChangeProductModal({ current, onSelect, onClose }) {
 export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onUpdateOrderFull }) {
   const navigate = useNavigate()
   const estPosterRef = useRef(null)
+  const [estVersion, setEstVersion] = useState(0)
   const [activeTab, setActiveTab] = useState(0)
   const [selectedProduct, setSelectedProduct] = useState(designData?.selectedProducts?.[0] || 'hoodie-black')
   const [showAIEdit, setShowAIEdit] = useState(false)
@@ -1130,7 +1138,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
     }
     update()
     return () => { cancelled = true }
-  }, [currentDesignImage, isEst, estText, showEstText, drawingDataUrl])
+  }, [currentDesignImage, isEst, estText, showEstText, drawingDataUrl, estVersion])
 
   const handleRegenerate = async () => {
     if (!designData?.uploadedFile || !designData?.selectedStyle) { navigate('/create'); return }
@@ -1344,12 +1352,13 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
       else          { pH = SIZE; pW = SIZE * pA; pX = (SIZE - pW) / 2; pY = 0 }
       ctx.drawImage(productImg, pX, pY, pW, pH)
       if (overlayUrl) {
+        // overlayUrl = mockupDesignUrl (already bg-removed) or EST transparent export — skip double removal
         const dImg = await loadImgEl(overlayUrl)
-        const cleaned = removeWhiteBg(dImg)
+        const srcW = dImg.naturalWidth || dImg.width
+        const srcH = dImg.naturalHeight || dImg.height
         const dW = mockupOverlay.size / 100 * SIZE
-        const aspect = cleaned.height / cleaned.width
-        const dH = dW * aspect
-        ctx.drawImage(cleaned, 0, 0, cleaned.width, cleaned.height,
+        const dH = dW * srcH / srcW
+        ctx.drawImage(dImg, 0, 0, srcW, srcH,
           mockupOverlay.x / 100 * SIZE - dW / 2,
           mockupOverlay.y / 100 * SIZE - dH / 2,
           dW, dH)
@@ -1472,10 +1481,12 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
     try {
       const SIZE = 320
       const dSrc = mockupDesignUrl || fullImage
-      let cleanedDesign = null
+      // mockupDesignUrl is already bg-removed; only apply removeWhiteBg on raw fullImage fallback
+      const dSrcNeedsClean = !mockupDesignUrl
+      let overlayDesign = null
       if (dSrc) {
         const dImg = await loadImgEl(dSrc)
-        cleanedDesign = removeWhiteBg(dImg)
+        overlayDesign = dSrcNeedsClean ? removeWhiteBg(dImg) : dImg
       }
       for (const product of allMockupProducts) {
         if (!product?.image) continue
@@ -1486,10 +1497,12 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
         mCtx.imageSmoothingQuality = 'high'
         const pImg = await loadImgEl(product.image)
         mCtx.drawImage(pImg, 0, 0, SIZE, SIZE)
-        if (cleanedDesign) {
+        if (overlayDesign) {
+          const srcW = overlayDesign.naturalWidth || overlayDesign.width
+          const srcH = overlayDesign.naturalHeight || overlayDesign.height
           const dW = mockupOverlay.size / 100 * SIZE
-          const dH = dW * cleanedDesign.height / cleanedDesign.width
-          mCtx.drawImage(cleanedDesign, 0, 0, cleanedDesign.width, cleanedDesign.height,
+          const dH = dW * srcH / srcW
+          mCtx.drawImage(overlayDesign, 0, 0, srcW, srcH,
             mockupOverlay.x / 100 * SIZE - dW / 2,
             mockupOverlay.y / 100 * SIZE - dH / 2,
             dW, dH)
@@ -1669,10 +1682,12 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
     try {
       const SIZE = 320
       const dSrc = mockupDesignUrl || fullImage
-      let cleanedDesign = null
+      // mockupDesignUrl is already bg-removed; only apply removeWhiteBg on raw fullImage fallback
+      const dSrcNeedsClean = !mockupDesignUrl
+      let overlayDesign = null
       if (dSrc) {
         const dImg = await loadImgEl(dSrc)
-        cleanedDesign = removeWhiteBg(dImg)
+        overlayDesign = dSrcNeedsClean ? removeWhiteBg(dImg) : dImg
       }
       for (const product of allMockupProducts) {
         if (!product?.image) continue
@@ -1683,10 +1698,12 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
         mCtx.imageSmoothingQuality = 'high'
         const pImg = await loadImgEl(product.image)
         mCtx.drawImage(pImg, 0, 0, SIZE, SIZE)
-        if (cleanedDesign) {
+        if (overlayDesign) {
+          const srcW = overlayDesign.naturalWidth || overlayDesign.width
+          const srcH = overlayDesign.naturalHeight || overlayDesign.height
           const dW = mockupOverlay.size / 100 * SIZE
-          const dH = dW * cleanedDesign.height / cleanedDesign.width
-          mCtx.drawImage(cleanedDesign, 0, 0, cleanedDesign.width, cleanedDesign.height,
+          const dH = dW * srcH / srcW
+          mCtx.drawImage(overlayDesign, 0, 0, srcW, srcH,
             mockupOverlay.x / 100 * SIZE - dW / 2,
             mockupOverlay.y / 100 * SIZE - dH / 2,
             dW, dH)
@@ -1802,7 +1819,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
                 style={{ background: designBgColor || '#f0f0f0', maxHeight: '75vh', overflow: (drawingTool && drawZoom > 1) ? 'auto' : 'hidden' }}
               >
                 {isEst ? (
-                  <EstPosterView ref={estPosterRef} imageUrl={currentDesignImage} estText={estText} showEstText={showEstText} initialState={designData?.estPosterState} />
+                  <EstPosterView ref={estPosterRef} imageUrl={currentDesignImage} estText={estText} showEstText={showEstText} initialState={designData?.estPosterState} onStateChange={() => setEstVersion(v => v + 1)} />
                 ) : currentDesignImage ? (
                   <div style={{ width: (drawingTool && drawZoom > 1) ? `${drawZoom * 100}%` : '100%', minWidth: '100%' }}>
                   <div style={{ position: 'relative', width: (drawingTool && drawZoom > 1) ? '100%' : 'fit-content', margin: '0 auto' }}>
