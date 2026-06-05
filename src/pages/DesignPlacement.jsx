@@ -994,9 +994,21 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
           const canvas = await estPosterRef.current.exportTransparent()
           if (!cancelled) setMockupDesignUrl(canvas.toDataURL('image/png'))
         } else {
-          const img = await loadImgEl(currentDesignImage)
-          const cleaned = removeWhiteBg(img)
-          if (!cancelled) setMockupDesignUrl(cleaned.toDataURL('image/png'))
+          // Load without crossOrigin — data URLs are same-origin, crossOrigin taints the canvas
+          await new Promise((resolve) => {
+            const img = new Image()
+            img.onload = () => {
+              try {
+                const cleaned = removeWhiteBg(img)
+                if (!cancelled) setMockupDesignUrl(cleaned.toDataURL('image/png'))
+              } catch {
+                if (!cancelled) setMockupDesignUrl(currentDesignImage)
+              }
+              resolve()
+            }
+            img.onerror = () => { if (!cancelled) setMockupDesignUrl(currentDesignImage); resolve() }
+            img.src = currentDesignImage
+          })
         }
       } catch { if (!cancelled) setMockupDesignUrl(currentDesignImage) }
     }
