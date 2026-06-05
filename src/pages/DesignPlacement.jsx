@@ -1140,7 +1140,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
         const canvas = await estPosterRef.current.exportToCanvas()
         dataUrl = canvas.toDataURL('image/png')
       } else if (currentDesignImage) {
-        dataUrl = currentDesignImage
+        dataUrl = drawingDataUrl || currentDesignImage
       }
       if (dataUrl) { const a = document.createElement('a'); a.download = `${fileName || 'design'}.png`; a.href = dataUrl; a.click() }
     } catch (e) { console.error(e) } finally { setDownloading(false) }
@@ -1753,7 +1753,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
                         : (drawingDataUrl || currentDesignImage)}
                       alt="Generated design"
                       className="w-full h-auto block"
-                      style={{ visibility: drawingTool ? 'hidden' : 'visible', maxHeight: '75vh', objectFit: 'contain' }}
+                      style={{ visibility: drawingTool ? 'hidden' : 'visible' }}
                     />
                     {/* Canvas covers the img when tool is active with design baked in */}
                     <canvas
