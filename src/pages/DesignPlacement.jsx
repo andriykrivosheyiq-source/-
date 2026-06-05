@@ -45,7 +45,7 @@ function loadImgEl(src) {
 
 // Remove white background using edge-seeded flood-fill — only removes pixels
 // connected to the image border, so internal white clothing is preserved.
-function removeWhiteBg(img, threshold = 230) {
+function removeWhiteBg(img, threshold = 240) {
   const canvas = document.createElement('canvas')
   const W = img.naturalWidth || img.width
   const H = img.naturalHeight || img.height
@@ -1078,22 +1078,14 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
           const canvas = await estPosterRef.current.exportTransparent()
           if (!cancelled) setMockupDesignUrl(canvas.toDataURL('image/png'))
         } else {
-          // drawingDataUrl already contains design+edits when tool was used; fall back to original
           const sourceUrl = drawingDataUrl || currentDesignImage
-          await new Promise((resolve) => {
-            const img = new Image()
-            img.onload = () => {
-              try {
-                const cleaned = removeWhiteBg(img)
-                if (!cancelled) setMockupDesignUrl(cleaned.toDataURL('image/png'))
-              } catch {
-                if (!cancelled) setMockupDesignUrl(sourceUrl)
-              }
-              resolve()
-            }
-            img.onerror = () => { if (!cancelled) setMockupDesignUrl(sourceUrl); resolve() }
-            img.src = sourceUrl
-          })
+          try {
+            const img = await loadImgEl(sourceUrl)
+            const cleaned = removeWhiteBg(img)
+            if (!cancelled) setMockupDesignUrl(cleaned.toDataURL('image/png'))
+          } catch {
+            if (!cancelled) setMockupDesignUrl(sourceUrl)
+          }
         }
       } catch { if (!cancelled) setMockupDesignUrl(currentDesignImage) }
     }
@@ -1141,9 +1133,10 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
         dataUrl = canvas.toDataURL('image/png')
       } else if (currentDesignImage) {
         // When bg color set: use transparent-bg version so color fill shows through
+        const activeCanvasUrl = (() => { const c = drawingTool && drawingCanvasRef.current; return (c && c.width > 0) ? c.toDataURL('image/png') : null })()
         const src = designBgColor && mockupDesignUrl
           ? mockupDesignUrl
-          : (drawingDataUrl || currentDesignImage)
+          : (activeCanvasUrl || drawingDataUrl || currentDesignImage)
         const img = await loadImgEl(src)
         const flat = document.createElement('canvas')
         flat.width = img.naturalWidth || img.width
@@ -1261,7 +1254,8 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
       const canvas = await estPosterRef.current.exportToCanvas()
       designUrl = canvas.toDataURL('image/png')
     } else if (currentDesignImage) {
-      designUrl = drawingDataUrl || currentDesignImage
+      const c = drawingTool && drawingCanvasRef.current
+      designUrl = (c && c.width > 0) ? c.toDataURL('image/png') : (drawingDataUrl || currentDesignImage)
     }
     if (designUrl) {
       items.push({
@@ -1417,7 +1411,8 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
       if (isEst && estPosterRef.current) {
         srcCanvas = await estPosterRef.current.exportToCanvas()
       } else if (currentDesignImage) {
-        const srcUrl = drawingDataUrl || currentDesignImage
+        const c = drawingTool && drawingCanvasRef.current
+        const srcUrl = (c && c.width > 0) ? c.toDataURL('image/png') : (drawingDataUrl || currentDesignImage)
         const img = await loadImgEl(srcUrl)
         srcCanvas = document.createElement('canvas')
         srcCanvas.width = img.naturalWidth || img.width
@@ -1613,7 +1608,8 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
       if (isEst && estPosterRef.current) {
         srcCanvas = await estPosterRef.current.exportToCanvas()
       } else if (currentDesignImage) {
-        const srcUrl = drawingDataUrl || currentDesignImage
+        const c = drawingTool && drawingCanvasRef.current
+        const srcUrl = (c && c.width > 0) ? c.toDataURL('image/png') : (drawingDataUrl || currentDesignImage)
         const img = await loadImgEl(srcUrl)
         srcCanvas = document.createElement('canvas')
         srcCanvas.width = img.naturalWidth || img.width
@@ -1764,13 +1760,13 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
               <div
                 ref={drawZoomWrapRef}
                 className="w-full rounded-xl"
-                style={{ background: designBgColor || '#f0f0f0', maxHeight: '75vh', overflow: drawingTool ? 'auto' : 'hidden' }}
+                style={{ background: designBgColor || '#f0f0f0', maxHeight: '75vh', overflow: (drawingTool && drawZoom > 1) ? 'auto' : 'hidden' }}
               >
                 {isEst ? (
                   <EstPosterView ref={estPosterRef} imageUrl={currentDesignImage} estText={estText} showEstText={showEstText} initialState={designData?.estPosterState} />
                 ) : currentDesignImage ? (
-                  <div style={{ width: drawingTool ? `${drawZoom * 100}%` : '100%', minWidth: '100%' }}>
-                  <div style={{ position: 'relative', width: '100%' }}>
+                  <div style={{ width: (drawingTool && drawZoom > 1) ? `${drawZoom * 100}%` : '100%', minWidth: '100%' }}>
+                  <div style={{ position: 'relative', width: (drawingTool && drawZoom > 1) ? '100%' : 'fit-content', margin: '0 auto' }}>
                     {/* When bg color set: use mockupDesignUrl (white bg already removed). Otherwise show edited or original. */}
                     <img
                       src={designBgColor && mockupDesignUrl
@@ -1779,11 +1775,11 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
                       alt="Generated design"
                       className="block"
                       style={{
-                        width: drawingTool ? '100%' : 'auto',
+                        display: 'block',
+                        width: (drawingTool && drawZoom > 1) ? '100%' : 'auto',
                         maxWidth: '100%',
-                        maxHeight: drawingTool ? 'none' : '75vh',
+                        maxHeight: (drawingTool && drawZoom > 1) ? 'none' : '75vh',
                         height: 'auto',
-                        margin: '0 auto',
                         visibility: drawingTool ? 'hidden' : 'visible',
                       }}
                     />
