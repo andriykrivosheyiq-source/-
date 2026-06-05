@@ -983,6 +983,8 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
   const pendingScrollRef = useRef(null)
   const isDrawingRef = useRef(false)
   const lastDrawPosRef = useRef(null)
+  const drawingHistoryRef = useRef([])
+  const [historyLen, setHistoryLen] = useState(0)
 
   useEffect(() => {
     if (!designData?.uploadedFile) return
@@ -1004,6 +1006,8 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
     setDrawingDataUrl(null)
     setDrawingTool(null)
     setDrawZoom(1)
+    drawingHistoryRef.current = []
+    setHistoryLen(0)
     const canvas = drawingCanvasRef.current
     if (canvas) {
       const ctx = canvas.getContext('2d')
@@ -1521,9 +1525,16 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
   const handleDrawStart = (e) => {
     if (!drawingTool) return
     e.preventDefault()
-    isDrawingRef.current = true
     const canvas = drawingCanvasRef.current
     if (!canvas) return
+    // Snapshot current canvas state BEFORE the stroke so it can be undone
+    if (canvas.width > 0 && canvas.height > 0) {
+      const snap = canvas.toDataURL('image/png')
+      const next = [...drawingHistoryRef.current.slice(-14), snap]
+      drawingHistoryRef.current = next
+      setHistoryLen(next.length)
+    }
+    isDrawingRef.current = true
     const pos = getCanvasPos(e, canvas)
     lastDrawPosRef.current = pos
     const ctx = canvas.getContext('2d')
@@ -1582,7 +1593,31 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
     }
   }
 
+  const handleUndo = () => {
+    const hist = drawingHistoryRef.current
+    if (!hist.length) return
+    const prevSnap = hist[hist.length - 1]
+    const next = hist.slice(0, -1)
+    drawingHistoryRef.current = next
+    setHistoryLen(next.length)
+    const canvas = drawingCanvasRef.current
+    if (!canvas) return
+    const img = new Image()
+    img.onload = () => {
+      const ctx = canvas.getContext('2d')
+      ctx.clearRect(0, 0, canvas.width, canvas.height)
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+      const url = canvas.toDataURL('image/png')
+      setDrawingDataUrl(url)
+      try { setMockupDesignUrl(removeWhiteBg(canvas).toDataURL('image/png')) }
+      catch { setMockupDesignUrl(url) }
+    }
+    img.src = prevSnap
+  }
+
   const clearDrawing = () => {
+    drawingHistoryRef.current = []
+    setHistoryLen(0)
     setDrawingDataUrl(null)
     const canvas = drawingCanvasRef.current
     if (!canvas) return
@@ -1885,8 +1920,28 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
                       <span className="text-xs text-gray-400">{brushSize}px</span>
                     </>
                   )}
+                  {drawingTool && historyLen > 0 && (
+                    <button
+                      onClick={handleUndo}
+                      className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-sm font-medium border border-gray-200 text-gray-600 hover:border-indigo-300 hover:text-indigo-600 bg-white transition-colors"
+                      title="Відмінити останню дію"
+                    >
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg>
+                      Назад
+                    </button>
+                  )}
+                  {drawingTool && (
+                    <button
+                      onClick={() => { commitCanvas(); setDrawingTool(null) }}
+                      className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-sm font-medium border border-emerald-300 text-emerald-700 hover:bg-emerald-50 bg-white transition-colors"
+                      title="Застосувати зміни"
+                    >
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                      Готово
+                    </button>
+                  )}
                   {drawingDataUrl && (
-                    <button onClick={clearDrawing} className="text-xs text-red-400 hover:text-red-600 border border-red-200 px-2 py-1 rounded-lg">Очистити малювання</button>
+                    <button onClick={clearDrawing} className="text-xs text-red-400 hover:text-red-600 border border-red-200 px-2 py-1 rounded-lg">Очистити</button>
                   )}
                   {drawingTool && <span className="text-xs text-gray-300 ml-auto">скрол = зум</span>}
                 </div>
