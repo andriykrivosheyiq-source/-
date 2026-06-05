@@ -59,89 +59,46 @@ function removeWhiteBg(img, threshold = 220, noDilation = false) {
   const imageData = ctx.getImageData(0, 0, W, H)
   const px = imageData.data
 
-  const isWhite = (pos) => {
+  const isBackground = (pos) => {
     const i = pos * 4
     if (px[i + 3] < 10) return true
     return px[i] > threshold && px[i + 1] > threshold && px[i + 2] > threshold
   }
 
-  if (noDilation) {
-    // Watershed BFS for EST illustrations:
-    // FG seeds = all colored (non-white) pixels; BG seeds = border white pixels.
-    // Each white pixel is claimed by whichever side reaches it first in BFS.
-    // White shirt pixels are adjacent to skin/outline → FG arrives first → kept.
-    // White background pixels are adjacent to the border → BG arrives first → removed.
-    const BG = 1, FG = 2
-    const label = new Uint8Array(W * H)
-    const queue = []
+  const visited = new Uint8Array(W * H)
+
+  const bfsFill = (seeds) => {
     let head = 0
-
-    for (let i = 0; i < W * H; i++) {
-      if (px[i * 4 + 3] >= 10 && !isWhite(i)) { label[i] = FG; queue.push(i) }
-    }
-    for (let x = 0; x < W; x++) {
-      for (const y of [0, H - 1]) {
-        const p = y * W + x
-        if (isWhite(p) && !label[p]) { label[p] = BG; queue.push(p) }
-      }
-    }
-    for (let y = 1; y < H - 1; y++) {
-      for (const x of [0, W - 1]) {
-        const p = y * W + x
-        if (isWhite(p) && !label[p]) { label[p] = BG; queue.push(p) }
-      }
-    }
-
-    while (head < queue.length) {
-      const pos = queue[head++]
-      const lbl = label[pos]
+    while (head < seeds.length) {
+      const pos = seeds[head++]
       const x = pos % W, y = (pos / W) | 0
       for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
         const nx = x + dx, ny = y + dy
         if (nx < 0 || nx >= W || ny < 0 || ny >= H) continue
         const npos = ny * W + nx
-        if (label[npos] || !isWhite(npos)) continue
-        label[npos] = lbl
-        queue.push(npos)
+        if (!visited[npos] && isBackground(npos)) { visited[npos] = 1; seeds.push(npos) }
       }
     }
+  }
 
-    for (let i = 0; i < W * H; i++) {
-      if (label[i] === BG) px[i * 4 + 3] = 0
+  // Pass 1: seed from all four border edges, remove only pixels reachable from border
+  const seeds1 = []
+  for (let x = 0; x < W; x++) {
+    for (const y of [0, H - 1]) {
+      const p = y * W + x
+      if (!visited[p] && isBackground(p)) { visited[p] = 1; seeds1.push(p) }
     }
-  } else {
-    // Simple edge-seeded BFS + dilation for children's drawings
-    const visited = new Uint8Array(W * H)
+  }
+  for (let y = 1; y < H - 1; y++) {
+    for (const x of [0, W - 1]) {
+      const p = y * W + x
+      if (!visited[p] && isBackground(p)) { visited[p] = 1; seeds1.push(p) }
+    }
+  }
+  bfsFill(seeds1)
 
-    const bfsFill = (seeds) => {
-      let head = 0
-      while (head < seeds.length) {
-        const pos = seeds[head++]
-        const x = pos % W, y = (pos / W) | 0
-        for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
-          const nx = x + dx, ny = y + dy
-          if (nx < 0 || nx >= W || ny < 0 || ny >= H) continue
-          const npos = ny * W + nx
-          if (!visited[npos] && isWhite(npos)) { visited[npos] = 1; seeds.push(npos) }
-        }
-      }
-    }
-
-    const seeds1 = []
-    for (let x = 0; x < W; x++) {
-      for (const y of [0, H - 1]) {
-        const p = y * W + x
-        if (!visited[p] && isWhite(p)) { visited[p] = 1; seeds1.push(p) }
-      }
-    }
-    for (let y = 1; y < H - 1; y++) {
-      for (const x of [0, W - 1]) {
-        const p = y * W + x
-        if (!visited[p] && isWhite(p)) { visited[p] = 1; seeds1.push(p) }
-      }
-    }
-    bfsFill(seeds1)
-
+  // Pass 2: dilation to cross thin drawn outlines (children's drawings only)
+  if (!noDilation) {
     const JUMP = Math.min(80, Math.max(20, Math.round((W + H) / 60)))
     const dist = new Int16Array(W * H).fill(-1)
     const dq = []
@@ -160,13 +117,13 @@ function removeWhiteBg(img, threshold = 220, noDilation = false) {
     }
     const seeds2 = []
     for (let i = 0; i < W * H; i++) {
-      if (dist[i] > 0 && !visited[i] && isWhite(i)) { visited[i] = 1; seeds2.push(i) }
+      if (dist[i] > 0 && !visited[i] && isBackground(i)) { visited[i] = 1; seeds2.push(i) }
     }
     bfsFill(seeds2)
+  }
 
-    for (let i = 0; i < W * H; i++) {
-      if (visited[i]) px[i * 4 + 3] = 0
-    }
+  for (let i = 0; i < W * H; i++) {
+    if (visited[i]) px[i * 4 + 3] = 0
   }
 
   ctx.putImageData(imageData, 0, 0)
