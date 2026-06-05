@@ -1140,7 +1140,17 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
         const canvas = await estPosterRef.current.exportToCanvas()
         dataUrl = canvas.toDataURL('image/png')
       } else if (currentDesignImage) {
-        dataUrl = drawingDataUrl || currentDesignImage
+        const src = drawingDataUrl || currentDesignImage
+        // Flatten transparent (erased) areas onto white so viewer doesn't show black
+        const img = await loadImgEl(src)
+        const flat = document.createElement('canvas')
+        flat.width = img.naturalWidth || img.width
+        flat.height = img.naturalHeight || img.height
+        const ctx = flat.getContext('2d')
+        ctx.fillStyle = '#ffffff'
+        ctx.fillRect(0, 0, flat.width, flat.height)
+        ctx.drawImage(img, 0, 0)
+        dataUrl = flat.toDataURL('image/png')
       }
       if (dataUrl) { const a = document.createElement('a'); a.download = `${fileName || 'design'}.png`; a.href = dataUrl; a.click() }
     } catch (e) { console.error(e) } finally { setDownloading(false) }
@@ -1738,8 +1748,8 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
             ) : (
               <div
                 ref={drawZoomWrapRef}
-                className="w-full rounded-xl overflow-auto"
-                style={{ background: designBgColor || '#f0f0f0', maxHeight: '75vh' }}
+                className="w-full rounded-xl"
+                style={{ background: designBgColor || '#f0f0f0', maxHeight: '75vh', overflow: drawingTool ? 'auto' : 'hidden' }}
               >
                 {isEst ? (
                   <EstPosterView ref={estPosterRef} imageUrl={currentDesignImage} estText={estText} showEstText={showEstText} initialState={designData?.estPosterState} />
