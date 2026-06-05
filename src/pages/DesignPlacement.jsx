@@ -1293,9 +1293,12 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
       const canvas = await estPosterRef.current.exportToCanvas()
       designUrl = canvas.toDataURL('image/png')
     } else if (currentDesignImage) {
-      const c = drawingTool && drawingCanvasRef.current
-      const rawUrl = (c && c.width > 0) ? c.toDataURL('image/png') : (drawingDataUrl || currentDesignImage)
-      const flatImg = await loadImgEl(rawUrl)
+      const activeCanvasUrl = (() => { const c = drawingTool && drawingCanvasRef.current; return (c && c.width > 0) ? c.toDataURL('image/png') : null })()
+      // Mirror handleDownload: when bg color is set use bg-removed version so color fills through
+      const src = designBgColor && mockupDesignUrl
+        ? mockupDesignUrl
+        : (activeCanvasUrl || drawingDataUrl || currentDesignImage)
+      const flatImg = await loadImgEl(src)
       const flatCanvas = document.createElement('canvas')
       flatCanvas.width = flatImg.naturalWidth || flatImg.width
       flatCanvas.height = flatImg.naturalHeight || flatImg.height
