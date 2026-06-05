@@ -1140,14 +1140,16 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
         const canvas = await estPosterRef.current.exportToCanvas()
         dataUrl = canvas.toDataURL('image/png')
       } else if (currentDesignImage) {
-        const src = drawingDataUrl || currentDesignImage
-        // Flatten transparent (erased) areas onto white so viewer doesn't show black
+        // When bg color set: use transparent-bg version so color fill shows through
+        const src = designBgColor && mockupDesignUrl
+          ? mockupDesignUrl
+          : (drawingDataUrl || currentDesignImage)
         const img = await loadImgEl(src)
         const flat = document.createElement('canvas')
         flat.width = img.naturalWidth || img.width
         flat.height = img.naturalHeight || img.height
         const ctx = flat.getContext('2d')
-        ctx.fillStyle = '#ffffff'
+        ctx.fillStyle = designBgColor || '#ffffff'
         ctx.fillRect(0, 0, flat.width, flat.height)
         ctx.drawImage(img, 0, 0)
         dataUrl = flat.toDataURL('image/png')
@@ -1562,13 +1564,26 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
     isDrawingRef.current = false
     lastDrawPosRef.current = null
     const canvas = drawingCanvasRef.current
-    if (canvas) setDrawingDataUrl(canvas.toDataURL('image/png'))
+    if (!canvas) return
+    const dataUrl = canvas.toDataURL('image/png')
+    setDrawingDataUrl(dataUrl)
+    // Sync mockup directly from canvas (immediate, no async useEffect delay)
+    try {
+      setMockupDesignUrl(removeWhiteBg(canvas).toDataURL('image/png'))
+    } catch {
+      setMockupDesignUrl(dataUrl)
+    }
   }
 
   const commitCanvas = () => {
     const canvas = drawingCanvasRef.current
-    if (canvas && canvas.width > 0 && canvas.height > 0) {
-      setDrawingDataUrl(canvas.toDataURL('image/png'))
+    if (!canvas || canvas.width === 0 || canvas.height === 0) return
+    const dataUrl = canvas.toDataURL('image/png')
+    setDrawingDataUrl(dataUrl)
+    try {
+      setMockupDesignUrl(removeWhiteBg(canvas).toDataURL('image/png'))
+    } catch {
+      setMockupDesignUrl(dataUrl)
     }
   }
 
@@ -1762,8 +1777,15 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
                         ? mockupDesignUrl
                         : (drawingDataUrl || currentDesignImage)}
                       alt="Generated design"
-                      className="w-full h-auto block"
-                      style={{ visibility: drawingTool ? 'hidden' : 'visible' }}
+                      className="block"
+                      style={{
+                        width: drawingTool ? '100%' : 'auto',
+                        maxWidth: '100%',
+                        maxHeight: drawingTool ? 'none' : '75vh',
+                        height: 'auto',
+                        margin: '0 auto',
+                        visibility: drawingTool ? 'hidden' : 'visible',
+                      }}
                     />
                     {/* Canvas covers the img when tool is active with design baked in */}
                     <canvas
