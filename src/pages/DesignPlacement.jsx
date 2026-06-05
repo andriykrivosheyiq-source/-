@@ -1817,7 +1817,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
               <div
                 ref={drawZoomWrapRef}
                 className="w-full rounded-xl"
-                style={{ background: designBgColor || '#f0f0f0', maxHeight: '75vh', overflow: (drawingTool && drawZoom > 1) ? 'auto' : 'hidden' }}
+                style={{ background: isEst ? undefined : (designBgColor || '#f0f0f0'), maxHeight: isEst ? 'none' : '75vh', overflow: isEst ? 'visible' : ((drawingTool && drawZoom > 1) ? 'auto' : 'hidden') }}
               >
                 {isEst ? (
                   <EstPosterView ref={estPosterRef} imageUrl={currentDesignImage} estText={estText} showEstText={showEstText} initialState={designData?.estPosterState} onStateChange={() => setEstVersion(v => v + 1)} />
