@@ -66,8 +66,6 @@ function removeWhiteBg(img, threshold = 220, noDilation = false) {
   }
 
   const visited = new Uint8Array(W * H)
-  // borderDist tracks BFS distance from border (for distance-ratio restoration)
-  const borderDist = noDilation ? new Int32Array(W * H).fill(-1) : null
 
   const bfsFill = (seeds) => {
     let head = 0
@@ -78,11 +76,7 @@ function removeWhiteBg(img, threshold = 220, noDilation = false) {
         const nx = x + dx, ny = y + dy
         if (nx < 0 || nx >= W || ny < 0 || ny >= H) continue
         const npos = ny * W + nx
-        if (!visited[npos] && isBackground(npos)) {
-          visited[npos] = 1
-          if (borderDist) borderDist[npos] = (borderDist[pos] >= 0 ? borderDist[pos] : 0) + 1
-          seeds.push(npos)
-        }
+        if (!visited[npos] && isBackground(npos)) { visited[npos] = 1; seeds.push(npos) }
       }
     }
   }
@@ -92,55 +86,16 @@ function removeWhiteBg(img, threshold = 220, noDilation = false) {
   for (let x = 0; x < W; x++) {
     for (const y of [0, H - 1]) {
       const p = y * W + x
-      if (!visited[p] && isBackground(p)) {
-        visited[p] = 1
-        if (borderDist) borderDist[p] = 0
-        seeds1.push(p)
-      }
+      if (!visited[p] && isBackground(p)) { visited[p] = 1; seeds1.push(p) }
     }
   }
   for (let y = 1; y < H - 1; y++) {
     for (const x of [0, W - 1]) {
       const p = y * W + x
-      if (!visited[p] && isBackground(p)) {
-        visited[p] = 1
-        if (borderDist) borderDist[p] = 0
-        seeds1.push(p)
-      }
+      if (!visited[p] && isBackground(p)) { visited[p] = 1; seeds1.push(p) }
     }
   }
   bfsFill(seeds1)
-
-  // ── Distance-ratio restoration (EST illustrations only) ───────────────────
-  // Restore removed pixels that are closer to illustration content than to border.
-  // This preserves white clothing that is near the figure while removing true background.
-  if (noDilation) {
-    const FACTOR = 3
-    const illusDist = new Int32Array(W * H).fill(-1)
-    const illusQ = []
-    for (let i = 0; i < W * H; i++) {
-      if (!visited[i] && px[i * 4 + 3] >= 10) { illusDist[i] = 0; illusQ.push(i) }
-    }
-    let iqHead = 0
-    while (iqHead < illusQ.length) {
-      const pos = illusQ[iqHead++]
-      const x = pos % W, y = (pos / W) | 0
-      for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
-        const nx = x + dx, ny = y + dy
-        if (nx < 0 || nx >= W || ny < 0 || ny >= H) continue
-        const npos = ny * W + nx
-        if (visited[npos] && illusDist[npos] < 0) {
-          illusDist[npos] = illusDist[pos] + 1
-          illusQ.push(npos)
-        }
-      }
-    }
-    for (let i = 0; i < W * H; i++) {
-      if (visited[i] && illusDist[i] >= 0 && borderDist[i] > 0) {
-        if (illusDist[i] * FACTOR < borderDist[i]) visited[i] = 0
-      }
-    }
-  }
 
   // ── Pass 2: dilate removal zone by JUMP px (crosses drawn outlines), ──────
   //           then BFS-fill any enclosed background that was behind them.
