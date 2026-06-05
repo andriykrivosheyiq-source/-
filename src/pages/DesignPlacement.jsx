@@ -68,7 +68,7 @@ function removeWhiteBg(img, threshold = 220, noDilation = false) {
   // For noDilation (EST illustrations): build a barrier zone around dark outline
   // pixels so BFS cannot cross outlined boundaries into white clothing areas
   if (noDilation) {
-    const BARRIER = 2
+    const BARRIER = 6
     const darkDist = new Int16Array(W * H).fill(-1)
     const barrierQ = []
     for (let i = 0; i < W * H; i++) {
@@ -254,7 +254,7 @@ async function renderEstToCanvas(letters, estEl, estText, showEstText, imageUrl,
   if (imageUrl) {
     try {
       const img = await loadImgEl(imageUrl)
-      const cleaned = removeWhiteBg(img, 254, true)
+      const cleaned = removeWhiteBg(img, 230, true)
       const iW = illus.size / 100 * W
       const iH = iW * cleaned.height / cleaned.width
       const cropFrac = (illus.cropBottom || 0) / 100
@@ -282,7 +282,7 @@ async function renderEstTransparent(letters, estEl, estText, showEstText, imageU
   if (imageUrl) {
     try {
       const img = await loadImgEl(imageUrl)
-      const cleaned = removeWhiteBg(img, 254, true)
+      const cleaned = removeWhiteBg(img, 230, true)
       const iW = illus.size / 100 * W
       const iH = iW * cleaned.height / cleaned.width
       const cropFrac = (illus.cropBottom || 0) / 100
@@ -332,7 +332,7 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
     let active = true
     loadImgEl(imageUrl).then(img => {
       if (!active) return
-      const c = removeWhiteBg(img, 254, true)
+      const c = removeWhiteBg(img, 230, true)
       c.toBlob(blob => {
         if (!active) return
         const url = URL.createObjectURL(blob)
