@@ -59,10 +59,38 @@ function removeWhiteBg(img, threshold = 220, noDilation = false) {
   const imageData = ctx.getImageData(0, 0, W, H)
   const px = imageData.data
 
-  const isBackground = (pos) => {
+  let isBackground = (pos) => {
     const i = pos * 4
     if (px[i + 3] < 10) return true
     return px[i] > threshold && px[i + 1] > threshold && px[i + 2] > threshold
+  }
+
+  // For noDilation (EST illustrations): build a barrier zone around dark outline
+  // pixels so BFS cannot cross outlined boundaries into white clothing areas
+  if (noDilation) {
+    const BARRIER = 3
+    const darkDist = new Int16Array(W * H).fill(-1)
+    const barrierQ = []
+    for (let i = 0; i < W * H; i++) {
+      const ri = i * 4
+      if (px[ri + 3] >= 10 && px[ri] < 150 && px[ri + 1] < 150 && px[ri + 2] < 150) {
+        darkDist[i] = 0; barrierQ.push(i)
+      }
+    }
+    let bqHead = 0
+    while (bqHead < barrierQ.length) {
+      const pos = barrierQ[bqHead++]
+      if (darkDist[pos] >= BARRIER) continue
+      const x = pos % W, y = (pos / W) | 0
+      for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
+        const nx = x + dx, ny = y + dy
+        if (nx < 0 || nx >= W || ny < 0 || ny >= H) continue
+        const npos = ny * W + nx
+        if (darkDist[npos] < 0) { darkDist[npos] = darkDist[pos] + 1; barrierQ.push(npos) }
+      }
+    }
+    const baseBg = isBackground
+    isBackground = (pos) => (darkDist[pos] >= 0 && darkDist[pos] <= BARRIER) ? false : baseBg(pos)
   }
 
   const visited = new Uint8Array(W * H)
