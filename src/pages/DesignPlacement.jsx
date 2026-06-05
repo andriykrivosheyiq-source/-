@@ -43,11 +43,12 @@ function loadImgEl(src) {
   })
 }
 
-// Remove white background using edge-seeded flood-fill — only removes pixels
-// connected to the image border, so internal white clothing is preserved.
-// threshold=220 catches off-white/cream paper (photo scans often have blue
-// channel ~230, which failed the old 240 cutoff). Transparent pixels (alpha<10)
-// are also treated as background so erased areas don't block the BFS spread.
+// Remove white/paper background.
+// Pass 1: edge-seeded BFS removes border-connected white (threshold=220 catches
+//   off-white/cream paper; transparent pixels treated as background).
+// Pass 2: dilate the removed region by JUMP pixels to cross thin colored outlines
+//   (drawn borders block the BFS in pass 1), then BFS again to flood the white
+//   paper enclosed inside those outlines.
 function removeWhiteBg(img, threshold = 220) {
   const canvas = document.createElement('canvas')
   const W = img.naturalWidth || img.width
@@ -60,41 +61,69 @@ function removeWhiteBg(img, threshold = 220) {
 
   const isBackground = (pos) => {
     const i = pos * 4
-    if (px[i + 3] < 10) return true  // already transparent = background
+    if (px[i + 3] < 10) return true
     return px[i] > threshold && px[i + 1] > threshold && px[i + 2] > threshold
   }
 
   const visited = new Uint8Array(W * H)
-  const queue = []
 
-  // Seed from every pixel on all four edges
+  const bfsFill = (seeds) => {
+    let head = 0
+    while (head < seeds.length) {
+      const pos = seeds[head++]
+      const x = pos % W, y = (pos / W) | 0
+      for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
+        const nx = x + dx, ny = y + dy
+        if (nx < 0 || nx >= W || ny < 0 || ny >= H) continue
+        const npos = ny * W + nx
+        if (!visited[npos] && isBackground(npos)) { visited[npos] = 1; seeds.push(npos) }
+      }
+    }
+  }
+
+  // ── Pass 1: seed from all four border edges ───────────────────────────────
+  const seeds1 = []
   for (let x = 0; x < W; x++) {
     for (const y of [0, H - 1]) {
-      const pos = y * W + x
-      if (!visited[pos] && isBackground(pos)) { visited[pos] = 1; queue.push(pos) }
+      const p = y * W + x
+      if (!visited[p] && isBackground(p)) { visited[p] = 1; seeds1.push(p) }
     }
   }
   for (let y = 1; y < H - 1; y++) {
     for (const x of [0, W - 1]) {
-      const pos = y * W + x
-      if (!visited[pos] && isBackground(pos)) { visited[pos] = 1; queue.push(pos) }
+      const p = y * W + x
+      if (!visited[p] && isBackground(p)) { visited[p] = 1; seeds1.push(p) }
     }
   }
+  bfsFill(seeds1)
 
-  // BFS flood-fill
-  let head = 0
-  while (head < queue.length) {
-    const pos = queue[head++]
+  // ── Pass 2: dilate removal zone by JUMP px (crosses drawn outlines), ──────
+  //           then BFS-fill any enclosed background that was behind them.
+  // JUMP scales with image size so it covers thick strokes in large photos.
+  const JUMP = Math.min(80, Math.max(20, Math.round((W + H) / 60)))
+  const dist = new Int16Array(W * H).fill(-1)
+  const dq = []
+  for (let i = 0; i < W * H; i++) if (visited[i]) { dist[i] = 0; dq.push(i) }
+  let dHead = 0
+  while (dHead < dq.length) {
+    const pos = dq[dHead++]
+    if (dist[pos] >= JUMP) continue
     const x = pos % W, y = (pos / W) | 0
     for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
       const nx = x + dx, ny = y + dy
       if (nx < 0 || nx >= W || ny < 0 || ny >= H) continue
       const npos = ny * W + nx
-      if (!visited[npos] && isBackground(npos)) { visited[npos] = 1; queue.push(npos) }
+      if (dist[npos] < 0) { dist[npos] = dist[pos] + 1; dq.push(npos) }
     }
   }
 
-  // Make only background (visited) pixels transparent
+  const seeds2 = []
+  for (let i = 0; i < W * H; i++) {
+    if (dist[i] > 0 && !visited[i] && isBackground(i)) { visited[i] = 1; seeds2.push(i) }
+  }
+  bfsFill(seeds2)
+
+  // ── Make every removed pixel transparent ─────────────────────────────────
   for (let i = 0; i < W * H; i++) {
     if (visited[i]) px[i * 4 + 3] = 0
   }
