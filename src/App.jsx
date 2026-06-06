@@ -45,7 +45,9 @@ async function persistExtras(id, extras) {
             )
             return { ...d, image: url }
           } catch {
-            return d
+            // Don't fall back to base64 — Firestore has 1MB doc limit.
+            // Use fullImageUrl as a rough substitute so the design is at least visible.
+            return { ...d, image: fields._fullImageUrl || null }
           }
         })
       )
@@ -58,11 +60,25 @@ async function persistExtras(id, extras) {
 
 function AppInner() {
   const navigate = useNavigate()
-  const [designData, setDesignData] = useState(null)
+  const [designData, setDesignData] = useState(() => {
+    try {
+      const s = sessionStorage.getItem('currentDesign')
+      return s ? JSON.parse(s) : null
+    } catch { return null }
+  })
   const [savedOrders, setSavedOrders] = useState([])
   const [ordersLoading, setOrdersLoading] = useState(true)
   // In-memory cache; also populated from Firestore (_fullImageUrl, _designSnapshot) on load
   const orderExtras = useRef({})
+
+  // Keep sessionStorage in sync so reloading the page restores the current design
+  useEffect(() => {
+    if (designData) {
+      try { sessionStorage.setItem('currentDesign', JSON.stringify(designData)) } catch {}
+    } else {
+      sessionStorage.removeItem('currentDesign')
+    }
+  }, [designData])
 
   // Real-time listener — all team members see the same kanban
   useEffect(() => {
