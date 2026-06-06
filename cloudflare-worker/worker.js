@@ -71,11 +71,24 @@ async function handleTelegramSendOrder(request, env) {
 
   for (const file of files) {
     if (!file.url) continue
-    await tgCall(token, 'sendDocument', {
-      chat_id: chatId,
-      document: file.url,
-      caption: escapeHtml(file.label || ''),
-    })
+    try {
+      // Fetch file bytes so we can set a custom filename in Telegram
+      const fileRes = await fetch(file.url)
+      const blob = await fileRes.blob()
+      const filename = `${file.label || 'file'}.png`
+      const form = new FormData()
+      form.append('chat_id', chatId)
+      form.append('document', blob, filename)
+      form.append('caption', file.label || '')
+      await fetch(`${TG_BASE}/bot${token}/sendDocument`, { method: 'POST', body: form })
+    } catch {
+      // fallback: send via URL if fetch fails
+      await tgCall(token, 'sendDocument', {
+        chat_id: chatId,
+        document: file.url,
+        caption: escapeHtml(file.label || ''),
+      })
+    }
   }
 
   return jsonResp({ ok: true })
