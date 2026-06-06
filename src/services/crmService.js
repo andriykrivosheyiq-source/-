@@ -66,7 +66,7 @@ export async function sendOrderToDesignerTelegram({ order, files }) {
 }
 
 /** Upload files to Cloudinary then send their URLs as a text message to a Sitniks chat. */
-export async function sendToClientCRM({ chatId, files, note }) {
+export async function sendToClientCRM({ chatId, files, note, isRevision = false }) {
   const base = apiUrl()
 
   const uploaded = await Promise.all(
@@ -81,11 +81,14 @@ export async function sendToClientCRM({ chatId, files, note }) {
     })
   )
 
-  let text = 'Подивіться як гарно вийшло😍 Вам подобається?\n\n'
+  const intro = isRevision
+    ? 'Внесли правки ✅\nВам подобається?\n\n'
+    : 'Подивіться як гарно вийшло😍 Вам подобається?\n\n'
+  let text = intro
   for (const f of uploaded) {
-    text += `${f.label}: ${f.url}\n`
+    text += `${f.label}:\n${f.url}\n\n`
   }
-  if (note) text += `\n${note}`
+  if (note) text += note
 
   let response
   try {

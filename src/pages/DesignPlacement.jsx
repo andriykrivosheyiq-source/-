@@ -1010,6 +1010,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
   const [showDesignerDropdown, setShowDesignerDropdown] = useState(false)
   const [mockupEditProduct, setMockupEditProduct] = useState(null)
   const [showClientModal, setShowClientModal] = useState(false)
+  const [clientRevisionMode, setClientRevisionMode] = useState(false)
   const [crmOrderNumber, setCrmOrderNumber] = useState('')
   const [crmOrderData, setCrmOrderData] = useState(null)
   const [lookingUpOrder, setLookingUpOrder] = useState(false)
@@ -1397,6 +1398,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
   }
 
   const handleOpenClientModal = async () => {
+    setClientRevisionMode(false)
     setShowClientModal(true)
     setClientSendResult(null)
     setCrmOrderData(null)
@@ -1405,6 +1407,19 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
     setSendItems([])
     try { setSendItems(await buildSendItems()) }
     catch (e) { console.error('Client send prep error:', e) }
+    finally { setPreparingSend(false) }
+  }
+
+  const handleOpenRevisionModal = async () => {
+    setClientRevisionMode(true)
+    setShowClientModal(true)
+    setClientSendResult(null)
+    setCrmOrderData(null)
+    setOrderLookupError(null)
+    setPreparingSend(true)
+    setSendItems([])
+    try { setSendItems(await buildSendItems()) }
+    catch (e) { console.error('Revision send prep error:', e) }
     finally { setPreparingSend(false) }
   }
 
@@ -1432,6 +1447,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
         chatId: crmOrderData?.chatId,
         files: sendItems.filter(i => i.checked),
         note: clientNote,
+        isRevision: clientRevisionMode,
       })
       // Change order status to "На перевірці" (id: 12677)
       if (crmOrderData?.id) {
@@ -1764,7 +1780,31 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
     // Send order details + files to designer Telegram group (non-blocking)
     const checkedFiles = sendItems.filter(i => i.checked)
     if (checkedFiles.length > 0) {
-      sendOrderToDesignerTelegram({ order, files: checkedFiles }).catch(console.error)
+      ;(async () => {
+        // Build transparent version of main design (for embroidery software)
+        let transparentDesignUrl = null
+        try {
+          if (mockupDesignUrl) {
+            transparentDesignUrl = mockupDesignUrl  // already bg-removed
+          } else if (isEst && estPosterRef.current) {
+            const tc = await estPosterRef.current.exportTransparent()
+            transparentDesignUrl = tc.toDataURL('image/png')
+          } else if (currentDesignImage) {
+            const img = await loadImgEl(currentDesignImage)
+            transparentDesignUrl = removeWhiteBg(img).toDataURL('image/png')
+          }
+        } catch {}
+        // Caption format: "Est_2026_Design Білий худі XL 27"
+        const cleanId = (fileName || order.id).replace(/^#/, '')
+        const caption = [cleanId, currentProduct?.nameUk, sendOrderSize, sendEmbroiderySize].filter(Boolean).join(' ')
+        const designerFiles = checkedFiles.map(item => ({
+          ...item,
+          dataUrl: item.id === 'design' && transparentDesignUrl ? transparentDesignUrl : item.dataUrl,
+          filename: item.id === 'design' ? `${cleanId}.png` : item.filename,
+          label: caption,
+        }))
+        sendOrderToDesignerTelegram({ order, files: designerFiles }).catch(console.error)
+      })()
     }
 
     setShowSendModal(false)
@@ -2185,6 +2225,13 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
               Відправити клієнту
             </button>
             <button
+              onClick={handleOpenRevisionModal}
+              className="w-full flex items-center justify-center gap-2 border border-amber-300 text-amber-700 hover:bg-amber-50 rounded-xl py-2.5 text-sm font-semibold transition-colors"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.73"/></svg>
+              Передати правки
+            </button>
+            <button
               onClick={handleOpenSendModal}
               className="w-full flex items-center justify-center gap-2 border border-indigo-200 text-indigo-600 hover:bg-indigo-50 rounded-xl py-2.5 text-sm font-semibold transition-colors"
             >
@@ -2328,7 +2375,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <div className="flex items-start justify-between px-6 pt-6 pb-2">
               <div>
-                <h2 className="text-xl font-bold text-gray-900">Відправити клієнту</h2>
+                <h2 className="text-xl font-bold text-gray-900">{clientRevisionMode ? 'Передати правки' : 'Відправити клієнту'}</h2>
                 <p className="text-sm text-gray-500 mt-1">Ескізи та мокапи будуть надіслані через CRM напряму клієнту.</p>
               </div>
               <button onClick={() => setShowClientModal(false)} className="ml-4 flex-shrink-0 w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors">
@@ -2483,7 +2530,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
                 >
                   {sendingToClient
                     ? <><svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" className="opacity-25"/><path d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" fill="currentColor"/></svg> Надсилання...</>
-                    : <><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.6 1.1h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 8.9a16 16 0 0 0 6 6l.81-.81a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 21.73 16.92z"/></svg> Відправити клієнту ({sendItems.filter(i=>i.checked).length} файлів)</>}
+                    : <><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.6 1.1h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 8.9a16 16 0 0 0 6 6l.81-.81a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 21.73 16.92z"/></svg> {clientRevisionMode ? 'Передати правки' : 'Відправити клієнту'} ({sendItems.filter(i=>i.checked).length} файлів)</>}
                 </button>
               )}
             </div>

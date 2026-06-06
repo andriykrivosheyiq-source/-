@@ -57,10 +57,11 @@ async function handleTelegramSendOrder(request, env) {
   const token  = env.TELEGRAM_BOT_TOKEN
 
   const lines = [
-    `📋 Номер замовлення: ${escapeHtml(order.id)}`,
+    `🎨 Нове замовлення для дизайнера`,
+    escapeHtml(order.id),
     order.productName    ? `👕 Товар: ${escapeHtml(order.productName)}`             : null,
     order.orderSize      ? `📏 Розмір: ${escapeHtml(order.orderSize)}`              : null,
-    order.embroiderySize ? `✅ Розмір вишивки: ${escapeHtml(order.embroiderySize)}` : null,
+    order.embroiderySize ? `✅ Вишивка: ${escapeHtml(order.embroiderySize)}`        : null,
     order.comment        ? `💬 Коментар: ${escapeHtml(order.comment)}`             : null,
   ].filter(Boolean).join('\n')
 
