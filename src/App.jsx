@@ -71,10 +71,20 @@ function AppInner() {
   // In-memory cache; also populated from Firestore (_fullImageUrl, _designSnapshot) on load
   const orderExtras = useRef({})
 
-  // Keep sessionStorage in sync so reloading the page restores the current design
+  // Keep sessionStorage in sync so reloading restores the current design.
+  // Strip base64 images before storing — they're too large for sessionStorage and cause crashes.
   useEffect(() => {
     if (designData) {
-      try { sessionStorage.setItem('currentDesign', JSON.stringify(designData)) } catch {}
+      try {
+        const storable = {
+          ...designData,
+          generatedDesigns: designData.generatedDesigns?.map(d => ({
+            ...d,
+            image: d.image?.startsWith('data:') ? null : d.image,
+          })),
+        }
+        sessionStorage.setItem('currentDesign', JSON.stringify(storable))
+      } catch {}
     } else {
       sessionStorage.removeItem('currentDesign')
     }
@@ -201,6 +211,26 @@ function AppInner() {
   )
 }
 
+class ErrorBoundary extends React.Component {
+  constructor(props) { super(props); this.state = { crashed: false } }
+  static getDerivedStateFromError() { return { crashed: true } }
+  componentDidCatch(e) {
+    console.error('App crash:', e)
+    sessionStorage.removeItem('currentDesign')
+  }
+  render() {
+    if (this.state.crashed) return (
+      <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', gap:16 }}>
+        <p style={{ fontSize:18, color:'#374151' }}>Щось пішло не так. Оновіть сторінку.</p>
+        <button onClick={() => window.location.reload()} style={{ padding:'10px 24px', background:'#4f46e5', color:'#fff', border:'none', borderRadius:10, cursor:'pointer', fontSize:15 }}>
+          Оновити
+        </button>
+      </div>
+    )
+    return this.props.children
+  }
+}
+
 export default function App() {
-  return <AppInner />
+  return <ErrorBoundary><AppInner /></ErrorBoundary>
 }
