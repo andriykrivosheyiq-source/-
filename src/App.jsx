@@ -71,20 +71,33 @@ function AppInner() {
   // In-memory cache; also populated from Firestore (_fullImageUrl, _designSnapshot) on load
   const orderExtras = useRef({})
 
-  // Keep sessionStorage in sync so reloading restores the current design.
-  // Strip base64 images before storing — they're too large for sessionStorage and cause crashes.
+  // As soon as Gemini returns base64 images, upload them to Cloudinary in the background.
+  // This converts designData.generatedDesigns from large base64 → short URLs so that
+  // sessionStorage (and later Firestore) never has to store heavy data.
+  const generatedDesigns = designData?.generatedDesigns
+  useEffect(() => {
+    if (!generatedDesigns?.some(d => d.image?.startsWith('data:'))) return
+    let cancelled = false
+    Promise.all(
+      generatedDesigns.map(async (d) => {
+        if (!d.image?.startsWith('data:')) return d
+        try {
+          const url = await uploadImageToCloudinary(d.image, `gen_${Date.now()}`)
+          return { ...d, image: url }
+        } catch { return d }
+      })
+    ).then(uploaded => {
+      if (!cancelled) {
+        setDesignData(prev => prev ? { ...prev, generatedDesigns: uploaded } : prev)
+      }
+    })
+    return () => { cancelled = true }
+  }, [generatedDesigns])
+
+  // Keep sessionStorage in sync so reloading the page restores the current design.
   useEffect(() => {
     if (designData) {
-      try {
-        const storable = {
-          ...designData,
-          generatedDesigns: designData.generatedDesigns?.map(d => ({
-            ...d,
-            image: d.image?.startsWith('data:') ? null : d.image,
-          })),
-        }
-        sessionStorage.setItem('currentDesign', JSON.stringify(storable))
-      } catch {}
+      try { sessionStorage.setItem('currentDesign', JSON.stringify(designData)) } catch {}
     } else {
       sessionStorage.removeItem('currentDesign')
     }
