@@ -1020,6 +1020,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
   const [clientSendResult, setClientSendResult] = useState(null)
   const [statusUpdateFailed, setStatusUpdateFailed] = useState(false)
   const [savedToast, setSavedToast] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
 
   // Feature 1: Background color picker (non-EST only)
   const [designBgColor, setDesignBgColor] = useState(null)
@@ -1473,6 +1474,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
   }
 
   const handleSaveDesign = async () => {
+    setIsSaving(true)
     const now = new Date()
     const dateStr = now.toLocaleString('uk-UA', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Kiev' })
     const orderNum = fileName ? `#${fileName}` : `#${String(now.getTime()).slice(-5)}`
@@ -1579,10 +1581,11 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
         mockupThumb,
         mockupThumbs,
       }
-      onSaveOrder?.(order, { fullImage, designSnapshot })
+      await onSaveOrder?.(order, { fullImage, designSnapshot })
     }
+    setIsSaving(false)
     setSavedToast(true)
-    setTimeout(() => setSavedToast(false), 2500)
+    setTimeout(() => setSavedToast(false), 3000)
   }
 
   // Drawing event handlers
@@ -1775,7 +1778,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
       mockupOverlay,
       extraMockupProducts,
     }
-    onSaveOrder?.(order, { fullImage, designSnapshot })
+    await onSaveOrder?.(order, { fullImage, designSnapshot })
 
     // Send order details + files to designer Telegram group (non-blocking)
     const checkedFiles = sendItems.filter(i => i.checked)
@@ -2210,9 +2213,12 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
             </button>
             <button
               onClick={handleSaveDesign}
-              className="w-full flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl py-2.5 text-sm font-semibold transition-colors"
+              disabled={isSaving}
+              className="w-full flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-70 disabled:cursor-not-allowed text-white rounded-xl py-2.5 text-sm font-semibold transition-colors"
             >
-              {savedToast
+              {isSaving
+                ? <><svg className="animate-spin" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>Зберігаємо…</>
+                : savedToast
                 ? <><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Збережено</>
                 : <><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>Зберегти дизайн</>
               }
