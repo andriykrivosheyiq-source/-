@@ -79,7 +79,6 @@ async function handleTelegramSendOrder(request, env) {
       const form = new FormData()
       form.append('chat_id', chatId)
       form.append('document', blob, filename)
-      form.append('caption', file.label || '')
       await fetch(`${TG_BASE}/bot${token}/sendDocument`, { method: 'POST', body: form })
     } catch {
       // fallback: send via URL if fetch fails
