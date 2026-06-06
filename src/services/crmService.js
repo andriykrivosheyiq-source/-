@@ -53,6 +53,8 @@ export async function sendOrderToDesignerTelegram({ order, files }) {
   const uploaded = await Promise.all(
     files.map(async (file) => {
       if (!file.dataUrl) return null
+      // Already a remote URL — no need to re-upload
+      if (file.dataUrl.startsWith('http')) return { label: file.label, url: file.dataUrl }
       try {
         const url = await uploadImageToCloudinary(file.dataUrl, file.filename)
         return { label: file.label, url }

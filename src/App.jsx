@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react'
 import { Routes, Route, Navigate, useNavigate } from 'react-router-dom'
 import { collection, onSnapshot, doc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore'
 import { db } from './services/firebase'
+import { uploadImageToCloudinary } from './services/imageUpload'
 import Sidebar from './components/Sidebar'
 import CreateDesign from './pages/CreateDesign'
 import DesignPlacement from './pages/DesignPlacement'
@@ -15,12 +16,52 @@ function clean(obj) {
   return JSON.parse(JSON.stringify(obj))
 }
 
+// Upload base64 images in extras to Cloudinary; return Firestore-safe fields.
+async function persistExtras(id, extras) {
+  if (!extras) return {}
+  const fields = {}
+
+  if (extras.fullImage) {
+    try {
+      fields._fullImageUrl = await uploadImageToCloudinary(
+        extras.fullImage,
+        `full_${id.replace(/^#/, '')}`
+      )
+    } catch (e) {
+      console.error('Cloudinary fullImage upload failed:', e)
+    }
+  }
+
+  if (extras.designSnapshot) {
+    const snap = { ...extras.designSnapshot }
+    if (snap.generatedDesigns?.length) {
+      snap.generatedDesigns = await Promise.all(
+        snap.generatedDesigns.map(async (d) => {
+          if (!d.image || !d.image.startsWith('data:')) return d
+          try {
+            const url = await uploadImageToCloudinary(
+              d.image,
+              `design_${id.replace(/^#/, '')}`
+            )
+            return { ...d, image: url }
+          } catch {
+            return d
+          }
+        })
+      )
+    }
+    fields._designSnapshot = snap
+  }
+
+  return fields
+}
+
 function AppInner() {
   const navigate = useNavigate()
   const [designData, setDesignData] = useState(null)
   const [savedOrders, setSavedOrders] = useState([])
   const [ordersLoading, setOrdersLoading] = useState(true)
-  // In-memory: full images + designSnapshot (too large for Firestore)
+  // In-memory cache; also populated from Firestore (_fullImageUrl, _designSnapshot) on load
   const orderExtras = useRef({})
 
   // Real-time listener — all team members see the same kanban
@@ -31,6 +72,17 @@ function AppInner() {
         const orders = snap.docs
           .map(d => d.data())
           .sort((a, b) => (b._createdAt || 0) - (a._createdAt || 0))
+
+        // Restore extras from Firestore for orders not already in session memory
+        for (const order of orders) {
+          if (!orderExtras.current[order.id] && (order._fullImageUrl || order._designSnapshot)) {
+            orderExtras.current[order.id] = {
+              fullImage: order._fullImageUrl || null,
+              designSnapshot: order._designSnapshot || {},
+            }
+          }
+        }
+
         setSavedOrders(orders)
         setOrdersLoading(false)
       },
@@ -44,8 +96,13 @@ function AppInner() {
 
   const handleSaveOrder = async (order, extras) => {
     if (extras) orderExtras.current[order.id] = extras
+    const persisted = await persistExtras(order.id, extras)
+    // Keep session extras in sync with persisted URLs
+    if (persisted._fullImageUrl && orderExtras.current[order.id]) {
+      orderExtras.current[order.id].fullImage = persisted._fullImageUrl
+    }
     try {
-      await setDoc(doc(db, 'orders', order.id), clean({ ...order, _createdAt: Date.now() }))
+      await setDoc(doc(db, 'orders', order.id), clean({ ...order, _createdAt: Date.now(), ...persisted }))
     } catch (e) {
       console.error('Save order failed:', e)
     }
@@ -61,8 +118,12 @@ function AppInner() {
 
   const handleUpdateOrderFull = async (id, changes, extras) => {
     if (extras) orderExtras.current[id] = extras
+    const persisted = await persistExtras(id, extras)
+    if (persisted._fullImageUrl && orderExtras.current[id]) {
+      orderExtras.current[id].fullImage = persisted._fullImageUrl
+    }
     try {
-      await updateDoc(doc(db, 'orders', id), clean(changes))
+      await updateDoc(doc(db, 'orders', id), clean({ ...changes, ...persisted }))
     } catch (e) {
       console.error('Update order full failed:', e)
     }
