@@ -63,7 +63,7 @@ function removeWhiteBg(img, threshold = 220, noDilation = false) {
   // White clothing (255,255,255) differs from gray (232,232,232) by ~23 units → stays intact.
   // For children's drawings: standard brightness threshold.
   const GR = 232  // #E8E8E8
-  const TOL = 11  // gray bg range: 221–243 removed; 244+ (off-white/white) kept; |255-232|=23>11 ✓
+  const TOL = 7   // removes 225–239 only; clothing anti-aliased edges (240+) and white (255) kept
   const isBackground = noDilation
     ? (pos) => {
         const i = pos * 4
