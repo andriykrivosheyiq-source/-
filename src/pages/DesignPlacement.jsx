@@ -1670,12 +1670,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
     if (!canvas) return
     const dataUrl = canvas.toDataURL('image/png')
     setDrawingDataUrl(dataUrl)
-    // Sync mockup directly from canvas (immediate, no async useEffect delay)
-    try {
-      setMockupDesignUrl(removeWhiteBg(canvas).toDataURL('image/png'))
-    } catch {
-      setMockupDesignUrl(dataUrl)
-    }
+    removeBgFromUrl(dataUrl).then(cleaned => setMockupDesignUrl(cleaned)).catch(() => setMockupDesignUrl(dataUrl))
   }
 
   const commitCanvas = () => {
@@ -1683,11 +1678,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
     if (!canvas || canvas.width === 0 || canvas.height === 0) return
     const dataUrl = canvas.toDataURL('image/png')
     setDrawingDataUrl(dataUrl)
-    try {
-      setMockupDesignUrl(removeWhiteBg(canvas).toDataURL('image/png'))
-    } catch {
-      setMockupDesignUrl(dataUrl)
-    }
+    removeBgFromUrl(dataUrl).then(cleaned => setMockupDesignUrl(cleaned)).catch(() => setMockupDesignUrl(dataUrl))
   }
 
   const clearDrawing = () => {
