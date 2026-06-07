@@ -332,7 +332,7 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
     { id: 'tRight', x: 54, y: 25, size: 20, rotation: 0, color: '#000000' },
     { id: 'o',      x: 76, y: 25, size: 22, rotation: 0, color: '#000000' },
   ])
-  const [estEl, setEstEl] = useState(initialState?.estEl || { x: 50, y: 88, color: '#000000', fontSize: 2.8 })
+  const [estEl, setEstEl] = useState(initialState?.estEl || { x: 50, y: 88, color: '#000000', fontSize: 6 })
   const [illus, setIllus] = useState(initialState?.illus || { x: 50, y: 45, size: 52, cropBottom: 0 })
   const [cleanedUrl, setCleanedUrl] = useState(null)
   const [selected, setSelected] = useState(null)
@@ -380,7 +380,7 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
 
       if (dr.id === 'est') {
         if (dr.type === 'move')   setEstEl(prev => ({ ...prev, x: dr.ox + dx, y: dr.oy + dy }))
-        if (dr.type === 'resize') setEstEl(prev => ({ ...prev, fontSize: Math.max(1, Math.min(8, dr.os + (dx + dy) * 0.04)) }))
+        if (dr.type === 'resize') setEstEl(prev => ({ ...prev, fontSize: Math.max(1, Math.min(30, dr.os + (dx + dy) * 0.12)) }))
       } else if (dr.id === 'illus') {
         if (dr.type === 'move')    setIllus(prev => ({ ...prev, x: dr.ox + dx, y: dr.oy + dy }))
         if (dr.type === 'resize')  setIllus(prev => ({ ...prev, size: Math.max(10, Math.min(100, dr.os + (dx + dy) * 0.5)) }))
@@ -496,7 +496,7 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
           />
         </label>
       </div>
-      <div ref={containerRef} onClick={() => setSelected(null)} style={{ position: 'relative', width: '100%', aspectRatio: '16 / 9', background: bgColor, userSelect: 'none', touchAction: 'none', overflow: 'hidden', ...(showGrid ? { backgroundImage: 'linear-gradient(rgba(99,102,241,0.2) 1px, transparent 1px), linear-gradient(90deg, rgba(99,102,241,0.2) 1px, transparent 1px)', backgroundSize: '10% 10%' } : {}) }}>
+      <div ref={containerRef} onClick={() => setSelected(null)} style={{ position: 'relative', width: '100%', aspectRatio: '16 / 9', background: bgColor, userSelect: 'none', touchAction: 'none', overflow: 'hidden', containerType: 'inline-size', ...(showGrid ? { backgroundImage: 'linear-gradient(rgba(99,102,241,0.2) 1px, transparent 1px), linear-gradient(90deg, rgba(99,102,241,0.2) 1px, transparent 1px)', backgroundSize: '10% 10%' } : {}) }}>
 
         {/* Grid toggle + Letter style switcher */}
         <div style={{ position: 'absolute', top: '8px', right: '8px', zIndex: 25, display: 'flex', gap: '6px', alignItems: 'center' }}>
@@ -574,7 +574,7 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
           </div>
         )}
 
-        {showEstText && <div onMouseDown={e => startDrag('est', 'move', e)} onTouchStart={e => startDrag('est', 'move', e)} onClick={e => handleClick('est', e)} style={{ position: 'absolute', left: `${estEl.x}%`, top: `${estEl.y}%`, transform: 'translate(-50%, -50%)', fontFamily: 'Arial, Helvetica, sans-serif', fontWeight: 700, fontSize: `${estEl.fontSize}vw`, letterSpacing: '6px', color: estEl.color, cursor: isEstSelected ? 'grab' : 'pointer', zIndex: isEstSelected ? 20 : 10, whiteSpace: 'nowrap' }}>
+        {showEstText && <div onMouseDown={e => startDrag('est', 'move', e)} onTouchStart={e => startDrag('est', 'move', e)} onClick={e => handleClick('est', e)} style={{ position: 'absolute', left: `${estEl.x}%`, top: `${estEl.y}%`, transform: 'translate(-50%, -50%)', fontFamily: 'Arial, Helvetica, sans-serif', fontWeight: 700, fontSize: `${estEl.fontSize}cqw`, letterSpacing: '6px', color: estEl.color, cursor: isEstSelected ? 'grab' : 'pointer', zIndex: isEstSelected ? 20 : 10, whiteSpace: 'nowrap' }}>
           {isEstSelected && <div style={{ position: 'absolute', inset: '-5px', border: '2px dashed #4f46e5', borderRadius: '6px', pointerEvents: 'none' }} />}
           {(estText || 'EST.2025').toUpperCase()}
           {isEstSelected && (
