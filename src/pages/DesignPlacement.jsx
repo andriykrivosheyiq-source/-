@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { products as allProducts, productCategories } from '../data/mockData'
 import { generateDesigns, clearCache, editDesign } from '../services/gemini'
 import { sendToClientCRM, getOrderByCrmNumber, updateOrderStatus, sendOrderToDesignerTelegram } from '../services/crmService'
+import { removeBgFromUrl } from '../utils/imageUtils'
 
 const D_PATH =
   'M291 123L78 153L88 232L114 229L116 233L148 467L143 471L121 474L132 555L349 526L400 459L360 176Z ' +
@@ -1140,9 +1141,10 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
         } else {
           const sourceUrl = drawingDataUrl || currentDesignImage
           try {
-            const img = await loadImgEl(sourceUrl)
-            const cleaned = removeWhiteBg(img)
-            if (!cancelled) setMockupDesignUrl(cleaned.toDataURL('image/png'))
+            // Use removeBgFromUrl (fetch→blob→base64) to avoid CORS canvas taint on Cloudinary URLs.
+            // Direct loadImgEl falls back to no-crossOrigin which taints the canvas → getImageData throws.
+            const cleaned = await removeBgFromUrl(sourceUrl)
+            if (!cancelled) setMockupDesignUrl(cleaned)
           } catch {
             if (!cancelled) setMockupDesignUrl(sourceUrl)
           }
@@ -1565,7 +1567,11 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
     ].filter(Boolean)
     const productNameStr = allProductNames.join(', ')
 
-    const transparentImage = mockupDesignUrl || null
+    // Prefer pre-computed mockupDesignUrl; if still null (useEffect still running), compute inline
+    let transparentImage = mockupDesignUrl || null
+    if (!transparentImage && currentDesignImage) {
+      try { transparentImage = await removeBgFromUrl(currentDesignImage) } catch { /* leave null */ }
+    }
 
     if (designData?.editingOrderId) {
       // Update existing order — don't create a new card
@@ -1793,7 +1799,10 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
       mockupOverlay,
       extraMockupProducts,
     }
-    const transparentImage = mockupDesignUrl || null
+    let transparentImage = mockupDesignUrl || null
+    if (!transparentImage && currentDesignImage) {
+      try { transparentImage = await removeBgFromUrl(currentDesignImage) } catch { /* leave null */ }
+    }
     await onSaveOrder?.(order, { fullImage, transparentImage, designSnapshot })
 
     setShowSendModal(false)
