@@ -1047,7 +1047,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
   const [mockupEditProduct, setMockupEditProduct] = useState(null)
   const [showClientModal, setShowClientModal] = useState(false)
   const [clientRevisionMode, setClientRevisionMode] = useState(false)
-  const [crmOrderNumber, setCrmOrderNumber] = useState('')
+  const [crmOrderNumber, setCrmOrderNumber] = useState(designData?.fileName || '')
   const [crmOrderData, setCrmOrderData] = useState(null)
   const [lookingUpOrder, setLookingUpOrder] = useState(false)
   const [orderLookupError, setOrderLookupError] = useState(null)
