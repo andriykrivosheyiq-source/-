@@ -614,7 +614,7 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
               {isO ? (
                 <svg viewBox="285 0 270 300" style={{ width: '100%', height: 'auto', display: 'block' }}>
                   <ellipse cx="420" cy="150" rx="135" ry="150" fill={letter.color} />
-                  <ellipse cx="420" cy="150" rx="95" ry="110" fill="white" />
+                  <ellipse cx="420" cy="150" rx="95" ry="110" fill="transparent" />
                 </svg>
               ) : (
                 <svg viewBox="0 0 260 300" style={{ width: '100%', height: 'auto', display: 'block' }}>
