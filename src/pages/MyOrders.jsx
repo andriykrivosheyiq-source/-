@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { products as allProducts } from '../data/mockData'
 import { sendOrderToDesignerTelegram } from '../services/crmService'
+import { removeBgFromUrlIfNeeded } from '../utils/imageUtils'
 
 const STATUS_CONFIG = {
   new:      { label: 'В роботі',          dot: 'bg-blue-400',   bg: 'bg-blue-50 border-blue-100',       badge: 'bg-blue-100 text-blue-700' },
@@ -587,12 +588,21 @@ export default function MyOrders({ savedOrders = [], ordersLoading = false, orde
 
     (async () => {
       const caption = [cleanId, productNamesStr, designerData.orderSize, designerData.embroiderySize].filter(Boolean).join(' ')
-      // extras.fullImage is already bg-removed (saved via mockupDesignUrl since the fix).
-      // Do NOT re-apply removeBgFromUrl — double removal over-erases light-colored letter outlines.
-      const tgFiles = checkedFiles.map(f => ({
-        dataUrl: f.id === 'design' ? (extras?.fullImage || f.thumbnail) : f.thumbnail,
-        label: caption,
-        filename: f.id === 'design' ? `${cleanId}.png` : `${caption}.png`,
+      // For the design file: remove background only if not already removed.
+      // Checks corner transparency to avoid double-removal which erases light-colored elements.
+      const tgFiles = await Promise.all(checkedFiles.map(async f => {
+        let dataUrl = f.thumbnail
+        if (f.id === 'design') {
+          const src = extras?.fullImage || f.thumbnail
+          if (src) {
+            try { dataUrl = await removeBgFromUrlIfNeeded(src) } catch { dataUrl = src }
+          }
+        }
+        return {
+          dataUrl,
+          label: caption,
+          filename: f.id === 'design' ? `${cleanId}.png` : `${caption}.png`,
+        }
       }))
       sendOrderToDesignerTelegram({
         order: { ...order, productName: productNamesStr, orderSize: designerData.orderSize, embroiderySize: designerData.embroiderySize, comment: designerData.comment },

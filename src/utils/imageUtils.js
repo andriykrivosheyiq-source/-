@@ -107,3 +107,30 @@ export async function removeBgFromUrl(url) {
   const img = await loadImgEl(url)
   return removeWhiteBg(img).toDataURL('image/png')
 }
+
+/**
+ * Remove background only if the image is not already transparent.
+ * Checks the four corners: if any corner pixel is already transparent (alpha < 128)
+ * the image has already been bg-removed and is returned as-is to avoid double-removal
+ * which can erase light-colored design elements.
+ */
+export async function removeBgFromUrlIfNeeded(url) {
+  const img = await loadImgEl(url)
+  const W = img.naturalWidth || img.width
+  const H = img.naturalHeight || img.height
+  const check = document.createElement('canvas')
+  check.width = W; check.height = H
+  const ctx = check.getContext('2d')
+  ctx.drawImage(img, 0, 0)
+  const corners = [
+    ctx.getImageData(0,     0,     1, 1).data,
+    ctx.getImageData(W - 1, 0,     1, 1).data,
+    ctx.getImageData(0,     H - 1, 1, 1).data,
+    ctx.getImageData(W - 1, H - 1, 1, 1).data,
+  ]
+  if (corners.some(p => p[3] < 128)) {
+    // Already bg-removed — return as-is
+    return check.toDataURL('image/png')
+  }
+  return removeWhiteBg(img).toDataURL('image/png')
+}
