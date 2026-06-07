@@ -207,6 +207,17 @@ export async function editDesign(currentImageDataUrl, editPrompt) {
 
   const modelId = await findImageModel(apiKey)
 
+  // If the image was already uploaded to Cloudinary, fetch it back as base64
+  if (currentImageDataUrl.startsWith('http')) {
+    const fetched = await fetch(currentImageDataUrl)
+    const blob = await fetched.blob()
+    currentImageDataUrl = await new Promise((resolve) => {
+      const reader = new FileReader()
+      reader.onload = e => resolve(e.target.result)
+      reader.readAsDataURL(blob)
+    })
+  }
+
   const [header, base64] = currentImageDataUrl.split(',')
   const mimeType = header.match(/data:([^;]+)/)?.[1] || 'image/png'
 
