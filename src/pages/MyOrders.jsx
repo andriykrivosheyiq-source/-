@@ -588,14 +588,20 @@ export default function MyOrders({ savedOrders = [], ordersLoading = false, orde
 
     (async () => {
       const caption = [cleanId, productNamesStr, designerData.orderSize, designerData.embroiderySize].filter(Boolean).join(' ')
-      // For the design file: remove background only if not already removed.
-      // Checks corner transparency to avoid double-removal which erases light-colored elements.
       const tgFiles = await Promise.all(checkedFiles.map(async f => {
         let dataUrl = f.thumbnail
         if (f.id === 'design') {
-          const src = extras?.fullImage || f.thumbnail
-          if (src) {
-            try { dataUrl = await removeBgFromUrlIfNeeded(src) } catch { dataUrl = src }
+          // Mirror DesignPlacement: apply removeWhiteBg to the original Gemini output
+          // (generatedDesigns[i].image), NOT the re-encoded fullImage. The original
+          // has crisp JPEG edges the BFS dilation can cross to reach enclosed white areas.
+          const genDesignUrl = extras?.designSnapshot?.generatedDesigns?.[0]?.image
+          if (genDesignUrl) {
+            try { dataUrl = await removeBgFromUrl(genDesignUrl) } catch {}
+          } else {
+            const src = extras?.fullImage || f.thumbnail
+            if (src) {
+              try { dataUrl = await removeBgFromUrlIfNeeded(src) } catch { dataUrl = src }
+            }
           }
         }
         return {
