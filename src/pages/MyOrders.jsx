@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { products as allProducts } from '../data/mockData'
 import { sendOrderToDesignerTelegram } from '../services/crmService'
+import { removeBgFromUrl } from '../utils/imageUtils'
 
 const STATUS_CONFIG = {
   new:      { label: 'В роботі',          dot: 'bg-blue-400',   bg: 'bg-blue-50 border-blue-100',       badge: 'bg-blue-100 text-blue-700' },
@@ -583,23 +584,33 @@ export default function MyOrders({ savedOrders = [], ordersLoading = false, orde
     const allProductNames = productIds?.length
       ? productIds.map(pid => allProducts.find(p => p.id === pid)?.nameUk).filter(Boolean)
       : order.productName ? [order.productName] : []
-    const productNamesStr = allProductNames.join(', ') || order.productName || ''
-    const caption = [cleanId, productNamesStr, designerData.orderSize, designerData.embroiderySize].filter(Boolean).join(' ')
-    const tgFiles = checkedFiles.map(f => ({
-      dataUrl: f.thumbnail,
-      label: caption,
-      filename: f.id === 'design' ? `${cleanId}.png` : `${caption}.png`,
-    }))
-    sendOrderToDesignerTelegram({
-      order: { ...order, productName: productNamesStr, orderSize: designerData.orderSize, embroiderySize: designerData.embroiderySize, comment: designerData.comment },
-      files: tgFiles,
-    }).then(() => {
-      setTgToast('ok')
-      setTimeout(() => setTgToast(null), 4000)
-    }).catch(() => {
-      setTgToast('error')
-      setTimeout(() => setTgToast(null), 4000)
-    })
+    const productNamesStr = allProductNames.join(', ') || order.productName || '';
+
+    (async () => {
+      const caption = [cleanId, productNamesStr, designerData.orderSize, designerData.embroiderySize].filter(Boolean).join(' ')
+      // For the design file, remove the white background before sending
+      const tgFiles = await Promise.all(checkedFiles.map(async f => {
+        let dataUrl = f.thumbnail
+        if (f.id === 'design' && dataUrl) {
+          try { dataUrl = await removeBgFromUrl(dataUrl) } catch {}
+        }
+        return {
+          dataUrl,
+          label: caption,
+          filename: f.id === 'design' ? `${cleanId}.png` : `${caption}.png`,
+        }
+      }))
+      sendOrderToDesignerTelegram({
+        order: { ...order, productName: productNamesStr, orderSize: designerData.orderSize, embroiderySize: designerData.embroiderySize, comment: designerData.comment },
+        files: tgFiles,
+      }).then(() => {
+        setTgToast('ok')
+        setTimeout(() => setTgToast(null), 4000)
+      }).catch(() => {
+        setTgToast('error')
+        setTimeout(() => setTgToast(null), 4000)
+      })
+    })()
   }
 
   return (
