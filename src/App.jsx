@@ -32,6 +32,17 @@ async function persistExtras(id, extras) {
     }
   }
 
+  if (extras.transparentImage) {
+    try {
+      fields._transparentImageUrl = await uploadImageToCloudinary(
+        extras.transparentImage,
+        `transparent_${id.replace(/^#/, '')}`
+      )
+    } catch (e) {
+      console.error('Cloudinary transparentImage upload failed:', e)
+    }
+  }
+
   if (extras.designSnapshot) {
     const snap = { ...extras.designSnapshot }
     if (snap.generatedDesigns?.length) {
@@ -117,6 +128,7 @@ function AppInner() {
           if (!orderExtras.current[order.id] && (order._fullImageUrl || order._designSnapshot)) {
             orderExtras.current[order.id] = {
               fullImage: order._fullImageUrl || null,
+              transparentImage: order._transparentImageUrl || null,
               designSnapshot: order._designSnapshot || {},
             }
           }
@@ -140,6 +152,9 @@ function AppInner() {
     if (persisted._fullImageUrl && orderExtras.current[order.id]) {
       orderExtras.current[order.id].fullImage = persisted._fullImageUrl
     }
+    if (persisted._transparentImageUrl && orderExtras.current[order.id]) {
+      orderExtras.current[order.id].transparentImage = persisted._transparentImageUrl
+    }
     try {
       await setDoc(doc(db, 'orders', order.id), clean({ ...order, _createdAt: Date.now(), ...persisted }))
     } catch (e) {
@@ -160,6 +175,9 @@ function AppInner() {
     const persisted = await persistExtras(id, extras)
     if (persisted._fullImageUrl && orderExtras.current[id]) {
       orderExtras.current[id].fullImage = persisted._fullImageUrl
+    }
+    if (persisted._transparentImageUrl && orderExtras.current[id]) {
+      orderExtras.current[id].transparentImage = persisted._transparentImageUrl
     }
     try {
       await updateDoc(doc(db, 'orders', id), clean({ ...changes, ...persisted }))

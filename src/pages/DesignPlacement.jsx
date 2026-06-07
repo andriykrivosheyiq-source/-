@@ -1565,6 +1565,8 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
     ].filter(Boolean)
     const productNameStr = allProductNames.join(', ')
 
+    const transparentImage = mockupDesignUrl || null
+
     if (designData?.editingOrderId) {
       // Update existing order — don't create a new card
       onUpdateOrderFull?.(designData.editingOrderId, {
@@ -1575,7 +1577,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
         colors: [designData?.productColors?.[selectedProduct] || '#1a1a1a'],
         productId: catMap[currentProduct?.category] || currentProduct?.category || 'hoodie',
         productName: productNameStr,
-      }, { fullImage, designSnapshot: { ...designSnapshot, editingOrderId: designData.editingOrderId } })
+      }, { fullImage, transparentImage, designSnapshot: { ...designSnapshot, editingOrderId: designData.editingOrderId } })
     } else {
       const order = {
         id: orderNum,
@@ -1589,7 +1591,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
         mockupThumb,
         mockupThumbs,
       }
-      await onSaveOrder?.(order, { fullImage, designSnapshot })
+      await onSaveOrder?.(order, { fullImage, transparentImage, designSnapshot })
     }
     setIsSaving(false)
     setSavedToast(true)
@@ -1791,7 +1793,8 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
       mockupOverlay,
       extraMockupProducts,
     }
-    await onSaveOrder?.(order, { fullImage, designSnapshot })
+    const transparentImage = mockupDesignUrl || null
+    await onSaveOrder?.(order, { fullImage, transparentImage, designSnapshot })
 
     setShowSendModal(false)
     setSavedToast(true)
