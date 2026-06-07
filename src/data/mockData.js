@@ -102,16 +102,16 @@ export const products = [
   { id: 'shop-black',        nameUk: 'Чорний шопер',            category: 'shopper', image: `${b}Копия чорний.jpg` },
 
   // ── Кепки (10) ────────────────────────────────────────────────
-  { id: 'cap-lightblue', nameUk: 'Блакитна кепка',    category: 'cap', image: `${b}кепка блакитна.JPEG` },
-  { id: 'cap-white',     nameUk: 'Біла кепка',         category: 'cap', image: `${b}кепка біла.JPEG` },
-  { id: 'cap-brown',     nameUk: 'Коричнева кепка',    category: 'cap', image: `${b}кепка коричнева.JPEG` },
-  { id: 'cap-milk',      nameUk: 'Молочна кепка',      category: 'cap', image: `${b}кепка молочна.JPEG` },
-  { id: 'cap-orange',    nameUk: 'Помаранчева кепка',  category: 'cap', image: `${b}кепка помаранчева.JPEG` },
+  { id: 'cap-lightblue', nameUk: 'Блакитна кепка',    category: 'cap', image: `${b}кепка блакитна.jpg` },
+  { id: 'cap-white',     nameUk: 'Біла кепка',         category: 'cap', image: `${b}кепка біла.jpg` },
+  { id: 'cap-brown',     nameUk: 'Коричнева кепка',    category: 'cap', image: `${b}кепка коричнева.jpg` },
+  { id: 'cap-milk',      nameUk: 'Молочна кепка',      category: 'cap', image: `${b}кепка молочна.jpg` },
+  { id: 'cap-orange',    nameUk: 'Помаранчева кепка',  category: 'cap', image: `${b}кепка помаранчева.jpg` },
   { id: 'cap-blue',      nameUk: 'Синя кепка',         category: 'cap', image: `${b}кепка синя.png` },
-  { id: 'cap-darkgreen', nameUk: 'Темно-зелена кепка', category: 'cap', image: `${b}кепка темно-зелена.JPEG` },
-  { id: 'cap-darkblue',  nameUk: 'Темно-синя кепка',   category: 'cap', image: `${b}кепка темно-синій.JPEG` },
-  { id: 'cap-darkgray',  nameUk: 'Темно-сіра кепка',   category: 'cap', image: `${b}кепка темно-сірий.JPEG` },
-  { id: 'cap-black',     nameUk: 'Чорна кепка',        category: 'cap', image: `${b}кепка чорна.JPEG` },
+  { id: 'cap-darkgreen', nameUk: 'Темно-зелена кепка', category: 'cap', image: `${b}кепка темно-зелена.jpg` },
+  { id: 'cap-darkblue',  nameUk: 'Темно-синя кепка',   category: 'cap', image: `${b}кепка темно-синій.jpg` },
+  { id: 'cap-darkgray',  nameUk: 'Темно-сіра кепка',   category: 'cap', image: `${b}кепка темно-сірий.jpg` },
+  { id: 'cap-black',     nameUk: 'Чорна кепка',        category: 'cap', image: `${b}кепка чорна.jpg` },
 ]
 
 export const designStyles = [
