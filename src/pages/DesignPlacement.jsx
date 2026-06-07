@@ -112,7 +112,7 @@ function removeWhiteBg(img, threshold = 220, noDilation = false) {
 
   // Pass 2: dilation to cross thin drawn outlines (children's drawings only)
   if (!noDilation) {
-    const JUMP = Math.min(80, Math.max(20, Math.round((W + H) / 60)))
+    const JUMP = Math.min(300, Math.max(80, Math.round((W + H) / 12)))
     const dist = new Int16Array(W * H).fill(-1)
     const dq = []
     for (let i = 0; i < W * H; i++) if (visited[i]) { dist[i] = 0; dq.push(i) }
