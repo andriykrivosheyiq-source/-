@@ -1489,7 +1489,8 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
         srcCanvas = await estPosterRef.current.exportToCanvas()
       } else if (currentDesignImage) {
         const c = drawingTool && drawingCanvasRef.current
-        const srcUrl = (c && c.width > 0) ? c.toDataURL('image/png') : (drawingDataUrl || currentDesignImage)
+        // Prefer mockupDesignUrl (bg-removed) so fullImage stored in Firestore is already transparent
+        const srcUrl = (c && c.width > 0) ? c.toDataURL('image/png') : (drawingDataUrl || mockupDesignUrl || currentDesignImage)
         const img = await loadImgEl(srcUrl)
         srcCanvas = document.createElement('canvas')
         srcCanvas.width = img.naturalWidth || img.width
@@ -1697,7 +1698,8 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
         srcCanvas = await estPosterRef.current.exportToCanvas()
       } else if (currentDesignImage) {
         const c = drawingTool && drawingCanvasRef.current
-        const srcUrl = (c && c.width > 0) ? c.toDataURL('image/png') : (drawingDataUrl || currentDesignImage)
+        // Prefer mockupDesignUrl (bg-removed) so fullImage stored in Firestore is already transparent
+        const srcUrl = (c && c.width > 0) ? c.toDataURL('image/png') : (drawingDataUrl || mockupDesignUrl || currentDesignImage)
         const img = await loadImgEl(srcUrl)
         srcCanvas = document.createElement('canvas')
         srcCanvas.width = img.naturalWidth || img.width
