@@ -102,9 +102,23 @@ export function removeWhiteBg(img, threshold = 220, noDilation = false) {
   return canvas
 }
 
+/** Convert a remote URL to a base64 data URL via fetch to avoid canvas CORS taint. */
+async function toDataUrl(url) {
+  if (!url.startsWith('http')) return url
+  const res = await fetch(url)
+  const blob = await res.blob()
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = e => resolve(e.target.result)
+    reader.onerror = reject
+    reader.readAsDataURL(blob)
+  })
+}
+
 /** Load an image URL/dataURL, remove its white background, return a PNG data URL. */
 export async function removeBgFromUrl(url) {
-  const img = await loadImgEl(url)
+  const dataUrl = await toDataUrl(url)
+  const img = await loadImgEl(dataUrl)
   return removeWhiteBg(img).toDataURL('image/png')
 }
 
@@ -113,9 +127,11 @@ export async function removeBgFromUrl(url) {
  * Checks the four corners: if any corner pixel is already transparent (alpha < 128)
  * the image has already been bg-removed and is returned as-is to avoid double-removal
  * which can erase light-colored design elements.
+ * Uses fetch→dataURL to prevent canvas CORS taint on Cloudinary URLs.
  */
 export async function removeBgFromUrlIfNeeded(url) {
-  const img = await loadImgEl(url)
+  const dataUrl = await toDataUrl(url)
+  const img = await loadImgEl(dataUrl)
   const W = img.naturalWidth || img.width
   const H = img.naturalHeight || img.height
   const check = document.createElement('canvas')
