@@ -99,7 +99,14 @@ function AppInner() {
       })
     ).then(uploaded => {
       if (!cancelled) {
-        setDesignData(prev => prev ? { ...prev, generatedDesigns: uploaded } : prev)
+        // Only update if at least one image was successfully converted (avoids infinite loop
+        // when all uploads fail: catch { return d } returns the same object reference, so
+        // if nothing changed, don't call setDesignData — that would create a new array reference
+        // and re-trigger this effect forever).
+        const anyChanged = uploaded.some((d, i) => d !== generatedDesigns[i])
+        if (anyChanged) {
+          setDesignData(prev => prev ? { ...prev, generatedDesigns: uploaded } : prev)
+        }
       }
     })
     return () => { cancelled = true }
