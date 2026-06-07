@@ -570,7 +570,7 @@ export default function MyOrders({ savedOrders = [], ordersLoading = false, orde
 
   const handleConfirmTransfer = (designerData) => {
     if (!transferPending) return
-    const { order } = transferPending
+    const { order, extras } = transferPending
     onUpdateOrder?.(order.id, { status: 'designer', ...designerData })
     setTransferPending(null)
 
@@ -579,14 +579,19 @@ export default function MyOrders({ savedOrders = [], ordersLoading = false, orde
 
     setTgToast('sending')
     const cleanId = (order.id || '').replace(/^#/, '')
-    const caption = [cleanId, order.productName, designerData.orderSize, designerData.embroiderySize].filter(Boolean).join(' ')
+    const productIds = extras?.designSnapshot?.selectedProducts
+    const allProductNames = productIds?.length
+      ? productIds.map(pid => allProducts.find(p => p.id === pid)?.nameUk).filter(Boolean)
+      : order.productName ? [order.productName] : []
+    const productNamesStr = allProductNames.join(', ') || order.productName || ''
+    const caption = [cleanId, productNamesStr, designerData.orderSize, designerData.embroiderySize].filter(Boolean).join(' ')
     const tgFiles = checkedFiles.map(f => ({
       dataUrl: f.thumbnail,
       label: caption,
       filename: f.id === 'design' ? `${cleanId}.png` : `${caption}.png`,
     }))
     sendOrderToDesignerTelegram({
-      order: { ...order, orderSize: designerData.orderSize, embroiderySize: designerData.embroiderySize, comment: designerData.comment },
+      order: { ...order, productName: productNamesStr, orderSize: designerData.orderSize, embroiderySize: designerData.embroiderySize, comment: designerData.comment },
       files: tgFiles,
     }).then(() => {
       setTgToast('ok')

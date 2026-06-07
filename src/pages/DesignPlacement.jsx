@@ -1558,6 +1558,12 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
 
     const catMap = { 'hoodie-basic': 'hoodie', 'hoodie-fleece': 'hoodie', 'hoodie-premium': 'hoodie', 'tshirt-basic': 'tshirt', 'tshirt-oversized': 'oversized', 'sweatshirt': 'sweatshirt', 'cap': 'cap', 'shopper': 'totebag' }
 
+    const allProductNames = [
+      currentProduct?.nameUk,
+      ...extraMockupProducts.map(pid => allProducts.find(p => p.id === pid)?.nameUk),
+    ].filter(Boolean)
+    const productNameStr = allProductNames.join(', ')
+
     if (designData?.editingOrderId) {
       // Update existing order — don't create a new card
       onUpdateOrderFull?.(designData.editingOrderId, {
@@ -1567,7 +1573,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
         mockupThumbs,
         colors: [designData?.productColors?.[selectedProduct] || '#1a1a1a'],
         productId: catMap[currentProduct?.category] || currentProduct?.category || 'hoodie',
-        productName: currentProduct?.nameUk || '',
+        productName: productNameStr,
       }, { fullImage, designSnapshot: { ...designSnapshot, editingOrderId: designData.editingOrderId } })
     } else {
       const order = {
@@ -1575,7 +1581,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
         name: fileName || `Дизайн від ${dateStr}`,
         status: orderStatus,
         productId: catMap[currentProduct?.category] || currentProduct?.category || 'hoodie',
-        productName: currentProduct?.nameUk || '',
+        productName: productNameStr,
         date: dateStr,
         colors: [designData?.productColors?.[selectedProduct] || '#1a1a1a'],
         image: thumb,
