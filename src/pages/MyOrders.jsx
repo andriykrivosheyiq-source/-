@@ -375,7 +375,7 @@ function OrderCard({ order, onStatusChange, onDelete, onOpen }) {
       <div className="flex gap-3 p-3">
         <div className="w-16 h-16 rounded-lg flex-shrink-0 overflow-hidden bg-gray-50">
           {order.image ? (
-            <img src={order.image} alt={order.name} className="w-full h-full object-cover" />
+            <img src={order.image} alt={order.name} loading="lazy" className="w-full h-full object-cover" />
           ) : (
             <div className="w-full h-full flex items-center justify-center text-gray-300">
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
