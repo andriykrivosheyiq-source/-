@@ -1021,6 +1021,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
   const [statusUpdateFailed, setStatusUpdateFailed] = useState(false)
   const [savedToast, setSavedToast] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
+  const [designerSendToast, setDesignerSendToast] = useState(null) // null | 'sending' | 'ok' | 'error'
 
   // Feature 1: Background color picker (non-EST only)
   const [designBgColor, setDesignBgColor] = useState(null)
@@ -1745,12 +1746,16 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
 
     const catMap = { 'hoodie-basic': 'hoodie', 'hoodie-fleece': 'hoodie', 'hoodie-premium': 'hoodie', 'tshirt-basic': 'tshirt', 'tshirt-oversized': 'oversized', 'sweatshirt': 'sweatshirt', 'cap': 'cap', 'shopper': 'totebag' }
     const transferDateStr = now.toLocaleString('uk-UA', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Kiev' }).replace(',', '')
+    const allProductNames = [
+      currentProduct?.nameUk,
+      ...extraMockupProducts.map(pid => allProducts.find(p => p.id === pid)?.nameUk),
+    ].filter(Boolean)
     const order = {
       id: orderNum,
       name: fileName || `Дизайн від ${dateStr}`,
       status: 'designer',
       productId: catMap[currentProduct?.category] || currentProduct?.category || 'hoodie',
-      productName: currentProduct?.nameUk || '',
+      productName: allProductNames.join(', '),
       date: dateStr,
       colors: [designData?.productColors?.[selectedProduct] || '#1a1a1a'],
       image: thumb,
@@ -1780,39 +1785,45 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
     }
     await onSaveOrder?.(order, { fullImage, designSnapshot })
 
-    // Send order details + files to designer Telegram group (non-blocking)
-    const checkedFiles = sendItems.filter(i => i.checked)
-    if (checkedFiles.length > 0) {
-      ;(async () => {
-        // Build transparent version of main design (for embroidery software)
-        let transparentDesignUrl = null
-        try {
-          if (mockupDesignUrl) {
-            transparentDesignUrl = mockupDesignUrl  // already bg-removed
-          } else if (isEst && estPosterRef.current) {
-            const tc = await estPosterRef.current.exportTransparent()
-            transparentDesignUrl = tc.toDataURL('image/png')
-          } else if (currentDesignImage) {
-            const img = await loadImgEl(currentDesignImage)
-            transparentDesignUrl = removeWhiteBg(img).toDataURL('image/png')
-          }
-        } catch {}
-        // Caption format: "Est_2026_Design Білий худі XL 27"
-        const cleanId = (fileName || order.id).replace(/^#/, '')
-        const caption = [cleanId, currentProduct?.nameUk, sendOrderSize, sendEmbroiderySize].filter(Boolean).join(' ')
-        const designerFiles = checkedFiles.map(item => ({
-          ...item,
-          dataUrl: item.id === 'design' && transparentDesignUrl ? transparentDesignUrl : item.dataUrl,
-          filename: item.id === 'design' ? `${cleanId}.png` : item.filename,
-          label: caption,
-        }))
-        sendOrderToDesignerTelegram({ order, files: designerFiles }).catch(console.error)
-      })()
-    }
-
     setShowSendModal(false)
     setSavedToast(true)
     setTimeout(() => setSavedToast(false), 2500)
+
+    // Send order details + files to designer Telegram group
+    const checkedFiles = sendItems.filter(i => i.checked)
+    if (checkedFiles.length > 0) {
+      setDesignerSendToast('sending')
+      ;(async () => {
+        try {
+          // Build transparent version of main design (for embroidery software)
+          let transparentDesignUrl = null
+          try {
+            if (mockupDesignUrl) {
+              transparentDesignUrl = mockupDesignUrl
+            } else if (isEst && estPosterRef.current) {
+              const tc = await estPosterRef.current.exportTransparent()
+              transparentDesignUrl = tc.toDataURL('image/png')
+            } else if (currentDesignImage) {
+              const img = await loadImgEl(currentDesignImage)
+              transparentDesignUrl = removeWhiteBg(img).toDataURL('image/png')
+            }
+          } catch {}
+          const cleanId = (fileName || order.id).replace(/^#/, '')
+          const caption = [cleanId, allProductNames.join(' + '), sendOrderSize, sendEmbroiderySize].filter(Boolean).join(' ')
+          const designerFiles = checkedFiles.map(item => ({
+            ...item,
+            dataUrl: item.id === 'design' && transparentDesignUrl ? transparentDesignUrl : item.dataUrl,
+            filename: item.id === 'design' ? `${cleanId}.png` : item.filename,
+            label: caption,
+          }))
+          await sendOrderToDesignerTelegram({ order, files: designerFiles })
+          setDesignerSendToast('ok')
+        } catch {
+          setDesignerSendToast('error')
+        }
+        setTimeout(() => setDesignerSendToast(null), 4000)
+      })()
+    }
   }
 
   return (
@@ -2541,6 +2552,21 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
               )}
             </div>
           </div>
+        </div>
+      )}
+
+      {designerSendToast && (
+        <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-5 py-3 rounded-xl shadow-lg text-sm font-semibold flex items-center gap-2 ${
+          designerSendToast === 'ok'    ? 'bg-green-500 text-white' :
+          designerSendToast === 'error' ? 'bg-red-500 text-white'   :
+                                          'bg-gray-800 text-white'
+        }`}>
+          {designerSendToast === 'sending' && <svg className="animate-spin flex-shrink-0" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>}
+          {designerSendToast === 'ok'      && <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>}
+          {designerSendToast === 'error'   && <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>}
+          {designerSendToast === 'sending' && 'Надсилаємо дизайнеру…'}
+          {designerSendToast === 'ok'      && 'Успішно надіслано дизайнеру ✓'}
+          {designerSendToast === 'error'   && "Помилка відправки — перевірте з'єднання"}
         </div>
       )}
     </div>
