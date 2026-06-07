@@ -110,17 +110,6 @@ export function removeWhiteBg(img, threshold = 220, noDilation = false) {
   return canvas
 }
 
-function runWhenIdle(fn) {
-  return new Promise((resolve) => {
-    const run = () => resolve(fn())
-    if (typeof requestIdleCallback !== 'undefined') {
-      requestIdleCallback(run, { timeout: 4000 })
-    } else {
-      setTimeout(run, 0)
-    }
-  })
-}
-
 /** Convert a remote URL to a base64 data URL via fetch to avoid canvas CORS taint. */
 async function toDataUrl(url) {
   if (!url.startsWith('http')) return url
@@ -138,7 +127,7 @@ async function toDataUrl(url) {
 export async function removeBgFromUrl(url) {
   const dataUrl = await toDataUrl(url)
   const img = await loadImgEl(dataUrl)
-  return runWhenIdle(() => removeWhiteBg(img).toDataURL('image/png'))
+  return removeWhiteBg(img).toDataURL('image/png')
 }
 
 /**
@@ -167,5 +156,5 @@ export async function removeBgFromUrlIfNeeded(url) {
     // Already bg-removed — return as-is
     return check.toDataURL('image/png')
   }
-  return runWhenIdle(() => removeWhiteBg(img).toDataURL('image/png'))
+  return removeWhiteBg(img).toDataURL('image/png')
 }

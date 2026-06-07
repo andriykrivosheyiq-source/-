@@ -1668,17 +1668,13 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
     lastDrawPosRef.current = null
     const canvas = drawingCanvasRef.current
     if (!canvas) return
-    const dataUrl = canvas.toDataURL('image/png')
-    setDrawingDataUrl(dataUrl)
-    removeBgFromUrl(dataUrl).then(cleaned => setMockupDesignUrl(cleaned)).catch(() => setMockupDesignUrl(dataUrl))
+    setDrawingDataUrl(canvas.toDataURL('image/png'))
   }
 
   const commitCanvas = () => {
     const canvas = drawingCanvasRef.current
     if (!canvas || canvas.width === 0 || canvas.height === 0) return
-    const dataUrl = canvas.toDataURL('image/png')
-    setDrawingDataUrl(dataUrl)
-    removeBgFromUrl(dataUrl).then(cleaned => setMockupDesignUrl(cleaned)).catch(() => setMockupDesignUrl(dataUrl))
+    setDrawingDataUrl(canvas.toDataURL('image/png'))
   }
 
   const clearDrawing = () => {
