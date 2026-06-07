@@ -92,6 +92,14 @@ export function removeWhiteBg(img, threshold = 220, noDilation = false) {
       if (dist[i] > 0 && !visited[i] && isBackground(i)) { visited[i] = 1; seeds2.push(i) }
     }
     bfsFill(seeds2)
+
+    // Phase 3: remove any remaining enclosed background regions (e.g., counter of 'О').
+    // After phases 1–2, any unvisited background pixel is fully enclosed by dark outlines.
+    const seeds3 = []
+    for (let i = 0; i < W * H; i++) {
+      if (!visited[i] && isBackground(i)) { visited[i] = 1; seeds3.push(i) }
+    }
+    bfsFill(seeds3)
   }
 
   for (let i = 0; i < W * H; i++) {
