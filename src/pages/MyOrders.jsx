@@ -588,11 +588,14 @@ export default function MyOrders({ savedOrders = [], ordersLoading = false, orde
 
     (async () => {
       const caption = [cleanId, productNamesStr, designerData.orderSize, designerData.embroiderySize].filter(Boolean).join(' ')
-      // For the design file, remove the white background before sending
+      // Prefer the original Gemini design URL for bg removal — it has clean edges
+      // that the BFS can properly cross (same source DesignPlacement uses for mockupDesignUrl)
+      const originalDesignUrl = extras?.designSnapshot?.generatedDesigns?.[0]?.image || null
       const tgFiles = await Promise.all(checkedFiles.map(async f => {
         let dataUrl = f.thumbnail
-        if (f.id === 'design' && dataUrl) {
-          try { dataUrl = await removeBgFromUrl(dataUrl) } catch {}
+        if (f.id === 'design') {
+          const bgSrc = originalDesignUrl || extras?.fullImage || dataUrl
+          try { dataUrl = await removeBgFromUrl(bgSrc) } catch {}
         }
         return {
           dataUrl,
