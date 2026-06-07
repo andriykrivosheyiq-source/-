@@ -2,7 +2,6 @@ import React, { useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { products as allProducts } from '../data/mockData'
 import { sendOrderToDesignerTelegram } from '../services/crmService'
-import { removeBgFromUrl } from '../utils/imageUtils'
 
 const STATUS_CONFIG = {
   new:      { label: 'В роботі',          dot: 'bg-blue-400',   bg: 'bg-blue-50 border-blue-100',       badge: 'bg-blue-100 text-blue-700' },
@@ -588,20 +587,12 @@ export default function MyOrders({ savedOrders = [], ordersLoading = false, orde
 
     (async () => {
       const caption = [cleanId, productNamesStr, designerData.orderSize, designerData.embroiderySize].filter(Boolean).join(' ')
-      // Prefer the original Gemini design URL for bg removal — it has clean edges
-      // that the BFS can properly cross (same source DesignPlacement uses for mockupDesignUrl)
-      const originalDesignUrl = extras?.designSnapshot?.generatedDesigns?.[0]?.image || null
-      const tgFiles = await Promise.all(checkedFiles.map(async f => {
-        let dataUrl = f.thumbnail
-        if (f.id === 'design') {
-          const bgSrc = originalDesignUrl || extras?.fullImage || dataUrl
-          try { dataUrl = await removeBgFromUrl(bgSrc) } catch {}
-        }
-        return {
-          dataUrl,
-          label: caption,
-          filename: f.id === 'design' ? `${cleanId}.png` : `${caption}.png`,
-        }
+      // extras.fullImage is already bg-removed (saved via mockupDesignUrl since the fix).
+      // Do NOT re-apply removeBgFromUrl — double removal over-erases light-colored letter outlines.
+      const tgFiles = checkedFiles.map(f => ({
+        dataUrl: f.id === 'design' ? (extras?.fullImage || f.thumbnail) : f.thumbnail,
+        label: caption,
+        filename: f.id === 'design' ? `${cleanId}.png` : `${caption}.png`,
       }))
       sendOrderToDesignerTelegram({
         order: { ...order, productName: productNamesStr, orderSize: designerData.orderSize, embroiderySize: designerData.embroiderySize, comment: designerData.comment },
