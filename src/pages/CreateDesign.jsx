@@ -84,7 +84,7 @@ function ProductSelector({ selected, onChange }) {
             ) : (
               <div className="absolute top-1.5 right-1.5 w-5 h-5 border-2 border-gray-200 rounded-md bg-white z-10" />
             )}
-            <img src={p.image} alt={p.nameUk} loading="lazy" className="w-14 h-14 object-cover rounded-lg" />
+            <img src={p.image} alt={p.nameUk} className="w-14 h-14 object-cover rounded-lg" />
             <span className="text-[11px] font-medium text-gray-700 text-center leading-tight">{p.nameUk}</span>
           </div>
         ))}
@@ -223,7 +223,7 @@ function ColorSelector({ selectedProducts, productColors, onChange }) {
               const hexes = getSelectedHexes(productId)
               return (
                 <div key={productId} className="bg-white border border-gray-200 rounded-xl p-3 flex items-center gap-3">
-                  <img src={product.image} alt={product.nameUk} loading="lazy" className="w-12 h-12 object-cover rounded-lg" />
+                  <img src={product.image} alt={product.nameUk} className="w-12 h-12 object-cover rounded-lg" />
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-gray-800">{product.nameUk}</p>
                     <p className="text-xs text-gray-500">{total} {total === 1 ? 'колір' : total < 5 ? 'кольори' : 'кольорів'} обрано</p>
