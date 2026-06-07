@@ -18,7 +18,8 @@ export async function uploadImageToCloudinary(dataUrl, filename) {
   formData.append('upload_preset', uploadPreset)
   if (filename) {
     const base = filename.replace(/\.[^.]+$/, '')
-    const publicId = `${base}_${Date.now()}`
+    const rand = Math.random().toString(36).slice(2, 8)
+    const publicId = `${base}_${Date.now()}_${rand}`
     formData.append('public_id', publicId)
   }
 
