@@ -286,7 +286,30 @@ async function renderEstTransparent(letters, estEl, estText, showEstText, imageU
   if (letterStyle === 'TTO') drawTTOLetters(ctx, ttoLetters, W, H)
   else drawDLetters(ctx, letters, W, H, letterStyle)
   if (showEstText) drawEstText(ctx, estEl, estText, W, H)
-  return canvas
+
+  // Crop to tight bounding box of non-transparent pixels so the overlay fills the product correctly
+  const imageData = ctx.getImageData(0, 0, W, H)
+  const d = imageData.data
+  let minX = W, minY = H, maxX = 0, maxY = 0
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      if (d[(y * W + x) * 4 + 3] > 10) {
+        if (x < minX) minX = x
+        if (x > maxX) maxX = x
+        if (y < minY) minY = y
+        if (y > maxY) maxY = y
+      }
+    }
+  }
+  if (maxX <= minX || maxY <= minY) return canvas  // nothing drawn
+  const PAD = 8
+  minX = Math.max(0, minX - PAD); minY = Math.max(0, minY - PAD)
+  maxX = Math.min(W - 1, maxX + PAD); maxY = Math.min(H - 1, maxY + PAD)
+  const cW = maxX - minX + 1, cH = maxY - minY + 1
+  const cropped = document.createElement('canvas')
+  cropped.width = cW; cropped.height = cH
+  cropped.getContext('2d').drawImage(canvas, minX, minY, cW, cH, 0, 0, cW, cH)
+  return cropped
 }
 
 // ─── EstPosterView ────────────────────────────────────────────────────────────
