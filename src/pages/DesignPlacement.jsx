@@ -1001,6 +1001,7 @@ function ChangeProductModal({ current, onSelect, onClose }) {
 export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onUpdateOrderFull }) {
   const navigate = useNavigate()
   const estPosterRef = useRef(null)
+  const autoSaveRef = useRef(false)
   const [estVersion, setEstVersion] = useState(0)
   const [activeTab, setActiveTab] = useState(0)
   const [selectedProduct, setSelectedProduct] = useState(designData?.selectedProducts?.[0] || 'hoodie-black')
@@ -1055,6 +1056,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
   const [clientSendResult, setClientSendResult] = useState(null)
   const [statusUpdateFailed, setStatusUpdateFailed] = useState(false)
   const [savedToast, setSavedToast] = useState(false)
+  const [autoSavedToast, setAutoSavedToast] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [designerSendToast, setDesignerSendToast] = useState(null) // null | 'sending' | 'ok' | 'error'
 
@@ -1188,6 +1190,16 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
     update()
     return () => { cancelled = true }
   }, [currentDesignImage, isEst, estText, showEstText, drawingDataUrl, estVersion])
+
+  // Auto-save once when the design is ready for the first time (not when editing an existing order)
+  useEffect(() => {
+    if (autoSaveRef.current) return
+    if (designData?.editingOrderId) { autoSaveRef.current = true; return }
+    if (!mockupDesignUrl) return
+    if (!currentDesignImage && !isEst) return
+    autoSaveRef.current = true
+    doSave(true)
+  }, [mockupDesignUrl]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleRegenerate = async () => {
     if (!designData?.uploadedFile || !designData?.selectedStyle) { navigate('/create'); return }
@@ -1510,8 +1522,8 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
     setShowSendModal(false)
   }
 
-  const handleSaveDesign = async () => {
-    setIsSaving(true)
+  const doSave = async (isAuto = false) => {
+    if (!isAuto) setIsSaving(true)
     const now = new Date()
     const dateStr = now.toLocaleString('uk-UA', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Kiev' })
     const orderNum = fileName ? `#${fileName}` : `#${String(now.getTime()).slice(-5)}`
@@ -1632,11 +1644,20 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
         mockupThumbs,
       }
       await onSaveOrder?.(order, { fullImage, transparentImage, designSnapshot })
+      // After auto-save, mark as existing order so future manual saves go to the update path
+      if (isAuto) onUpdate?.({ editingOrderId: orderNum })
     }
-    setIsSaving(false)
-    setSavedToast(true)
-    setTimeout(() => setSavedToast(false), 3000)
+    if (!isAuto) {
+      setIsSaving(false)
+      setSavedToast(true)
+      setTimeout(() => setSavedToast(false), 3000)
+    } else {
+      setAutoSavedToast(true)
+      setTimeout(() => setAutoSavedToast(false), 3500)
+    }
   }
+
+  const handleSaveDesign = () => doSave(false)
 
   // Drawing event handlers
   const getCanvasPos = (e, canvas) => {
@@ -2593,6 +2614,13 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
               )}
             </div>
           </div>
+        </div>
+      )}
+
+      {autoSavedToast && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-5 py-3 rounded-xl shadow-lg text-sm font-semibold flex items-center gap-2 bg-green-500 text-white">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          Автоматично збережено у замовлення
         </div>
       )}
 
