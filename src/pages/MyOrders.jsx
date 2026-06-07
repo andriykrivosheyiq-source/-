@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { products as allProducts } from '../data/mockData'
+import { sendOrderToDesignerTelegram } from '../services/crmService'
 
 const STATUS_CONFIG = {
   new:      { label: 'В роботі',          dot: 'bg-blue-400',   bg: 'bg-blue-50 border-blue-100',       badge: 'bg-blue-100 text-blue-700' },
@@ -214,6 +215,7 @@ function TransferToDesignerModal({ order, extras, onConfirm, onClose }) {
       comment,
       orderSize,
       embroiderySize,
+      checkedFiles: files.filter(f => f.checked),
     })
   }
 
@@ -536,6 +538,7 @@ export default function MyOrders({ savedOrders = [], ordersLoading = false, orde
   const [sortBy, setSortBy] = useState('newest')
   const [selectedOrder, setSelectedOrder] = useState(null)
   const [transferPending, setTransferPending] = useState(null)
+  const [tgToast, setTgToast] = useState(null) // null | 'sending' | 'ok' | 'error'
 
   const allOrders = savedOrders.map(o => ({ ...o, _saved: true }))
 
@@ -567,8 +570,31 @@ export default function MyOrders({ savedOrders = [], ordersLoading = false, orde
 
   const handleConfirmTransfer = (designerData) => {
     if (!transferPending) return
-    onUpdateOrder?.(transferPending.order.id, { status: 'designer', ...designerData })
+    const { order } = transferPending
+    onUpdateOrder?.(order.id, { status: 'designer', ...designerData })
     setTransferPending(null)
+
+    const checkedFiles = designerData.checkedFiles || []
+    if (checkedFiles.length === 0) return
+
+    setTgToast('sending')
+    const cleanId = (order.id || '').replace(/^#/, '')
+    const caption = [cleanId, order.productName, designerData.orderSize, designerData.embroiderySize].filter(Boolean).join(' ')
+    const tgFiles = checkedFiles.map(f => ({
+      dataUrl: f.thumbnail,
+      label: caption,
+      filename: f.id === 'design' ? `${cleanId}.png` : `${caption}.png`,
+    }))
+    sendOrderToDesignerTelegram({
+      order: { ...order, orderSize: designerData.orderSize, embroiderySize: designerData.embroiderySize, comment: designerData.comment },
+      files: tgFiles,
+    }).then(() => {
+      setTgToast('ok')
+      setTimeout(() => setTgToast(null), 4000)
+    }).catch(() => {
+      setTgToast('error')
+      setTimeout(() => setTgToast(null), 4000)
+    })
   }
 
   return (
@@ -694,6 +720,21 @@ export default function MyOrders({ savedOrders = [], ordersLoading = false, orde
           onConfirm={handleConfirmTransfer}
           onClose={() => setTransferPending(null)}
         />
+      )}
+
+      {tgToast && (
+        <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-5 py-3 rounded-xl shadow-lg text-sm font-semibold flex items-center gap-2 ${
+          tgToast === 'ok'    ? 'bg-green-500 text-white' :
+          tgToast === 'error' ? 'bg-red-500 text-white'   :
+                                'bg-gray-800 text-white'
+        }`}>
+          {tgToast === 'sending' && <svg className="animate-spin flex-shrink-0" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>}
+          {tgToast === 'ok'      && <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>}
+          {tgToast === 'error'   && <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>}
+          {tgToast === 'sending' && 'Надсилаємо дизайнеру…'}
+          {tgToast === 'ok'      && 'Успішно надіслано дизайнеру ✓'}
+          {tgToast === 'error'   && "Помилка відправки — перевірте з'єднання"}
+        </div>
       )}
     </div>
   )
