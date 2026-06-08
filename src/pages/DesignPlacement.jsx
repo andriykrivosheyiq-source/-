@@ -1172,7 +1172,13 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
       try {
         if (isEst && estPosterRef.current) {
           const canvas = await estPosterRef.current.exportTransparent()
-          if (!cancelled) setMockupDesignUrl(canvas.toDataURL('image/png'))
+          const dataUrl = canvas.toDataURL('image/png')
+          try {
+            const cleaned = await removeBgFromUrl(dataUrl)
+            if (!cancelled) setMockupDesignUrl(cleaned)
+          } catch {
+            if (!cancelled) setMockupDesignUrl(dataUrl)
+          }
         } else {
           const sourceUrl = drawingDataUrl || currentDesignImage
           try {
