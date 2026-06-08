@@ -32,11 +32,8 @@ function OrderDetailModal({ order, extras, onClose, onStatusChange, onDelete, on
   const cfg = STATUS_CONFIG[order.status] || STATUS_CONFIG.new
   const [comment, setComment] = useState(order.comment || '')
   const [saved, setSaved] = useState(false)
-  const [editingName, setEditingName] = useState(false)
-  const [nameDraft, setNameDraft] = useState(order.name || '')
   const [editingId, setEditingId] = useState(false)
   const [idDraft, setIdDraft] = useState(order.id.replace(/^#/, ''))
-  const nameInputRef = useRef(null)
 
   const handleSaveId = () => {
     const trimmed = idDraft.trim()
@@ -51,12 +48,6 @@ function OrderDetailModal({ order, extras, onClose, onStatusChange, onDelete, on
     onUpdateOrder?.(order.id, { comment })
     setSaved(true)
     setTimeout(() => setSaved(false), 1500)
-  }
-
-  const handleSaveName = () => {
-    const trimmed = nameDraft.trim()
-    if (trimmed && trimmed !== order.name) onUpdateOrder?.(order.id, { name: trimmed })
-    setEditingName(false)
   }
 
   const displayImage = extras?.fullImage || order.image
@@ -147,32 +138,7 @@ function OrderDetailModal({ order, extras, onClose, onStatusChange, onDelete, on
         {/* Details */}
         <div className="px-5 py-4 space-y-3">
           <div>
-            {editingName ? (
-              <div className="flex items-center gap-2 mb-0.5">
-                <input
-                  ref={nameInputRef}
-                  value={nameDraft}
-                  onChange={e => setNameDraft(e.target.value)}
-                  onKeyDown={e => { if (e.key === 'Enter') handleSaveName(); if (e.key === 'Escape') setEditingName(false) }}
-                  onBlur={handleSaveName}
-                  autoFocus
-                  className="flex-1 border border-indigo-300 rounded-lg px-2 py-1 text-base font-semibold text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-300"
-                />
-                <button onMouseDown={e => { e.preventDefault(); handleSaveName() }} className="text-indigo-600 hover:text-indigo-800 text-xs font-semibold px-2">OK</button>
-              </div>
-            ) : (
-              <div className="flex items-center gap-2 group mb-0.5">
-                <p className="text-base font-semibold text-gray-900">{order.name}</p>
-                <button
-                  onClick={() => { setNameDraft(order.name || ''); setEditingName(true) }}
-                  className="opacity-0 group-hover:opacity-100 transition-opacity text-gray-400 hover:text-indigo-600"
-                  title="Змінити назву"
-                >
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                </button>
-              </div>
-            )}
-            {order.productName && <p className="text-sm text-gray-500 mt-0.5">{order.productName}</p>}
+            {order.productName && <p className="text-sm text-gray-500">{order.productName}</p>}
             <p className="text-xs text-gray-400 mt-0.5">{order.date}</p>
           </div>
 
