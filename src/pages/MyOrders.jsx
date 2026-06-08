@@ -18,6 +18,14 @@ const KYIV_DATE = (iso) => new Date(iso).toLocaleString('uk-UA', {
   hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Kiev'
 }).replace(',', '')
 
+const loadImg = (src) => new Promise((res, rej) => {
+  const img = new Image()
+  img.crossOrigin = 'anonymous'
+  img.onload = () => res(img)
+  img.onerror = rej
+  img.src = src
+})
+
 const DESIGNERS = [
   { id: 'andrii',    name: 'Андрій',    handle: '@andrii_design',    color: 'bg-blue-500' },
   { id: 'maksym',    name: 'Максим',    handle: '@maksym_design',    color: 'bg-green-500' },
@@ -630,8 +638,6 @@ export default function MyOrders({ savedOrders = [], ordersLoading = false, orde
       const tgFiles = await Promise.all(checkedFiles.map(async f => {
         let dataUrl = f.thumbnail
         if (f.id === 'design') {
-          // Use pre-computed transparent version (stored at save time via mockupDesignUrl)
-          // Fall back through: transparentImage → fullImage with removal → thumbnail
           if (extras?.transparentImage) {
             dataUrl = extras.transparentImage
           } else {
@@ -639,6 +645,40 @@ export default function MyOrders({ savedOrders = [], ordersLoading = false, orde
             if (src) {
               try { dataUrl = await removeBgFromUrlIfNeeded(src) } catch { dataUrl = src }
             }
+          }
+        } else if (f.id.startsWith('mockup-')) {
+          // Regenerate mockup at 1200px PNG instead of using the 320px stored thumbnail
+          const idx = parseInt(f.id.replace('mockup-', ''))
+          const snapshot = extras?.designSnapshot || {}
+          const productId = (snapshot.selectedProducts || [])[idx]
+          const product = productId ? allProducts.find(p => p.id === productId) : null
+          const overlayPos = snapshot.mockupOverlay || { x: 50, y: 35, size: 32 }
+          const dSrc = extras?.transparentImage || extras?.fullImage
+          if (product?.image && dSrc) {
+            try {
+              const SIZE = 1200
+              const canvas = document.createElement('canvas')
+              canvas.width = SIZE; canvas.height = SIZE
+              const ctx = canvas.getContext('2d')
+              ctx.imageSmoothingEnabled = true
+              ctx.imageSmoothingQuality = 'high'
+              const pImg = await loadImg(product.image)
+              const pA = pImg.naturalWidth / pImg.naturalHeight
+              let pW, pH, pX, pY
+              if (pA >= 1) { pW = SIZE; pH = SIZE / pA; pX = 0; pY = (SIZE - pH) / 2 }
+              else { pH = SIZE; pW = SIZE * pA; pX = (SIZE - pW) / 2; pY = 0 }
+              ctx.drawImage(pImg, pX, pY, pW, pH)
+              const dImg = await loadImg(dSrc)
+              const srcW = dImg.naturalWidth || dImg.width
+              const srcH = dImg.naturalHeight || dImg.height
+              const dW = overlayPos.size / 100 * SIZE
+              const dH = dW * srcH / srcW
+              ctx.drawImage(dImg, 0, 0, srcW, srcH,
+                overlayPos.x / 100 * SIZE - dW / 2,
+                overlayPos.y / 100 * SIZE - dH / 2,
+                dW, dH)
+              dataUrl = canvas.toDataURL('image/png')
+            } catch { /* fall back to stored thumbnail */ }
           }
         }
         return {
