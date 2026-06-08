@@ -1,8 +1,7 @@
 import React, { useRef, useEffect } from 'react'
 import { useLocation } from 'react-router-dom'
 import { THREAD_PALETTE } from '../data/threadPalette'
-import { vectorizeImage, vectorizeFromUrl } from '../services/vectorizer'
-import { removeBgML } from '../services/bgRemoval'
+import { preprocessBlob, vectorizeBlob } from '../services/vectorizer'
 
 const CSS = `
 .pe-container{display:flex;gap:14px;padding:16px;height:100%;align-items:stretch;font-family:Inter,"Segoe UI",Arial,Helvetica,sans-serif;color:#111;background:#f5f6f7;box-sizing:border-box;overflow:hidden}
@@ -543,8 +542,8 @@ export default function PaletteEditor() {
           const statusEl = $('vectorizerStatus')
           if (statusEl) statusEl.style.display = 'block'
           loadBtn.disabled = true
-          preprocessImageBlob(f)
-            .then(cropped => vectorizeImage(cropped))
+          preprocessBlob(f)
+            .then(blob => vectorizeBlob(blob))
             .then(svg => loadSvgText(svg))
             .catch(err => alert('Помилка векторизації: ' + (err?.message || err)))
             .finally(() => {
@@ -1256,35 +1255,24 @@ export default function PaletteEditor() {
     if (threshValEl && threshRangeEl) threshValEl.textContent = threshRangeEl.value
     applyScale(parseFloat(scaleRangeEl?.value) || 100)
 
-    // Auto-load design passed from DesignPlacement.
-    // Primary: Hetzner server (rembg ML bg-removal + vtracer).
-    // Fallback: browser BiRefNet + ImageTracer.js.
+    // Auto-load design passed from DesignPlacement — fetch blob → preprocess → vectorize.
     const autoImageUrl = autoImageRef.current
     if (autoImageUrl) {
       const statusEl = $('vectorizerStatus')
-      const showSvg = svg => {
-        originalText = svg
-        if (scaleRangeEl) { scaleRangeEl.value = '100'; if (scaleValEl) scaleValEl.textContent = '100%' }
-        parseAndShow(svg)
-      }
-      const browserFallback = () => {
-        if (statusEl) statusEl.textContent = '⏳ Резервна векторизація (браузер)...'
-        return removeBgML(autoImageUrl)
-          .then(dataUrl => fetch(dataUrl).then(r => r.blob()))
-          .then(blob => preprocessImageBlob(blob))
-          .then(croppedBlob => vectorizeImage(croppedBlob))
-      }
-      if (statusEl) { statusEl.style.display = 'block'; statusEl.textContent = '⏳ Векторизація (сервер)...' }
+      if (statusEl) { statusEl.style.display = 'block'; statusEl.textContent = '⏳ Векторизація...' }
       if (loadBtn) loadBtn.disabled = true
       if (removeBgChk) removeBgChk.checked = false
-      vectorizeFromUrl(autoImageUrl)
-        .then(svg => showSvg(svg))
-        .catch(err => {
-          console.warn('Server vectorize failed, using browser fallback:', err)
-          return browserFallback().then(svg => showSvg(svg))
+      fetch(autoImageUrl)
+        .then(r => r.blob())
+        .then(blob => preprocessBlob(blob))
+        .then(blob => vectorizeBlob(blob))
+        .then(svg => {
+          originalText = svg
+          if (scaleRangeEl) { scaleRangeEl.value = '100'; if (scaleValEl) scaleValEl.textContent = '100%' }
+          parseAndShow(svg)
         })
         .catch(err => {
-          console.error('All vectorize methods failed:', err)
+          console.error('Vectorize failed:', err)
           alert('Не вдалось векторизувати дизайн: ' + (err?.message || err))
         })
         .finally(() => {
