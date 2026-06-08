@@ -44,8 +44,8 @@ async function _loadModel() {
     _notify('loading')
     try {
       const device = await _detectDevice()
-      // fp16 on webgpu (88 MB); q8 on wasm (44 MB) for faster CPU inference
-      const dtype = device === 'webgpu' ? 'fp16' : 'q8'
+      // fp16 on webgpu; fp32 on wasm (q8/q4 not published for this model)
+      const dtype = device === 'webgpu' ? 'fp16' : 'fp32'
 
       ;[_model, _processor] = await Promise.all([
         AutoModel.from_pretrained(MODEL_ID, {
