@@ -276,7 +276,9 @@ async function renderEstTransparent(letters, estEl, estText, showEstText, imageU
         // PhotoRoom gives cleaner results than BFS for Gemini illustrations
         const dataUrl = await removeBackgroundPhotoroom(imageUrl)
         cleanedSrc = await loadImgEl(dataUrl)
-      } catch {
+        console.log('[PhotoRoom] bg removal SUCCESS')
+      } catch (e) {
+        console.warn('[PhotoRoom] bg removal FAILED, using BFS:', e?.message || e)
         const img = await loadImgEl(imageUrl)
         cleanedSrc = removeWhiteBg(img, 230, true)
       }
