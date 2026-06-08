@@ -125,10 +125,47 @@ async function toDataUrl(url) {
   })
 }
 
-/** Remove background using ML (RMBG-1.4). Falls back to BFS if ML fails. */
+/** Remove background using ML + BFS hybrid. Falls back to BFS-only if ML fails. */
 export async function removeBgFromUrl(url) {
   try {
-    return await removeBgML(url)
+    const mlDataUrl = await removeBgML(url)
+
+    // BiRefNet removes white clothing because it looks like white background.
+    // Fix: restore light-colored pixels that BiRefNet removed but BFS kept
+    // (BFS only removes border-connected whites, so interior shirt/dress stays).
+    const dataUrl = await toDataUrl(url)
+    const origImg = await loadImgEl(dataUrl)
+    const W = origImg.naturalWidth || origImg.width
+    const H = origImg.naturalHeight || origImg.height
+
+    const bfsCanvas = removeWhiteBg(origImg, 240)
+    const bfsAlphas = bfsCanvas.getContext('2d').getImageData(0, 0, W, H).data
+
+    const origCanvas = document.createElement('canvas')
+    origCanvas.width = W; origCanvas.height = H
+    origCanvas.getContext('2d').drawImage(origImg, 0, 0)
+    const origColors = origCanvas.getContext('2d').getImageData(0, 0, W, H).data
+
+    const mlImg = await loadImgEl(mlDataUrl)
+    const out = document.createElement('canvas')
+    out.width = W; out.height = H
+    const ctx = out.getContext('2d')
+    ctx.drawImage(mlImg, 0, 0, W, H)
+    const px = ctx.getImageData(0, 0, W, H)
+
+    for (let i = 0; i < W * H; i++) {
+      if (px.data[i * 4 + 3] < 128 && bfsAlphas[i * 4 + 3] > 128) {
+        const r = origColors[i * 4], g = origColors[i * 4 + 1], b = origColors[i * 4 + 2]
+        // Restore only light-colored pixels (white shirt, dress, etc.)
+        if (r > 160 && g > 160 && b > 160) {
+          px.data[i * 4] = r; px.data[i * 4 + 1] = g; px.data[i * 4 + 2] = b
+          px.data[i * 4 + 3] = 255
+        }
+      }
+    }
+    ctx.putImageData(px, 0, 0)
+    return out.toDataURL('image/png')
+
   } catch (e) {
     console.warn('ML bg removal failed, using BFS fallback:', e)
     const dataUrl = await toDataUrl(url)
