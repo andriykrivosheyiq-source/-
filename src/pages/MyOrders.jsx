@@ -8,6 +8,7 @@ const STATUS_CONFIG = {
   new:      { label: 'В роботі',          dot: 'bg-blue-400',   bg: 'bg-blue-50 border-blue-100',       badge: 'bg-blue-100 text-blue-700' },
   review:   { label: 'На перевірці',      dot: 'bg-yellow-400', bg: 'bg-yellow-50 border-yellow-100',   badge: 'bg-yellow-100 text-yellow-700' },
   approved: { label: 'Одобрено',          dot: 'bg-green-400',  bg: 'bg-green-50 border-green-100',     badge: 'bg-green-100 text-green-700' },
+  palette:  { label: 'Палітра',           dot: 'bg-orange-400', bg: 'bg-orange-50 border-orange-100',   badge: 'bg-orange-100 text-orange-700' },
   designer: { label: 'Передано дизайнеру',dot: 'bg-purple-400', bg: 'bg-purple-50 border-purple-100',  badge: 'bg-purple-100 text-purple-700' },
   done:     { label: 'Виконано',          dot: 'bg-gray-400',   bg: 'bg-gray-50 border-gray-100',       badge: 'bg-gray-100 text-gray-700' },
 }
@@ -757,6 +758,7 @@ export default function MyOrders({ savedOrders = [], ordersLoading = false, orde
           <option value="new">В роботі</option>
           <option value="review">На перевірці</option>
           <option value="approved">Одобрено</option>
+          <option value="palette">Палітра</option>
           <option value="designer">Передано дизайнеру</option>
           <option value="done">Виконано</option>
         </select>
@@ -788,7 +790,7 @@ export default function MyOrders({ savedOrders = [], ordersLoading = false, orde
           </div>
         )}
         <div className="h-full p-6 flex gap-5 min-w-0">
-          {(['new', 'review', 'approved', 'designer', 'done']).map((status) => (
+          {(['new', 'review', 'approved', 'palette', 'designer', 'done']).map((status) => (
             <div key={status} className="flex-1 min-w-[280px] flex flex-col overflow-hidden">
               <Column
                 status={status}
