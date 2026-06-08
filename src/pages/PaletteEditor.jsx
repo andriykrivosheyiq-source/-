@@ -2,6 +2,7 @@ import React, { useRef, useEffect } from 'react'
 import { useLocation } from 'react-router-dom'
 import { THREAD_PALETTE } from '../data/threadPalette'
 import { vectorizeImage } from '../services/vectorizer'
+import { removeBgML } from '../services/bgRemoval'
 
 const CSS = `
 .pe-container{display:flex;gap:14px;padding:16px;height:100%;align-items:stretch;font-family:Inter,"Segoe UI",Arial,Helvetica,sans-serif;color:#111;background:#f5f6f7;box-sizing:border-box;overflow:hidden}
@@ -1255,18 +1256,20 @@ export default function PaletteEditor() {
     if (threshValEl && threshRangeEl) threshValEl.textContent = threshRangeEl.value
     applyScale(parseFloat(scaleRangeEl?.value) || 100)
 
-    // Auto-load design passed from DesignPlacement
-    // Background removal is intentionally skipped here — AI-generated designs
-    // fill the whole canvas and would be falsely removed by the edge filter.
-    // User can enable it manually via the checkbox after loading.
+    // Auto-load design passed from DesignPlacement.
+    // Uses BiRefNet ML model to remove background (handles any background color),
+    // then crops to content and vectorizes.
     const autoImageUrl = autoImageRef.current
     if (autoImageUrl) {
       const statusEl = $('vectorizerStatus')
-      if (statusEl) statusEl.style.display = 'block'
+      if (statusEl) { statusEl.style.display = 'block'; statusEl.textContent = '⏳ Завантаження ML-моделі та видалення фону...' }
       if (loadBtn) loadBtn.disabled = true
       if (removeBgChk) removeBgChk.checked = false
-      fetch(autoImageUrl)
-        .then(r => r.blob())
+      removeBgML(autoImageUrl)
+        .then(dataUrl => {
+          if (statusEl) statusEl.textContent = '⏳ Векторизація...'
+          return fetch(dataUrl).then(r => r.blob())
+        })
         .then(blob => preprocessImageBlob(blob))
         .then(croppedBlob => vectorizeImage(croppedBlob))
         .then(svg => {
@@ -1301,7 +1304,7 @@ export default function PaletteEditor() {
             <label className="small">Файл (SVG або PNG/JPG): <input id="svgInp" type="file" accept=".svg,image/svg+xml,.png,.jpg,.jpeg,.webp" /></label>
             <button id="loadBtn" className="primary">Завантажити</button>
           </div>
-          <div id="vectorizerStatus" style={{display:'none',fontSize:12,color:'#2b6fb3',padding:'2px 0 6px'}}>⏳ Векторизація через Vectorizer.ai…</div>
+          <div id="vectorizerStatus" style={{display:'none',fontSize:12,color:'#2b6fb3',padding:'2px 0 6px'}}>⏳ Завантаження і векторизація...</div>
           <div className="pe-controls-row" style={{gap:6}}>
             <label style={{display:'flex',alignItems:'center',gap:6,fontSize:13,color:'#333',cursor:'pointer'}}>
               <input id="removeBgChk" type="checkbox" defaultChecked />
