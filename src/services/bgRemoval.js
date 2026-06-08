@@ -3,7 +3,11 @@
  * Model runs entirely in the browser (WebGPU → WASM fallback).
  * The model is downloaded once (~88 MB fp16) and cached by the browser.
  */
-import { AutoModel, AutoProcessor, RawImage } from '@huggingface/transformers'
+import { AutoModel, AutoProcessor, RawImage, env } from '@huggingface/transformers'
+
+// Single-threaded WASM fallback — no SharedArrayBuffer / COOP headers required
+// (GitHub Pages and most static hosts don't send those headers)
+env.backends.onnx.wasm.numThreads = 1
 
 const MODEL_ID = 'briaai/RMBG-1.4'
 
