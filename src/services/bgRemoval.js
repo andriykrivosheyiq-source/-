@@ -8,7 +8,7 @@ import { AutoModel, AutoProcessor, RawImage, env } from '@huggingface/transforme
 // Single-threaded WASM fallback — no SharedArrayBuffer / COOP headers required
 env.backends.onnx.wasm.numThreads = 1
 
-const MODEL_ID = 'onnx-community/BiRefNet_lite-ONNX'
+const MODEL_ID = 'onnx-community/BiRefNet-ONNX'
 
 // Singleton model + processor
 let _model = null
