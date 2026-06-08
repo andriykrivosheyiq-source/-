@@ -4,7 +4,6 @@ import { products as allProducts, productCategories } from '../data/mockData'
 import { generateDesigns, clearCache, editDesign } from '../services/gemini'
 import { sendToClientCRM, getOrderByCrmNumber, updateOrderStatus, sendOrderToDesignerTelegram } from '../services/crmService'
 import { removeBgFromUrl } from '../utils/imageUtils'
-import { removeBackgroundPhotoroom } from '../services/photoroom'
 
 const D_PATH =
   'M291 123L78 153L88 232L114 229L116 233L148 467L143 471L121 474L132 555L349 526L400 459L360 176Z ' +
@@ -271,16 +270,8 @@ async function renderEstTransparent(letters, estEl, estText, showEstText, imageU
 
   if (imageUrl) {
     try {
-      let cleanedSrc
-      try {
-        // PhotoRoom gives cleaner results than BFS for Gemini illustrations
-        const dataUrl = await removeBackgroundPhotoroom(imageUrl)
-        cleanedSrc = await loadImgEl(dataUrl)
-      } catch (e) {
-        console.warn('[PhotoRoom] bg removal failed, using BFS:', e?.message || e)
-        const img = await loadImgEl(imageUrl)
-        cleanedSrc = removeWhiteBg(img, 230, true)
-      }
+      const img = await loadImgEl(imageUrl)
+      const cleanedSrc = removeWhiteBg(img, 230, true)
       const iW = illus.size / 100 * W
       const iH = iW * cleanedSrc.height / cleanedSrc.width
       const cropFrac = (illus.cropBottom || 0) / 100
