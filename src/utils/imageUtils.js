@@ -125,21 +125,20 @@ async function toDataUrl(url) {
   })
 }
 
-/** Remove background using ML + BFS hybrid. Falls back to BFS-only if ML fails. */
+/** Remove background using ML + interior-hole fill. Falls back to BFS-only if ML fails. */
 export async function removeBgFromUrl(url) {
   try {
     const mlDataUrl = await removeBgML(url)
 
-    // BiRefNet removes white clothing because it looks like white background.
-    // Fix: restore light-colored pixels that BiRefNet removed but BFS kept
-    // (BFS only removes border-connected whites, so interior shirt/dress stays).
+    // Post-process: fill interior transparent holes that BiRefNet incorrectly removed
+    // (e.g., white shirt/dress that looks like white background to the model).
+    // Strategy: BFS on the ML alpha channel from image borders — border-connected
+    // transparent pixels are true background; unreachable transparent pixels are holes
+    // inside the subject and should be restored.
     const dataUrl = await toDataUrl(url)
     const origImg = await loadImgEl(dataUrl)
     const W = origImg.naturalWidth || origImg.width
     const H = origImg.naturalHeight || origImg.height
-
-    const bfsCanvas = removeWhiteBg(origImg, 220)
-    const bfsAlphas = bfsCanvas.getContext('2d').getImageData(0, 0, W, H).data
 
     const origCanvas = document.createElement('canvas')
     origCanvas.width = W; origCanvas.height = H
@@ -153,16 +152,44 @@ export async function removeBgFromUrl(url) {
     ctx.drawImage(mlImg, 0, 0, W, H)
     const px = ctx.getImageData(0, 0, W, H)
 
-    for (let i = 0; i < W * H; i++) {
-      if (px.data[i * 4 + 3] < 128 && bfsAlphas[i * 4 + 3] > 128) {
-        const r = origColors[i * 4], g = origColors[i * 4 + 1], b = origColors[i * 4 + 2]
-        // Restore only near-pure-white pixels (white shirt, dress) — not off-white noise
-        if (r > 240 && g > 240 && b > 240) {
-          px.data[i * 4] = r; px.data[i * 4 + 1] = g; px.data[i * 4 + 2] = b
-          px.data[i * 4 + 3] = 255
-        }
+    // BFS on ML alpha: mark all border-reachable transparent pixels as "true background"
+    const isTrans = (i) => px.data[i * 4 + 3] < 128
+    const bgVisited = new Uint8Array(W * H)
+    const queue = []
+    for (let x = 0; x < W; x++) {
+      for (const y of [0, H - 1]) {
+        const i = y * W + x
+        if (isTrans(i) && !bgVisited[i]) { bgVisited[i] = 1; queue.push(i) }
       }
     }
+    for (let y = 1; y < H - 1; y++) {
+      for (const x of [0, W - 1]) {
+        const i = y * W + x
+        if (isTrans(i) && !bgVisited[i]) { bgVisited[i] = 1; queue.push(i) }
+      }
+    }
+    let head = 0
+    while (head < queue.length) {
+      const i = queue[head++]
+      const x = i % W, y = (i / W) | 0
+      for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
+        const nx = x + dx, ny = y + dy
+        if (nx < 0 || nx >= W || ny < 0 || ny >= H) continue
+        const ni = ny * W + nx
+        if (!bgVisited[ni] && isTrans(ni)) { bgVisited[ni] = 1; queue.push(ni) }
+      }
+    }
+
+    // Restore interior transparent holes from original image colors
+    for (let i = 0; i < W * H; i++) {
+      if (isTrans(i) && !bgVisited[i]) {
+        px.data[i * 4]     = origColors[i * 4]
+        px.data[i * 4 + 1] = origColors[i * 4 + 1]
+        px.data[i * 4 + 2] = origColors[i * 4 + 2]
+        px.data[i * 4 + 3] = 255
+      }
+    }
+
     ctx.putImageData(px, 0, 0)
     return out.toDataURL('image/png')
 
