@@ -1,49 +1,64 @@
 /**
  * Vectorization service — converts raster image (PNG/JPG) to SVG
- * using Vectorizer.ai API (https://vectorizer.ai/api).
+ * using ImageTracer.js (runs entirely in the browser, no API key needed).
  *
- * Set in .env:
- *   VITE_VECTORIZER_API_ID=vk-...
- *   VITE_VECTORIZER_API_SECRET=...
+ * Same algorithm as vtracer on the Hetzner server:
+ * raster pixels → color quantization → SVG paths.
  */
+import ImageTracer from 'imagetracerjs'
 
-const API_URL = 'https://api.vectorizer.ai/api/v1/vectorize'
-const API_ID = import.meta.env.VITE_VECTORIZER_API_ID || ''
-const API_SECRET = import.meta.env.VITE_VECTORIZER_API_SECRET || ''
+// Presets tuned for embroidery: clean paths, limited colors, no tiny noise
+const EMBROIDERY_OPTIONS = {
+  // Color quantization
+  numberofcolors: 16,
+  colorsampling: 1,
+  colorquantcycles: 5,
+  // Path smoothing
+  ltres: 1,
+  qtres: 1,
+  pathomit: 16,
+  rightangleenhance: true,
+  // Stroke / fill
+  strokewidth: 0,
+  linefilter: false,
+  // Scale
+  scale: 1,
+  roundcoords: 1,
+}
 
 /**
- * Vectorize a raster image (PNG/JPG/etc) → SVG string via Vectorizer.ai.
+ * Vectorize a raster image File (PNG/JPG) → SVG string.
+ * Runs in the browser — no server, no API key, no cost.
  * @param {File|Blob} imageFile
- * @param {AbortSignal} [signal]
  * @returns {Promise<string>} SVG content
  */
-export async function vectorizeImage(imageFile, signal) {
-  if (!API_ID || !API_SECRET) {
-    throw new Error(
-      'Vectorizer.ai API credentials missing. ' +
-      'Add VITE_VECTORIZER_API_ID and VITE_VECTORIZER_API_SECRET to .env'
-    )
-  }
+export function vectorizeImage(imageFile) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(imageFile)
+    const img = new Image()
 
-  const form = new FormData()
-  form.append('image', imageFile)
-  // mode=test is free but adds watermark; mode=production uses credits
-  const mode = import.meta.env.VITE_VECTORIZER_MODE || 'test'
-  form.append('mode', mode)
+    img.onload = () => {
+      try {
+        const canvas = document.createElement('canvas')
+        canvas.width = img.naturalWidth
+        canvas.height = img.naturalHeight
+        const ctx = canvas.getContext('2d')
+        ctx.drawImage(img, 0, 0)
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
+        const svg = ImageTracer.imagedataToSVG(imageData, EMBROIDERY_OPTIONS)
+        resolve(svg)
+      } catch (e) {
+        reject(e)
+      } finally {
+        URL.revokeObjectURL(url)
+      }
+    }
 
-  const resp = await fetch(API_URL, {
-    method: 'POST',
-    headers: {
-      Authorization: 'Basic ' + btoa(`${API_ID}:${API_SECRET}`),
-    },
-    body: form,
-    signal,
+    img.onerror = () => {
+      URL.revokeObjectURL(url)
+      reject(new Error('Не вдалось завантажити зображення для векторизації'))
+    }
+
+    img.src = url
   })
-
-  if (!resp.ok) {
-    const msg = await resp.text().catch(() => resp.statusText)
-    throw new Error(`Vectorizer.ai error ${resp.status}: ${msg}`)
-  }
-
-  return resp.text()
 }
