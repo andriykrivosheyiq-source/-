@@ -1,4 +1,4 @@
-import { removeBgML } from '../services/bgRemoval.js'
+import { removeBackgroundClipdrop } from '../services/clipdrop.js'
 
 export function loadImgEl(src) {
   return new Promise((resolve, reject) => {
@@ -125,76 +125,12 @@ async function toDataUrl(url) {
   })
 }
 
-/** Remove background using ML + alpha hole-fill. Falls back to BFS-only if ML fails. */
+/** Remove background via Clipdrop API. Falls back to BFS on error. */
 export async function removeBgFromUrl(url) {
   try {
-    const mlDataUrl = await removeBgML(url)
-
-    // Post-process: fill interior transparent holes that BiRefNet incorrectly removed
-    // (e.g., white shirt/dress that looks like white background to the model).
-    // Strategy: BFS on the ML alpha channel from image borders — border-connected
-    // transparent pixels are true background; unreachable transparent pixels are holes
-    // inside the subject and should be restored.
-    const dataUrl = await toDataUrl(url)
-    const origImg = await loadImgEl(dataUrl)
-    const W = origImg.naturalWidth || origImg.width
-    const H = origImg.naturalHeight || origImg.height
-
-    const origCanvas = document.createElement('canvas')
-    origCanvas.width = W; origCanvas.height = H
-    origCanvas.getContext('2d').drawImage(origImg, 0, 0)
-    const origColors = origCanvas.getContext('2d').getImageData(0, 0, W, H).data
-
-    const mlImg = await loadImgEl(mlDataUrl)
-    const out = document.createElement('canvas')
-    out.width = W; out.height = H
-    const ctx = out.getContext('2d')
-    ctx.drawImage(mlImg, 0, 0, W, H)
-    const px = ctx.getImageData(0, 0, W, H)
-
-    // BFS on ML alpha: mark all border-reachable transparent pixels as "true background"
-    const isTrans = (i) => px.data[i * 4 + 3] < 128
-    const bgVisited = new Uint8Array(W * H)
-    const queue = []
-    for (let x = 0; x < W; x++) {
-      for (const y of [0, H - 1]) {
-        const i = y * W + x
-        if (isTrans(i) && !bgVisited[i]) { bgVisited[i] = 1; queue.push(i) }
-      }
-    }
-    for (let y = 1; y < H - 1; y++) {
-      for (const x of [0, W - 1]) {
-        const i = y * W + x
-        if (isTrans(i) && !bgVisited[i]) { bgVisited[i] = 1; queue.push(i) }
-      }
-    }
-    let head = 0
-    while (head < queue.length) {
-      const i = queue[head++]
-      const x = i % W, y = (i / W) | 0
-      for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
-        const nx = x + dx, ny = y + dy
-        if (nx < 0 || nx >= W || ny < 0 || ny >= H) continue
-        const ni = ny * W + nx
-        if (!bgVisited[ni] && isTrans(ni)) { bgVisited[ni] = 1; queue.push(ni) }
-      }
-    }
-
-    // Restore interior transparent holes (white clothing enclosed by opaque outlines)
-    for (let i = 0; i < W * H; i++) {
-      if (isTrans(i) && !bgVisited[i]) {
-        px.data[i * 4]     = origColors[i * 4]
-        px.data[i * 4 + 1] = origColors[i * 4 + 1]
-        px.data[i * 4 + 2] = origColors[i * 4 + 2]
-        px.data[i * 4 + 3] = 255
-      }
-    }
-
-    ctx.putImageData(px, 0, 0)
-    return out.toDataURL('image/png')
-
+    return await removeBackgroundClipdrop(url)
   } catch (e) {
-    console.warn('ML bg removal failed, using BFS fallback:', e)
+    console.warn('Clipdrop bg removal failed, using BFS fallback:', e)
     const dataUrl = await toDataUrl(url)
     const img = await loadImgEl(dataUrl)
     return removeWhiteBg(img).toDataURL('image/png')

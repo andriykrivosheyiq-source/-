@@ -4,7 +4,6 @@ import { products as allProducts, productCategories } from '../data/mockData'
 import { generateDesigns, clearCache, editDesign } from '../services/gemini'
 import { sendToClientCRM, getOrderByCrmNumber, updateOrderStatus, sendOrderToDesignerTelegram } from '../services/crmService'
 import { removeBgFromUrl } from '../utils/imageUtils'
-import { preloadBgModel, onBgModelStatus } from '../services/bgRemoval'
 
 const D_PATH =
   'M291 123L78 153L88 232L114 229L116 233L148 467L143 471L121 474L132 555L349 526L400 459L360 176Z ' +
@@ -1060,14 +1059,6 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
   const [autoSavedToast, setAutoSavedToast] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [designerSendToast, setDesignerSendToast] = useState(null) // null | 'sending' | 'ok' | 'error'
-  const [bgModelStatus, setBgModelStatus] = useState(null) // null | 'loading' | 'ready' | 'error'
-
-  // Start downloading the ML bg-removal model in the background as soon as we land here
-  useEffect(() => {
-    preloadBgModel()
-    return onBgModelStatus(setBgModelStatus)
-  }, [])
-
   // Feature 1: Background color picker (non-EST only)
   const [designBgColor, setDesignBgColor] = useState(null)
 
@@ -2646,12 +2637,6 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
         </div>
       )}
 
-      {bgModelStatus === 'loading' && (
-        <div className="fixed bottom-6 right-6 z-50 px-4 py-2.5 rounded-xl shadow-lg text-xs font-medium flex items-center gap-2 bg-indigo-600 text-white opacity-90">
-          <svg className="animate-spin flex-shrink-0" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
-          AI-модель завантажується (перший раз ~30с)…
-        </div>
-      )}
 
       {autoSavedToast && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-5 py-3 rounded-xl shadow-lg text-sm font-semibold flex items-center gap-2 bg-green-500 text-white">
