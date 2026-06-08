@@ -345,6 +345,50 @@ export default function PaletteEditor() {
       try { if (svgRoot) svgRoot.style.transform = `scale(${s})`; if (originalSvgRoot) originalSvgRoot.style.transform = `scale(${s})` } catch(e){}
     }
 
+    // Pre-process a raster image blob before vectorization:
+    // 1) crop to non-white content area, 2) resize to max 512px for speed.
+    function preprocessImageBlob(blob) {
+      return new Promise((resolve) => {
+        const url = URL.createObjectURL(blob)
+        const img = new Image()
+        img.onload = () => {
+          const W = img.naturalWidth, H = img.naturalHeight
+          const canvas = document.createElement('canvas')
+          canvas.width = W; canvas.height = H
+          const ctx = canvas.getContext('2d')
+          ctx.drawImage(img, 0, 0)
+          URL.revokeObjectURL(url)
+          const { data } = ctx.getImageData(0, 0, W, H)
+          let x0 = W, y0 = H, x1 = 0, y1 = 0, found = false
+          for (let y = 0; y < H; y++) {
+            for (let x = 0; x < W; x++) {
+              const i = (y * W + x) * 4
+              const r = data[i], g = data[i+1], b = data[i+2], a = data[i+3]
+              if (a > 30 && (r < 235 || g < 235 || b < 235)) {
+                if (x < x0) x0 = x; if (y < y0) y0 = y
+                if (x > x1) x1 = x; if (y > y1) y1 = y
+                found = true
+              }
+            }
+          }
+          if (!found || x1 <= x0 || y1 <= y0) { resolve(blob); return }
+          const px = Math.max(8, Math.round((x1 - x0) * 0.04))
+          const py = Math.max(8, Math.round((y1 - y0) * 0.04))
+          const sx = Math.max(0, x0 - px), sy = Math.max(0, y0 - py)
+          const sw = Math.min(W - sx, x1 - x0 + 2 * px)
+          const sh = Math.min(H - sy, y1 - y0 + 2 * py)
+          const MAX = 512
+          const scale = Math.min(1, MAX / Math.max(sw, sh))
+          const out = document.createElement('canvas')
+          out.width = Math.round(sw * scale); out.height = Math.round(sh * scale)
+          out.getContext('2d').drawImage(canvas, sx, sy, sw, sh, 0, 0, out.width, out.height)
+          out.toBlob(b => resolve(b || blob), 'image/png')
+        }
+        img.onerror = () => { URL.revokeObjectURL(url); resolve(blob) }
+        img.src = url
+      })
+    }
+
     // Crop SVG viewBox to actual content bounds, skipping full-canvas background element.
     function trimSvgToContent(svgText) {
       const parser = new DOMParser()
@@ -498,7 +542,8 @@ export default function PaletteEditor() {
           const statusEl = $('vectorizerStatus')
           if (statusEl) statusEl.style.display = 'block'
           loadBtn.disabled = true
-          vectorizeImage(f)
+          preprocessImageBlob(f)
+            .then(cropped => vectorizeImage(cropped))
             .then(svg => loadSvgText(svg))
             .catch(err => alert('Помилка векторизації: ' + (err?.message || err)))
             .finally(() => {
@@ -1222,12 +1267,12 @@ export default function PaletteEditor() {
       if (removeBgChk) removeBgChk.checked = false
       fetch(autoImageUrl)
         .then(r => r.blob())
-        .then(blob => vectorizeImage(blob))
+        .then(blob => preprocessImageBlob(blob))
+        .then(croppedBlob => vectorizeImage(croppedBlob))
         .then(svg => {
-          const fitted = trimSvgToContent(svg)
-          originalText = fitted
+          originalText = svg
           if (scaleRangeEl) { scaleRangeEl.value = '100'; if (scaleValEl) scaleValEl.textContent = '100%' }
-          parseAndShow(fitted)
+          parseAndShow(svg)
         })
         .catch(err => {
           console.error('Auto-vectorize failed:', err)

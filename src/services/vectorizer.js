@@ -12,15 +12,20 @@ const EMBROIDERY_OPTIONS = {
   // Color quantization
   numberofcolors: 16,
   colorsampling: 1,
-  colorquantcycles: 5,
-  // Path smoothing
-  ltres: 1,
-  qtres: 1,
-  pathomit: 16,
-  rightangleenhance: true,
+  colorquantcycles: 3,
+  // Path smoothing — higher ltres/qtres = smoother, less noise
+  ltres: 2,
+  qtres: 2,
+  // pathomit: skip paths with fewer nodes than this → removes speckle noise
+  pathomit: 48,
+  rightangleenhance: false,
   // Stroke / fill
   strokewidth: 0,
-  linefilter: false,
+  // linefilter removes single-pixel noise lines
+  linefilter: true,
+  // Pre-blur to smooth JPEG compression artifacts before tracing
+  blurradius: 1,
+  blurdelta: 20,
   // Scale
   scale: 1,
   roundcoords: 1,
