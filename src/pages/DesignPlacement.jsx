@@ -1643,9 +1643,10 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
         mockupThumb,
         mockupThumbs,
       }
-      await onSaveOrder?.(order, { fullImage, transparentImage, designSnapshot })
+      const savedId = await onSaveOrder?.(order, { fullImage, transparentImage, designSnapshot })
       // After auto-save, mark as existing order so future manual saves go to the update path
-      if (isAuto) onUpdate?.({ editingOrderId: orderNum })
+      // Use the actual saved ID in case a conflict forced a different ID
+      if (isAuto) onUpdate?.({ editingOrderId: savedId || orderNum })
     }
     if (!isAuto) {
       setIsSaving(false)

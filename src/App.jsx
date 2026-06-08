@@ -153,20 +153,28 @@ function AppInner() {
   }, [])
 
   const handleSaveOrder = async (order, extras) => {
-    if (extras) orderExtras.current[order.id] = extras
-    const persisted = await persistExtras(order.id, extras)
-    // Keep session extras in sync with persisted URLs
-    if (persisted._fullImageUrl && orderExtras.current[order.id]) {
-      orderExtras.current[order.id].fullImage = persisted._fullImageUrl
+    // If an order with this ID already exists, save the new one as a duplicate (don't overwrite)
+    let finalOrder = order
+    const conflict = savedOrders.find(o => o.id === order.id)
+    if (conflict) {
+      const dupSuffix = `_д${String(Date.now()).slice(-3)}`
+      finalOrder = { ...order, id: order.id + dupSuffix, isDuplicate: true }
     }
-    if (persisted._transparentImageUrl && orderExtras.current[order.id]) {
-      orderExtras.current[order.id].transparentImage = persisted._transparentImageUrl
+
+    if (extras) orderExtras.current[finalOrder.id] = extras
+    const persisted = await persistExtras(finalOrder.id, extras)
+    if (persisted._fullImageUrl && orderExtras.current[finalOrder.id]) {
+      orderExtras.current[finalOrder.id].fullImage = persisted._fullImageUrl
+    }
+    if (persisted._transparentImageUrl && orderExtras.current[finalOrder.id]) {
+      orderExtras.current[finalOrder.id].transparentImage = persisted._transparentImageUrl
     }
     try {
-      await setDoc(doc(db, 'orders', order.id), clean({ ...order, _createdAt: Date.now(), ...persisted }))
+      await setDoc(doc(db, 'orders', finalOrder.id), clean({ ...finalOrder, _createdAt: Date.now(), ...persisted }))
     } catch (e) {
       console.error('Save order failed:', e)
     }
+    return finalOrder.id
   }
 
   const handleUpdateOrder = async (id, changes) => {

@@ -110,7 +110,12 @@ function OrderDetailModal({ order, extras, onClose, onStatusChange, onDelete, on
                 </div>
               )}
             </div>
-            <span className={`text-xs font-semibold px-2 py-0.5 rounded-full shrink-0 ${cfg.badge}`}>{cfg.label}</span>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {order.isDuplicate && (
+                <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 border border-orange-200 shrink-0">Дубль</span>
+              )}
+              <span className={`text-xs font-semibold px-2 py-0.5 rounded-full shrink-0 ${cfg.badge}`}>{cfg.label}</span>
+            </div>
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
@@ -455,9 +460,16 @@ function OrderCard({ order, onStatusChange, onDelete, onOpen }) {
           <div className="flex items-start justify-between gap-1">
             <div className="min-w-0 flex-1">
               <p className="text-sm font-bold text-gray-900 truncate">{order.id}</p>
-              <span className={`inline-block text-[10px] font-medium px-2 py-0.5 rounded-full mt-0.5 ${cfg.badge}`}>
-                {cfg.label}
-              </span>
+              <div className="flex items-center gap-1 flex-wrap mt-0.5">
+                {order.isDuplicate && (
+                  <span className="inline-block text-[10px] font-bold px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 border border-orange-200">
+                    Дубль
+                  </span>
+                )}
+                <span className={`inline-block text-[10px] font-medium px-2 py-0.5 rounded-full ${cfg.badge}`}>
+                  {cfg.label}
+                </span>
+              </div>
             </div>
             {/* Action buttons — stop propagation so clicking them doesn't open modal */}
             <div
