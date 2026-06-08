@@ -1,7 +1,7 @@
 import React, { useRef, useEffect } from 'react'
 import { useLocation } from 'react-router-dom'
 import { THREAD_PALETTE } from '../data/threadPalette'
-import { vectorizeImage } from '../services/vectorizer'
+import { vectorizeImage, vectorizeFromUrl } from '../services/vectorizer'
 import { removeBgML } from '../services/bgRemoval'
 
 const CSS = `
@@ -1257,29 +1257,35 @@ export default function PaletteEditor() {
     applyScale(parseFloat(scaleRangeEl?.value) || 100)
 
     // Auto-load design passed from DesignPlacement.
-    // Uses BiRefNet ML model to remove background (handles any background color),
-    // then crops to content and vectorizes.
+    // Primary: Hetzner server (rembg ML bg-removal + vtracer).
+    // Fallback: browser BiRefNet + ImageTracer.js.
     const autoImageUrl = autoImageRef.current
     if (autoImageUrl) {
       const statusEl = $('vectorizerStatus')
-      if (statusEl) { statusEl.style.display = 'block'; statusEl.textContent = '⏳ Завантаження ML-моделі та видалення фону...' }
+      const showSvg = svg => {
+        originalText = svg
+        if (scaleRangeEl) { scaleRangeEl.value = '100'; if (scaleValEl) scaleValEl.textContent = '100%' }
+        parseAndShow(svg)
+      }
+      const browserFallback = () => {
+        if (statusEl) statusEl.textContent = '⏳ Резервна векторизація (браузер)...'
+        return removeBgML(autoImageUrl)
+          .then(dataUrl => fetch(dataUrl).then(r => r.blob()))
+          .then(blob => preprocessImageBlob(blob))
+          .then(croppedBlob => vectorizeImage(croppedBlob))
+      }
+      if (statusEl) { statusEl.style.display = 'block'; statusEl.textContent = '⏳ Векторизація (сервер)...' }
       if (loadBtn) loadBtn.disabled = true
       if (removeBgChk) removeBgChk.checked = false
-      removeBgML(autoImageUrl)
-        .then(dataUrl => {
-          if (statusEl) statusEl.textContent = '⏳ Векторизація...'
-          return fetch(dataUrl).then(r => r.blob())
-        })
-        .then(blob => preprocessImageBlob(blob))
-        .then(croppedBlob => vectorizeImage(croppedBlob))
-        .then(svg => {
-          originalText = svg
-          if (scaleRangeEl) { scaleRangeEl.value = '100'; if (scaleValEl) scaleValEl.textContent = '100%' }
-          parseAndShow(svg)
+      vectorizeFromUrl(autoImageUrl)
+        .then(svg => showSvg(svg))
+        .catch(err => {
+          console.warn('Server vectorize failed, using browser fallback:', err)
+          return browserFallback().then(svg => showSvg(svg))
         })
         .catch(err => {
-          console.error('Auto-vectorize failed:', err)
-          alert('Не вдалось автоматично векторизувати дизайн: ' + (err?.message || err))
+          console.error('All vectorize methods failed:', err)
+          alert('Не вдалось векторизувати дизайн: ' + (err?.message || err))
         })
         .finally(() => {
           if (statusEl) statusEl.style.display = 'none'

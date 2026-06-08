@@ -1,39 +1,53 @@
 /**
- * Vectorization service — converts raster image (PNG/JPG) to SVG
- * using ImageTracer.js (runs entirely in the browser, no API key needed).
+ * Vectorization service.
  *
- * Same algorithm as vtracer on the Hetzner server:
- * raster pixels → color quantization → SVG paths.
+ * Primary path:  POST to Hetzner server  (rembg bg-removal + vtracer quality)
+ * Fallback path: ImageTracer.js          (runs in browser, no server needed)
  */
 import ImageTracer from 'imagetracerjs'
 
+const HETZNER_URL = import.meta.env.VITE_HETZNER_VECTORIZE_URL // e.g. https://embroider.duckdns.org:8443
+
 // Presets tuned for embroidery: clean paths, limited colors, no tiny noise
 const EMBROIDERY_OPTIONS = {
-  // Color quantization
   numberofcolors: 16,
   colorsampling: 1,
   colorquantcycles: 3,
-  // Path smoothing — higher ltres/qtres = smoother, less noise
   ltres: 2,
   qtres: 2,
-  // pathomit: skip paths with fewer nodes than this → removes speckle noise
   pathomit: 48,
   rightangleenhance: false,
-  // Stroke / fill
   strokewidth: 0,
-  // linefilter removes single-pixel noise lines
   linefilter: true,
-  // Pre-blur to smooth JPEG compression artifacts before tracing
   blurradius: 1,
   blurdelta: 20,
-  // Scale
   scale: 1,
   roundcoords: 1,
 }
 
 /**
- * Vectorize a raster image File (PNG/JPG) → SVG string.
- * Runs in the browser — no server, no API key, no cost.
+ * Vectorize an image URL via the Hetzner server.
+ * Server performs rembg background removal + vtracer vectorization.
+ * @param {string} imageUrl — publicly reachable image URL
+ * @returns {Promise<string>} SVG content
+ */
+export async function vectorizeFromUrl(imageUrl) {
+  if (!HETZNER_URL) throw new Error('VITE_HETZNER_VECTORIZE_URL not configured')
+  const res = await fetch(`${HETZNER_URL}/api/vectorize`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ url: imageUrl }),
+  })
+  if (!res.ok) {
+    const text = await res.text().catch(() => '')
+    throw new Error(`Hetzner vectorize ${res.status}: ${text}`)
+  }
+  return res.text()
+}
+
+/**
+ * Vectorize a raster image File/Blob → SVG string (browser fallback).
+ * Runs entirely in the browser — no server needed.
  * @param {File|Blob} imageFile
  * @returns {Promise<string>} SVG content
  */
