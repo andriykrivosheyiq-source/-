@@ -1,43 +1,49 @@
 /**
- * Vectorization service — converts a raster image (PNG/JPG) to SVG
- * by calling the Hetzner FastAPI server (vtracer-based pipeline).
+ * Vectorization service — converts raster image (PNG/JPG) to SVG
+ * using Vectorizer.ai API (https://vectorizer.ai/api).
  *
- * Server: http://46.62.193.193  (set VITE_VECTORIZER_URL to override)
- * Endpoint: POST /api/vectorize  multipart/form-data { file: <binary> }
- * Response: SVG text (Content-Type: image/svg+xml) or JSON { svg: "..." }
+ * Set in .env:
+ *   VITE_VECTORIZER_API_ID=vk-...
+ *   VITE_VECTORIZER_API_SECRET=...
  */
 
-const BASE_URL = (import.meta.env.VITE_VECTORIZER_URL || 'http://46.62.193.193').replace(/\/$/, '')
+const API_URL = 'https://api.vectorizer.ai/api/v1/vectorize'
+const API_ID = import.meta.env.VITE_VECTORIZER_API_ID || ''
+const API_SECRET = import.meta.env.VITE_VECTORIZER_API_SECRET || ''
 
 /**
- * Vectorize a raster image file (PNG/JPG/etc) → SVG string.
+ * Vectorize a raster image (PNG/JPG/etc) → SVG string via Vectorizer.ai.
  * @param {File|Blob} imageFile
  * @param {AbortSignal} [signal]
  * @returns {Promise<string>} SVG content
  */
 export async function vectorizeImage(imageFile, signal) {
-  const form = new FormData()
-  form.append('file', imageFile)
+  if (!API_ID || !API_SECRET) {
+    throw new Error(
+      'Vectorizer.ai API credentials missing. ' +
+      'Add VITE_VECTORIZER_API_ID and VITE_VECTORIZER_API_SECRET to .env'
+    )
+  }
 
-  const resp = await fetch(`${BASE_URL}/api/vectorize`, {
+  const form = new FormData()
+  form.append('image', imageFile)
+  // mode=test is free but adds watermark; mode=production uses credits
+  const mode = import.meta.env.VITE_VECTORIZER_MODE || 'test'
+  form.append('mode', mode)
+
+  const resp = await fetch(API_URL, {
     method: 'POST',
+    headers: {
+      Authorization: 'Basic ' + btoa(`${API_ID}:${API_SECRET}`),
+    },
     body: form,
     signal,
   })
 
   if (!resp.ok) {
     const msg = await resp.text().catch(() => resp.statusText)
-    throw new Error(`Vectorizer error ${resp.status}: ${msg}`)
+    throw new Error(`Vectorizer.ai error ${resp.status}: ${msg}`)
   }
 
-  const ct = resp.headers.get('content-type') || ''
-  if (ct.includes('svg') || ct.includes('xml')) {
-    return resp.text()
-  }
-
-  // JSON response: { svg: "..." }
-  const json = await resp.json()
-  if (json.svg) return json.svg
-  if (json.result) return json.result
-  throw new Error('Unexpected vectorizer response format')
+  return resp.text()
 }
