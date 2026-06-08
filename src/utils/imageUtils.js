@@ -125,7 +125,7 @@ async function toDataUrl(url) {
   })
 }
 
-/** Remove background using ML + two-pass post-processing. Falls back to BFS-only if ML fails. */
+/** Remove background using ML + alpha hole-fill. Falls back to BFS-only if ML fails. */
 export async function removeBgFromUrl(url) {
   try {
     const mlDataUrl = await removeBgML(url)
@@ -180,26 +180,12 @@ export async function removeBgFromUrl(url) {
       }
     }
 
-    // Pass 1 result: restore interior transparent holes (white clothing)
+    // Restore interior transparent holes (white clothing enclosed by opaque outlines)
     for (let i = 0; i < W * H; i++) {
       if (isTrans(i) && !bgVisited[i]) {
         px.data[i * 4]     = origColors[i * 4]
         px.data[i * 4 + 1] = origColors[i * 4 + 1]
         px.data[i * 4 + 2] = origColors[i * 4 + 2]
-        px.data[i * 4 + 3] = 255
-      }
-    }
-
-    // Pass 2 — restore dark/colored clothing that BiRefNet removed but is edge-adjacent
-    // (can't be white background → safe to restore based on original pixel color).
-    // Gemini illustrations always have white/near-white backgrounds so this is safe.
-    for (let i = 0; i < W * H; i++) {
-      if (px.data[i * 4 + 3] >= 128) continue
-      const r = origColors[i * 4], g = origColors[i * 4 + 1], b = origColors[i * 4 + 2]
-      const isDark = r < 150 || g < 150 || b < 150
-      const isColored = Math.max(r, g, b) - Math.min(r, g, b) > 40
-      if (isDark || isColored) {
-        px.data[i * 4] = r; px.data[i * 4 + 1] = g; px.data[i * 4 + 2] = b
         px.data[i * 4 + 3] = 255
       }
     }
