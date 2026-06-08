@@ -26,6 +26,19 @@ const loadImg = (src) => new Promise((res, rej) => {
   img.src = src
 })
 
+// Fetch a remote URL as a base64 data URL to avoid canvas CORS taint
+const fetchAsDataUrl = async (url) => {
+  if (!url.startsWith('http')) return url
+  const resp = await fetch(url)
+  const blob = await resp.blob()
+  return new Promise((res, rej) => {
+    const reader = new FileReader()
+    reader.onload = e => res(e.target.result)
+    reader.onerror = rej
+    reader.readAsDataURL(blob)
+  })
+}
+
 const DESIGNERS = [
   { id: 'andrii',    name: 'Андрій',    handle: '@andrii_design',    color: 'bg-blue-500' },
   { id: 'maksym',    name: 'Максим',    handle: '@maksym_design',    color: 'bg-green-500' },
@@ -662,13 +675,16 @@ export default function MyOrders({ savedOrders = [], ordersLoading = false, orde
               const ctx = canvas.getContext('2d')
               ctx.imageSmoothingEnabled = true
               ctx.imageSmoothingQuality = 'high'
+              // Product image is local — no CORS issue
               const pImg = await loadImg(product.image)
               const pA = pImg.naturalWidth / pImg.naturalHeight
               let pW, pH, pX, pY
               if (pA >= 1) { pW = SIZE; pH = SIZE / pA; pX = 0; pY = (SIZE - pH) / 2 }
               else { pH = SIZE; pW = SIZE * pA; pX = (SIZE - pW) / 2; pY = 0 }
               ctx.drawImage(pImg, pX, pY, pW, pH)
-              const dImg = await loadImg(dSrc)
+              // Design image may be a Cloudinary URL — fetch as data URL to avoid canvas CORS taint
+              const dDataUrl = await fetchAsDataUrl(dSrc)
+              const dImg = await loadImg(dDataUrl)
               const srcW = dImg.naturalWidth || dImg.width
               const srcH = dImg.naturalHeight || dImg.height
               const dW = overlayPos.size / 100 * SIZE
