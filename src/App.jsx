@@ -157,8 +157,10 @@ function AppInner() {
     let finalOrder = order
     const conflict = savedOrders.find(o => o.id === order.id)
     if (conflict) {
-      const dupSuffix = `_д${String(Date.now()).slice(-3)}`
-      finalOrder = { ...order, id: order.id + dupSuffix, isDuplicate: true }
+      let candidate = `${order.id}_дубль`
+      let n = 2
+      while (savedOrders.find(o => o.id === candidate)) { candidate = `${order.id}_дубль${n++}` }
+      finalOrder = { ...order, id: candidate }
     }
 
     if (extras) orderExtras.current[finalOrder.id] = extras

@@ -102,9 +102,6 @@ function OrderDetailModal({ order, extras, onClose, onStatusChange, onDelete, on
               )}
             </div>
             <div className="flex items-center gap-1.5 flex-wrap">
-              {order.isDuplicate && (
-                <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 border border-orange-200 shrink-0">Дубль</span>
-              )}
               <span className={`text-xs font-semibold px-2 py-0.5 rounded-full shrink-0 ${cfg.badge}`}>{cfg.label}</span>
             </div>
           </div>
@@ -427,11 +424,6 @@ function OrderCard({ order, onStatusChange, onDelete, onOpen }) {
             <div className="min-w-0 flex-1">
               <p className="text-sm font-bold text-gray-900 truncate">{order.id}</p>
               <div className="flex items-center gap-1 flex-wrap mt-0.5">
-                {order.isDuplicate && (
-                  <span className="inline-block text-[10px] font-bold px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 border border-orange-200">
-                    Дубль
-                  </span>
-                )}
                 <span className={`inline-block text-[10px] font-medium px-2 py-0.5 rounded-full ${cfg.badge}`}>
                   {cfg.label}
                 </span>
