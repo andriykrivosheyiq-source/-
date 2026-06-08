@@ -1,6 +1,5 @@
 import React, { useRef, useEffect } from 'react'
 import { THREAD_PALETTE } from '../data/threadPalette'
-import { vectorizeImage } from '../services/vectorizer'
 
 const CSS = `
 .pe-container{display:flex;gap:14px;padding:16px;height:100%;align-items:stretch;font-family:Inter,"Segoe UI",Arial,Helvetica,sans-serif;color:#111;background:#f5f6f7;box-sizing:border-box;overflow:hidden}
@@ -434,30 +433,7 @@ export default function PaletteEditor() {
     if (loadBtn && svgInp) {
       loadBtn.addEventListener('click', () => {
         const f = svgInp.files && svgInp.files[0]
-        if (!f) { alert('Оберіть SVG або PNG'); return }
-        const isPng = /\.(png|jpe?g|webp|bmp)$/i.test(f.name) || f.type.startsWith('image/') && !f.type.includes('svg')
-
-        if (isPng) {
-          const statusEl = $('vectorizerStatus')
-          if (statusEl) { statusEl.textContent = 'Векторизація…'; statusEl.style.display = 'block' }
-          loadBtn.disabled = true
-          vectorizeImage(f)
-            .then(svg => {
-              const shouldRemoveBg = removeBgChk?.checked
-              originalText = shouldRemoveBg ? removeSvgBackground(svg) : svg
-              parseAndShow(originalText)
-            })
-            .catch(err => {
-              console.error('Vectorization failed:', err)
-              alert('Помилка векторизації: ' + (err?.message || err))
-            })
-            .finally(() => {
-              loadBtn.disabled = false
-              if (statusEl) statusEl.style.display = 'none'
-            })
-          return
-        }
-
+        if (!f) { alert('Оберіть SVG'); return }
         const r = new FileReader()
         r.onload = e => {
           const text = e.target.result
@@ -1179,7 +1155,7 @@ export default function PaletteEditor() {
         <div className="pe-panel">
           <h2>Інструменти</h2>
           <div className="pe-controls-row">
-            <label className="small">Файл: <input id="svgInp" type="file" accept=".svg,image/svg+xml,.png,.jpg,.jpeg,.webp" /></label>
+            <label className="small">SVG-файл: <input id="svgInp" type="file" accept=".svg,image/svg+xml" /></label>
             <button id="loadBtn" className="primary">Завантажити</button>
           </div>
           <div className="pe-controls-row" style={{gap:6}}>
@@ -1188,7 +1164,6 @@ export default function PaletteEditor() {
               Видалити фон (торкається 3+ країв)
             </label>
           </div>
-          <div id="vectorizerStatus" style={{display:'none',fontSize:12,color:'#2b6fb3',padding:'4px 0'}}>⏳ Векторизація PNG через сервер…</div>
           <div className="pe-controls-row">
             <label className="small">Авто-порог згрупування (0..200):</label>
             <input id="threshRange" type="range" min="0" max="200" defaultValue="30" style={{flex:1}} />
