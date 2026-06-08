@@ -28,13 +28,24 @@ const DESIGNERS = [
 
 // ─── Order Detail Modal ────────────────────────────────────────────────────────
 
-function OrderDetailModal({ order, extras, onClose, onStatusChange, onDelete, onOpenOrder, onUpdateOrder }) {
+function OrderDetailModal({ order, extras, onClose, onStatusChange, onDelete, onRenameOrder, onOpenOrder, onUpdateOrder }) {
   const cfg = STATUS_CONFIG[order.status] || STATUS_CONFIG.new
   const [comment, setComment] = useState(order.comment || '')
   const [saved, setSaved] = useState(false)
   const [editingName, setEditingName] = useState(false)
   const [nameDraft, setNameDraft] = useState(order.name || '')
+  const [editingId, setEditingId] = useState(false)
+  const [idDraft, setIdDraft] = useState(order.id.replace(/^#/, ''))
   const nameInputRef = useRef(null)
+
+  const handleSaveId = () => {
+    const trimmed = idDraft.trim()
+    if (trimmed) {
+      const newId = trimmed.startsWith('#') ? trimmed : `#${trimmed}`
+      if (newId !== order.id) onRenameOrder?.(order.id, newId)
+    }
+    setEditingId(false)
+  }
 
   const handleSaveComment = () => {
     onUpdateOrder?.(order.id, { comment })
@@ -63,16 +74,40 @@ function OrderDetailModal({ order, extras, onClose, onStatusChange, onDelete, on
         <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
           <div className="flex items-center gap-2 min-w-0">
             <div className="flex items-baseline gap-2 min-w-0">
-              {order._saved && onOpenOrder ? (
-                <button
-                  onClick={() => { onClose(); onOpenOrder(order.id) }}
-                  className="text-base font-bold text-indigo-600 hover:text-indigo-800 hover:underline transition-colors"
-                  title="Відкрити в редакторі"
-                >
-                  {order.id}
-                </button>
+              {editingId ? (
+                <div className="flex items-center gap-1">
+                  <span className="text-base font-bold text-gray-400">#</span>
+                  <input
+                    value={idDraft}
+                    onChange={e => setIdDraft(e.target.value.replace(/^#/, ''))}
+                    onKeyDown={e => { if (e.key === 'Enter') handleSaveId(); if (e.key === 'Escape') setEditingId(false) }}
+                    onBlur={handleSaveId}
+                    autoFocus
+                    className="border border-indigo-300 rounded-lg px-2 py-0.5 text-base font-bold text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-300 w-36"
+                  />
+                  <button onMouseDown={e => { e.preventDefault(); handleSaveId() }} className="text-indigo-600 hover:text-indigo-800 text-xs font-semibold px-1">OK</button>
+                </div>
               ) : (
-                <span className="text-base font-bold text-gray-900">{order.id}</span>
+                <div className="flex items-center gap-1.5 group cursor-default">
+                  {order._saved && onOpenOrder ? (
+                    <button
+                      onClick={() => { onClose(); onOpenOrder(order.id) }}
+                      className="text-base font-bold text-indigo-600 hover:text-indigo-800 hover:underline transition-colors"
+                      title="Відкрити в редакторі"
+                    >
+                      {order.id}
+                    </button>
+                  ) : (
+                    <span className="text-base font-bold text-gray-900">{order.id}</span>
+                  )}
+                  <button
+                    onClick={() => { setIdDraft(order.id.replace(/^#/, '')); setEditingId(true) }}
+                    className="opacity-0 group-hover:opacity-100 transition-opacity text-gray-400 hover:text-indigo-600"
+                    title="Змінити номер"
+                  >
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                  </button>
+                </div>
               )}
             </div>
             <span className={`text-xs font-semibold px-2 py-0.5 rounded-full shrink-0 ${cfg.badge}`}>{cfg.label}</span>
@@ -564,7 +599,7 @@ function Column({ status, orders, onStatusChange, onDelete, onOpen }) {
 
 // ─── Main Page ─────────────────────────────────────────────────────────────────
 
-export default function MyOrders({ savedOrders = [], ordersLoading = false, orderExtras = {}, onUpdateOrder, onDeleteOrder, onOpenOrder }) {
+export default function MyOrders({ savedOrders = [], ordersLoading = false, orderExtras = {}, onUpdateOrder, onDeleteOrder, onRenameOrder, onOpenOrder }) {
   const navigate = useNavigate()
   const [search, setSearch] = useState('')
   const [filterProduct, setFilterProduct] = useState('all')
@@ -765,6 +800,7 @@ export default function MyOrders({ savedOrders = [], ordersLoading = false, orde
           onClose={() => setSelectedOrder(null)}
           onStatusChange={handleStatusChange}
           onDelete={onDeleteOrder}
+          onRenameOrder={(oldId, newId) => { onRenameOrder?.(oldId, newId); setSelectedOrder(null) }}
           onOpenOrder={onOpenOrder}
           onUpdateOrder={onUpdateOrder}
         />

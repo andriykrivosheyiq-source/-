@@ -202,6 +202,22 @@ function AppInner() {
     }
   }
 
+  const handleRenameOrder = async (oldId, newId) => {
+    if (!newId || newId === oldId) return
+    const order = savedOrders.find(o => o.id === oldId)
+    if (!order) return
+    try {
+      await setDoc(doc(db, 'orders', newId), clean({ ...order, id: newId }))
+      if (orderExtras.current[oldId]) {
+        orderExtras.current[newId] = orderExtras.current[oldId]
+        delete orderExtras.current[oldId]
+      }
+      await deleteDoc(doc(db, 'orders', oldId))
+    } catch (e) {
+      console.error('Rename order failed:', e)
+    }
+  }
+
   const handleOpenOrder = (orderId) => {
     const extras = orderExtras.current[orderId]
     const snapshot = extras?.designSnapshot || {}
@@ -236,6 +252,7 @@ function AppInner() {
                 orderExtras={orderExtras.current}
                 onUpdateOrder={handleUpdateOrder}
                 onDeleteOrder={handleDeleteOrder}
+                onRenameOrder={handleRenameOrder}
                 onOpenOrder={handleOpenOrder}
               />
             }
