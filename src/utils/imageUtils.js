@@ -1,4 +1,4 @@
-import { removeBackgroundClipdrop } from '../services/clipdrop.js'
+import { removeBackgroundPhotoroom } from '../services/photoroom.js'
 
 export function loadImgEl(src) {
   return new Promise((resolve, reject) => {
@@ -128,9 +128,9 @@ async function toDataUrl(url) {
 /** Remove background via Clipdrop API. Falls back to BFS on error. */
 export async function removeBgFromUrl(url) {
   try {
-    return await removeBackgroundClipdrop(url)
+    return await removeBackgroundPhotoroom(url)
   } catch (e) {
-    console.warn('Clipdrop bg removal failed, using BFS fallback:', e)
+    console.warn('PhotoRoom bg removal failed, using BFS fallback:', e)
     const dataUrl = await toDataUrl(url)
     const img = await loadImgEl(dataUrl)
     return removeWhiteBg(img).toDataURL('image/png')
