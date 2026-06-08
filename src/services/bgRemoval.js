@@ -1,15 +1,14 @@
 /**
- * ML-based background removal using RMBG-1.4 (briaai) via Transformers.js.
+ * ML-based background removal using BiRefNet (ZhengPeng7) via Transformers.js.
  * Model runs entirely in the browser (WebGPU → WASM fallback).
- * The model is downloaded once (~88 MB fp16) and cached by the browser.
+ * The model is downloaded once (~200 MB fp32) and cached by the browser.
  */
 import { AutoModel, AutoProcessor, RawImage, env } from '@huggingface/transformers'
 
 // Single-threaded WASM fallback — no SharedArrayBuffer / COOP headers required
-// (GitHub Pages and most static hosts don't send those headers)
 env.backends.onnx.wasm.numThreads = 1
 
-const MODEL_ID = 'briaai/RMBG-1.4'
+const MODEL_ID = 'ZhengPeng7/BiRefNet'
 
 // Singleton model + processor
 let _model = null
@@ -44,7 +43,6 @@ async function _loadModel() {
     _notify('loading')
     try {
       const device = await _detectDevice()
-      // fp16 on webgpu; fp32 on wasm (q8/q4 not published for this model)
       const dtype = device === 'webgpu' ? 'fp16' : 'fp32'
 
       ;[_model, _processor] = await Promise.all([
@@ -59,8 +57,9 @@ async function _loadModel() {
             do_pad: false,
             do_rescale: true,
             do_resize: true,
-            image_mean: [0.5, 0.5, 0.5],
-            image_std: [1, 1, 1],
+            // BiRefNet uses standard ImageNet normalization
+            image_mean: [0.485, 0.456, 0.406],
+            image_std: [0.229, 0.224, 0.225],
             resample: 2,
             rescale_factor: 0.00392156862745098,
             size: { width: 1024, height: 1024 },
@@ -86,7 +85,7 @@ export function preloadBgModel() {
 }
 
 /**
- * Remove background from an image URL using the RMBG-1.4 ML model.
+ * Remove background from an image URL using the BiRefNet ML model.
  * Returns a PNG data URL with transparent background.
  */
 export async function removeBgML(imageUrl) {
