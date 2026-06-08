@@ -345,6 +345,53 @@ export default function PaletteEditor() {
       try { if (svgRoot) svgRoot.style.transform = `scale(${s})`; if (originalSvgRoot) originalSvgRoot.style.transform = `scale(${s})` } catch(e){}
     }
 
+    // Crop SVG viewBox to actual content bounds, skipping full-canvas background element.
+    function trimSvgToContent(svgText) {
+      const parser = new DOMParser()
+      const doc = parser.parseFromString(svgText, 'image/svg+xml')
+      if (doc.querySelector('parsererror')) return svgText
+      const root = doc.documentElement
+      const vbAttr = root.getAttribute('viewBox')
+      if (!vbAttr) return svgText
+      const parts = vbAttr.trim().split(/[\s,]+/)
+      if (parts.length !== 4) return svgText
+      const [vx, vy, vw, vh] = parts.map(Number)
+      if (!vw || !vh) return svgText
+      const eps = Math.max(vw, vh) * 0.01
+
+      const tmp = document.createElement('div')
+      tmp.style.cssText = `position:fixed;left:-9999px;top:-9999px;visibility:hidden;overflow:hidden;width:${vw}px;height:${vh}px`
+      const clone = document.importNode(root, true)
+      clone.setAttribute('width', vw)
+      clone.setAttribute('height', vh)
+      tmp.appendChild(clone)
+      document.body.appendChild(tmp)
+
+      try {
+        const shapes = clone.querySelectorAll('path,rect,circle,ellipse,polygon,polyline,line')
+        let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity
+        for (const el of shapes) {
+          try {
+            const bb = el.getBBox()
+            if (bb.width < 1 && bb.height < 1) continue
+            // skip element that fills the entire canvas
+            if (bb.x <= vx + eps && bb.y <= vy + eps &&
+                bb.x + bb.width >= vx + vw - eps &&
+                bb.y + bb.height >= vy + vh - eps) continue
+            x0 = Math.min(x0, bb.x); y0 = Math.min(y0, bb.y)
+            x1 = Math.max(x1, bb.x + bb.width); y1 = Math.max(y1, bb.y + bb.height)
+          } catch(e) {}
+        }
+        if (isFinite(x0) && x1 > x0 && y1 > y0) {
+          const pad = Math.max(x1 - x0, y1 - y0) * 0.04
+          clone.setAttribute('viewBox', `${x0-pad} ${y0-pad} ${x1-x0+2*pad} ${y1-y0+2*pad}`)
+        }
+        return new XMLSerializer().serializeToString(clone)
+      } finally {
+        document.body.removeChild(tmp)
+      }
+    }
+
     // SVG background removal — mirrors Python BackgroundRemover:
     // removes elements whose bounding box intersects >= 3 canvas edge zones.
     // epsilon = 0.25% of avg(width, height), touch_threshold = 3.
@@ -1177,10 +1224,10 @@ export default function PaletteEditor() {
         .then(r => r.blob())
         .then(blob => vectorizeImage(blob))
         .then(svg => {
-          originalText = svg
-          // Set scale to fit before showing
-          if (scaleRangeEl) { scaleRangeEl.value = '80'; if (scaleValEl) scaleValEl.textContent = '80%' }
-          parseAndShow(svg)
+          const fitted = trimSvgToContent(svg)
+          originalText = fitted
+          if (scaleRangeEl) { scaleRangeEl.value = '100'; if (scaleValEl) scaleValEl.textContent = '100%' }
+          parseAndShow(fitted)
         })
         .catch(err => {
           console.error('Auto-vectorize failed:', err)
