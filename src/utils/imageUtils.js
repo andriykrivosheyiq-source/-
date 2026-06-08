@@ -1,3 +1,5 @@
+import { removeBgML } from '../services/bgRemoval.js'
+
 export function loadImgEl(src) {
   return new Promise((resolve, reject) => {
     const img = new Image()
@@ -123,19 +125,21 @@ async function toDataUrl(url) {
   })
 }
 
-/** Load an image URL/dataURL, remove its white background, return a PNG data URL. */
+/** Remove background using ML (RMBG-1.4). Falls back to BFS if ML fails. */
 export async function removeBgFromUrl(url) {
-  const dataUrl = await toDataUrl(url)
-  const img = await loadImgEl(dataUrl)
-  return removeWhiteBg(img).toDataURL('image/png')
+  try {
+    return await removeBgML(url)
+  } catch (e) {
+    console.warn('ML bg removal failed, using BFS fallback:', e)
+    const dataUrl = await toDataUrl(url)
+    const img = await loadImgEl(dataUrl)
+    return removeWhiteBg(img).toDataURL('image/png')
+  }
 }
 
 /**
- * Remove background only if the image is not already transparent.
- * Checks the four corners: if any corner pixel is already transparent (alpha < 128)
- * the image has already been bg-removed and is returned as-is to avoid double-removal
- * which can erase light-colored design elements.
- * Uses fetch→dataURL to prevent canvas CORS taint on Cloudinary URLs.
+ * Remove background only if image is not already transparent (corner check).
+ * Uses ML removal; falls back to BFS on error.
  */
 export async function removeBgFromUrlIfNeeded(url) {
   const dataUrl = await toDataUrl(url)
@@ -153,8 +157,7 @@ export async function removeBgFromUrlIfNeeded(url) {
     ctx.getImageData(W - 1, H - 1, 1, 1).data,
   ]
   if (corners.some(p => p[3] < 128)) {
-    // Already bg-removed — return as-is
-    return check.toDataURL('image/png')
+    return check.toDataURL('image/png') // Already transparent — skip removal
   }
-  return removeWhiteBg(img).toDataURL('image/png')
+  return removeBgFromUrl(url) // Use ML
 }
