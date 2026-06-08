@@ -4,6 +4,7 @@ import { products as allProducts, productCategories } from '../data/mockData'
 import { generateDesigns, clearCache, editDesign } from '../services/gemini'
 import { sendToClientCRM, getOrderByCrmNumber, updateOrderStatus, sendOrderToDesignerTelegram } from '../services/crmService'
 import { removeBgFromUrl } from '../utils/imageUtils'
+import { removeBackgroundPhotoroom } from '../services/photoroom'
 
 const D_PATH =
   'M291 123L78 153L88 232L114 229L116 233L148 467L143 471L121 474L132 555L349 526L400 459L360 176Z ' +
@@ -270,16 +271,23 @@ async function renderEstTransparent(letters, estEl, estText, showEstText, imageU
 
   if (imageUrl) {
     try {
-      const img = await loadImgEl(imageUrl)
-      const cleaned = removeWhiteBg(img, 230, true)
+      let cleanedSrc
+      try {
+        // PhotoRoom gives cleaner results than BFS for Gemini illustrations
+        const dataUrl = await removeBackgroundPhotoroom(imageUrl)
+        cleanedSrc = await loadImgEl(dataUrl)
+      } catch {
+        const img = await loadImgEl(imageUrl)
+        cleanedSrc = removeWhiteBg(img, 230, true)
+      }
       const iW = illus.size / 100 * W
-      const iH = iW * cleaned.height / cleaned.width
+      const iH = iW * cleanedSrc.height / cleanedSrc.width
       const cropFrac = (illus.cropBottom || 0) / 100
-      const srcH = cleaned.height * (1 - cropFrac)
+      const srcH = cleanedSrc.height * (1 - cropFrac)
       const destH = iH * (1 - cropFrac)
       const iX = illus.x / 100 * W - iW / 2
       const iY = illus.y / 100 * H - iH / 2
-      ctx.drawImage(cleaned, 0, 0, cleaned.width, srcH, iX, iY, iW, destH)
+      ctx.drawImage(cleanedSrc, 0, 0, cleanedSrc.width, srcH, iX, iY, iW, destH)
     } catch { /* skip */ }
   }
 
@@ -1172,13 +1180,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
       try {
         if (isEst && estPosterRef.current) {
           const canvas = await estPosterRef.current.exportTransparent()
-          const dataUrl = canvas.toDataURL('image/png')
-          try {
-            const cleaned = await removeBgFromUrl(dataUrl)
-            if (!cancelled) setMockupDesignUrl(cleaned)
-          } catch {
-            if (!cancelled) setMockupDesignUrl(dataUrl)
-          }
+          if (!cancelled) setMockupDesignUrl(canvas.toDataURL('image/png'))
         } else {
           const sourceUrl = drawingDataUrl || currentDesignImage
           try {
