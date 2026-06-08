@@ -1176,7 +1176,12 @@ export default function PaletteEditor() {
       fetch(autoImageUrl)
         .then(r => r.blob())
         .then(blob => vectorizeImage(blob))
-        .then(svg => { originalText = svg; parseAndShow(svg) })
+        .then(svg => {
+          originalText = svg
+          // Set scale to fit before showing
+          if (scaleRangeEl) { scaleRangeEl.value = '80'; if (scaleValEl) scaleValEl.textContent = '80%' }
+          parseAndShow(svg)
+        })
         .catch(err => {
           console.error('Auto-vectorize failed:', err)
           alert('Не вдалось автоматично векторизувати дизайн: ' + (err?.message || err))
