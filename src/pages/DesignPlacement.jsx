@@ -1804,10 +1804,11 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
 
     const catMap = { 'hoodie-basic': 'hoodie', 'hoodie-fleece': 'hoodie', 'hoodie-premium': 'hoodie', 'tshirt-basic': 'tshirt', 'tshirt-oversized': 'oversized', 'sweatshirt': 'sweatshirt', 'cap': 'cap', 'shopper': 'totebag' }
     const transferDateStr = now.toLocaleString('uk-UA', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Kiev' }).replace(',', '')
-    const allProductNames = [
-      currentProduct?.nameUk,
-      ...extraMockupProducts.map(pid => allProducts.find(p => p.id === pid)?.nameUk),
-    ].filter(Boolean)
+    // Only include products whose mockup was checked by the user
+    const allProductNames = sendItems
+      .filter(i => i.checked && i.id.startsWith('mockup-'))
+      .map(i => allMockupProducts[parseInt(i.id.replace('mockup-', ''))]?.nameUk)
+      .filter(Boolean)
     const order = {
       id: orderNum,
       name: fileName || `Дизайн від ${dateStr}`,
@@ -2363,13 +2364,23 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="text-xs text-gray-500 block mb-1">Номер замовлення</label>
-                    <div className="border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-800 bg-gray-50">{fileName || '—'}</div>
+                    <input
+                      value={fileName || ''}
+                      onChange={e => setFileName(e.target.value)}
+                      className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                      placeholder="Номер замовлення"
+                    />
                   </div>
                   <div>
                     <label className="text-xs text-gray-500 block mb-1">Тип одягу та колір</label>
-                    <div className="border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-800 bg-gray-50 flex items-center gap-2">
-                      <span className="w-4 h-4 rounded-full flex-shrink-0 border border-gray-200" style={{ backgroundColor: designData?.productColors?.[selectedProduct] || '#9ca3af' }} />
-                      {currentProduct?.nameUk || '—'}
+                    <div className="border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-800 bg-gray-50 min-h-[38px] flex items-center">
+                      {preparingSend ? '…' : (() => {
+                        const names = sendItems
+                          .filter(i => i.checked && i.id.startsWith('mockup-'))
+                          .map(i => allMockupProducts[parseInt(i.id.replace('mockup-', ''))]?.nameUk)
+                          .filter(Boolean)
+                        return names.length ? names.join(', ') : '—'
+                      })()}
                     </div>
                   </div>
                   <div>
