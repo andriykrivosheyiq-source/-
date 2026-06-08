@@ -10,6 +10,7 @@ import MyOrders from './pages/MyOrders'
 import Templates from './pages/Templates'
 import Favorites from './pages/Favorites'
 import Settings from './pages/Settings'
+import PaletteEditor from './pages/PaletteEditor'
 
 // Strip undefined values so Firestore doesn't reject the document
 function clean(obj) {
@@ -271,6 +272,7 @@ function AppInner() {
           <Route path="/templates" element={<Templates />} />
           <Route path="/favorites" element={<Favorites />} />
           <Route path="/settings" element={<Settings />} />
+          <Route path="/palette-editor" element={<PaletteEditor />} />
         </Routes>
       </main>
     </div>
