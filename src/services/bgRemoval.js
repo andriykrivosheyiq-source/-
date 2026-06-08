@@ -1,14 +1,14 @@
 /**
- * ML-based background removal using BiRefNet (ZhengPeng7) via Transformers.js.
+ * ML-based background removal using BiRefNet-lite (onnx-community) via Transformers.js.
  * Model runs entirely in the browser (WebGPU → WASM fallback).
- * The model is downloaded once (~200 MB fp32) and cached by the browser.
+ * The model is downloaded once and cached by the browser.
  */
 import { AutoModel, AutoProcessor, RawImage, env } from '@huggingface/transformers'
 
 // Single-threaded WASM fallback — no SharedArrayBuffer / COOP headers required
 env.backends.onnx.wasm.numThreads = 1
 
-const MODEL_ID = 'ZhengPeng7/BiRefNet'
+const MODEL_ID = 'onnx-community/BiRefNet_lite-ONNX'
 
 // Singleton model + processor
 let _model = null
@@ -46,25 +46,8 @@ async function _loadModel() {
       const dtype = device === 'webgpu' ? 'fp16' : 'fp32'
 
       ;[_model, _processor] = await Promise.all([
-        AutoModel.from_pretrained(MODEL_ID, {
-          config: { model_type: 'custom' },
-          dtype,
-          device,
-        }),
-        AutoProcessor.from_pretrained(MODEL_ID, {
-          config: {
-            do_normalize: true,
-            do_pad: false,
-            do_rescale: true,
-            do_resize: true,
-            // BiRefNet uses standard ImageNet normalization
-            image_mean: [0.485, 0.456, 0.406],
-            image_std: [0.229, 0.224, 0.225],
-            resample: 2,
-            rescale_factor: 0.00392156862745098,
-            size: { width: 1024, height: 1024 },
-          },
-        }),
+        AutoModel.from_pretrained(MODEL_ID, { dtype, device }),
+        AutoProcessor.from_pretrained(MODEL_ID),
       ])
 
       _notify('ready')
@@ -85,7 +68,7 @@ export function preloadBgModel() {
 }
 
 /**
- * Remove background from an image URL using the BiRefNet ML model.
+ * Remove background from an image URL using BiRefNet-lite ML model.
  * Returns a PNG data URL with transparent background.
  */
 export async function removeBgML(imageUrl) {
@@ -104,11 +87,11 @@ export async function removeBgML(imageUrl) {
   try {
     const image = await RawImage.fromURL(blobUrl)
     const { pixel_values } = await _processor(image)
-    const { output } = await _model({ input: pixel_values })
 
-    // Resize alpha mask back to original image dimensions
+    // BiRefNet uses input_image / output_image tensor names + sigmoid activation
+    const { output_image } = await _model({ input_image: pixel_values })
     const mask = await RawImage.fromTensor(
-      output[0].mul(255).to('uint8')
+      output_image[0].sigmoid().mul(255).to('uint8')
     ).resize(image.width, image.height)
 
     // Composite: draw original image, then apply mask as alpha channel
