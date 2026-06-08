@@ -1164,15 +1164,19 @@ export default function PaletteEditor() {
     applyScale(parseFloat(scaleRangeEl?.value) || 100)
 
     // Auto-load design passed from DesignPlacement
+    // Background removal is intentionally skipped here — AI-generated designs
+    // fill the whole canvas and would be falsely removed by the edge filter.
+    // User can enable it manually via the checkbox after loading.
     const autoImageUrl = autoImageRef.current
     if (autoImageUrl) {
       const statusEl = $('vectorizerStatus')
       if (statusEl) statusEl.style.display = 'block'
       if (loadBtn) loadBtn.disabled = true
+      if (removeBgChk) removeBgChk.checked = false
       fetch(autoImageUrl)
         .then(r => r.blob())
         .then(blob => vectorizeImage(blob))
-        .then(svg => loadSvgText(svg))
+        .then(svg => { originalText = svg; parseAndShow(svg) })
         .catch(err => {
           console.error('Auto-vectorize failed:', err)
           alert('Не вдалось автоматично векторизувати дизайн: ' + (err?.message || err))
