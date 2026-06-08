@@ -1,5 +1,4 @@
 const API_KEY = import.meta.env.VITE_PHOTOROOM_API_KEY
-console.log('[PhotoRoom] API key present:', !!API_KEY)
 
 export async function removeBackgroundPhotoroom(imageUrl) {
   if (!API_KEY) throw new Error('VITE_PHOTOROOM_API_KEY not configured')

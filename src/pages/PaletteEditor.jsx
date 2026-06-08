@@ -2,6 +2,7 @@ import React, { useRef, useEffect } from 'react'
 import { useLocation } from 'react-router-dom'
 import { THREAD_PALETTE } from '../data/threadPalette'
 import { preprocessBlob, vectorizeBlob } from '../services/vectorizer'
+import { removeBackgroundPhotoroom } from '../services/photoroom'
 
 const CSS = `
 .pe-container{display:flex;gap:14px;padding:16px;height:100%;align-items:stretch;font-family:Inter,"Segoe UI",Arial,Helvetica,sans-serif;color:#111;background:#f5f6f7;box-sizing:border-box;overflow:hidden}
@@ -1255,17 +1256,26 @@ export default function PaletteEditor() {
     if (threshValEl && threshRangeEl) threshValEl.textContent = threshRangeEl.value
     applyScale(parseFloat(scaleRangeEl?.value) || 100)
 
-    // Auto-load design passed from DesignPlacement — fetch blob → preprocess → vectorize.
+    // Auto-load design passed from DesignPlacement — remove bg → preprocess → vectorize.
     const autoImageUrl = autoImageRef.current
     if (autoImageUrl) {
       const statusEl = $('vectorizerStatus')
-      if (statusEl) { statusEl.style.display = 'block'; statusEl.textContent = '⏳ Векторизація...' }
       if (loadBtn) loadBtn.disabled = true
       if (removeBgChk) removeBgChk.checked = false
+
+      const removeBgThenVectorize = (blob) => {
+        if (statusEl) { statusEl.style.display = 'block'; statusEl.textContent = '⏳ Видалення фону...' }
+        const blobUrl = URL.createObjectURL(blob)
+        return removeBackgroundPhotoroom(blobUrl)
+          .then(dataUrl => { URL.revokeObjectURL(blobUrl); return fetch(dataUrl).then(r => r.blob()) })
+          .catch(err => { URL.revokeObjectURL(blobUrl); console.warn('PaletteEditor: bg removal failed, using as-is:', err); return blob })
+          .then(cleanBlob => { if (statusEl) statusEl.textContent = '⏳ Векторизація...'; return preprocessBlob(cleanBlob) })
+          .then(b => vectorizeBlob(b))
+      }
+
       fetch(autoImageUrl)
         .then(r => r.blob())
-        .then(blob => preprocessBlob(blob))
-        .then(blob => vectorizeBlob(blob))
+        .then(blob => removeBgThenVectorize(blob))
         .then(svg => {
           originalText = svg
           if (scaleRangeEl) { scaleRangeEl.value = '100'; if (scaleValEl) scaleValEl.textContent = '100%' }
