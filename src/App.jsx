@@ -229,7 +229,7 @@ function AppInner() {
   const handleOpenOrder = (orderId) => {
     const extras = orderExtras.current[orderId]
     const snapshot = extras?.designSnapshot || {}
-    setDesignData({ ...snapshot, editingOrderId: orderId })
+    setDesignData({ ...snapshot, editingOrderId: orderId, fileName: orderId.replace(/^#/, '') })
     navigate('/placement')
   }
 
@@ -248,6 +248,7 @@ function AppInner() {
                 onUpdate={(upd) => setDesignData(prev => ({ ...prev, ...upd }))}
                 onSaveOrder={handleSaveOrder}
                 onUpdateOrderFull={handleUpdateOrderFull}
+                onRenameOrder={handleRenameOrder}
               />
             }
           />

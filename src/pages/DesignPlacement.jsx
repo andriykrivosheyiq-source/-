@@ -998,7 +998,7 @@ function ChangeProductModal({ current, onSelect, onClose }) {
 
 // ─── DesignPlacement ──────────────────────────────────────────────────────────
 
-export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onUpdateOrderFull }) {
+export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onUpdateOrderFull, onRenameOrder }) {
   const navigate = useNavigate()
   const estPosterRef = useRef(null)
   const autoSaveRef = useRef(false)
@@ -1620,8 +1620,17 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
     }
 
     if (designData?.editingOrderId) {
-      // Update existing order — don't create a new card
-      onUpdateOrderFull?.(designData.editingOrderId, {
+      // Rename the Firestore doc if the user changed fileName
+      let targetId = designData.editingOrderId
+      if (fileName) {
+        const newId = `#${fileName}`
+        if (newId !== designData.editingOrderId) {
+          await onRenameOrder?.(designData.editingOrderId, newId)
+          targetId = newId
+          onUpdate?.({ editingOrderId: newId, fileName })
+        }
+      }
+      onUpdateOrderFull?.(targetId, {
         name: fileName || `Дизайн від ${dateStr}`,
         image: thumb,
         mockupThumb,
@@ -1629,7 +1638,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
         colors: [designData?.productColors?.[selectedProduct] || '#1a1a1a'],
         productId: catMap[currentProduct?.category] || currentProduct?.category || 'hoodie',
         productName: productNameStr,
-      }, { fullImage, transparentImage, designSnapshot: { ...designSnapshot, editingOrderId: designData.editingOrderId } })
+      }, { fullImage, transparentImage, designSnapshot: { ...designSnapshot, editingOrderId: targetId } })
     } else {
       const order = {
         id: orderNum,
