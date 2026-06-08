@@ -138,7 +138,7 @@ export async function removeBgFromUrl(url) {
     const W = origImg.naturalWidth || origImg.width
     const H = origImg.naturalHeight || origImg.height
 
-    const bfsCanvas = removeWhiteBg(origImg, 240)
+    const bfsCanvas = removeWhiteBg(origImg, 220)
     const bfsAlphas = bfsCanvas.getContext('2d').getImageData(0, 0, W, H).data
 
     const origCanvas = document.createElement('canvas')
@@ -156,8 +156,8 @@ export async function removeBgFromUrl(url) {
     for (let i = 0; i < W * H; i++) {
       if (px.data[i * 4 + 3] < 128 && bfsAlphas[i * 4 + 3] > 128) {
         const r = origColors[i * 4], g = origColors[i * 4 + 1], b = origColors[i * 4 + 2]
-        // Restore only light-colored pixels (white shirt, dress, etc.)
-        if (r > 160 && g > 160 && b > 160) {
+        // Restore only near-pure-white pixels (white shirt, dress) — not off-white noise
+        if (r > 240 && g > 240 && b > 240) {
           px.data[i * 4] = r; px.data[i * 4 + 1] = g; px.data[i * 4 + 2] = b
           px.data[i * 4 + 3] = 255
         }
