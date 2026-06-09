@@ -122,6 +122,38 @@ export default function PaletteEditor() {
     comment: '',
   })
   const [sendStatus, setSendStatus] = useState(null)
+  const [mockupItems, setMockupItems] = useState([])
+  const [preparingMockups, setPreparingMockups] = useState(false)
+
+  // Generate file thumbnails when modal opens
+  useEffect(() => {
+    if (!showModal) { setMockupItems([]); return }
+    setPreparingMockups(true)
+    const lsState = location.state || {}
+    const cleanId = modalForm.orderNum || String(Date.now()).slice(-5)
+    ;(async () => {
+      const items = []
+      try {
+        const dataUrl = await exportSvgToDataUrl()
+        if (dataUrl) items.push({ id: 'design', label: 'Дизайн', filename: `${cleanId}.png`, thumbnail: dataUrl, dataUrl, checked: true })
+      } catch {}
+      const gs = groupsRef.current
+      if (gs.length > 0) {
+        const dataUrl = generatePaletteImage(gs)
+        if (dataUrl) items.push({ id: 'palette', label: 'Палітра ниток', filename: `${cleanId}_palette.png`, thumbnail: dataUrl, dataUrl, checked: true })
+      }
+      if (lsState.mockupProducts?.length) {
+        const thumbs = await generateMockupThumbs(lsState.mockupProducts, lsState.mockupOverlay, lsState.mockupDesignUrl)
+        thumbs.forEach((t, i) => {
+          const safe = (t.label || `mockup_${i}`).replace(/\s+/g, '_')
+          items.push({ id: `mockup-${i}`, label: t.label, filename: `${cleanId}_${safe}.jpg`, thumbnail: t.dataUrl, dataUrl: t.dataUrl, checked: true })
+        })
+      }
+      setMockupItems(items)
+      setPreparingMockups(false)
+    })()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showModal])
 
   useEffect(() => {
     const C = containerRef.current
@@ -1465,17 +1497,22 @@ export default function PaletteEditor() {
       try { clone.removeAttribute('transform') } catch {}
       let svgW = 800, svgH = 600
       try { const vb = root.viewBox?.baseVal; if (vb?.width && vb?.height) { svgW = vb.width; svgH = vb.height } } catch {}
+      // Scale up to at least 1400px on the longer side for high quality
+      const MIN_DIM = 1400
+      const upscale = Math.max(1, MIN_DIM / Math.max(svgW, svgH))
+      const exportW = Math.round(svgW * upscale)
+      const exportH = Math.round(svgH * upscale)
       if (!clone.getAttribute('xmlns')) clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg')
-      clone.setAttribute('width', svgW); clone.setAttribute('height', svgH)
+      clone.setAttribute('width', exportW); clone.setAttribute('height', exportH)
       const blob = new Blob([new XMLSerializer().serializeToString(clone)], { type: 'image/svg+xml;charset=utf-8' })
       const url = URL.createObjectURL(blob)
       const img = new Image()
       img.onload = () => {
         const c = document.createElement('canvas')
-        c.width = svgW; c.height = svgH
+        c.width = exportW; c.height = exportH
         const ctx = c.getContext('2d')
-        ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, svgW, svgH)
-        ctx.drawImage(img, 0, 0)
+        ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, exportW, exportH)
+        ctx.drawImage(img, 0, 0, exportW, exportH)
         URL.revokeObjectURL(url)
         resolve(c.toDataURL('image/png'))
       }
@@ -1486,7 +1523,7 @@ export default function PaletteEditor() {
 
   function generatePaletteImage(groups) {
     if (!groups || groups.length === 0) return null
-    const COLS = 4, SW = 100, SH = 56, PAD = 12, CODE_H = 26, TITLE_H = 38
+    const COLS = 4, SW = 180, SH = 110, PAD = 20, CODE_H = 44, TITLE_H = 60
     const rows = Math.ceil(groups.length / COLS)
     const W = COLS * (SW + PAD) + PAD
     const H = TITLE_H + rows * (SH + CODE_H + PAD) + PAD
@@ -1494,31 +1531,31 @@ export default function PaletteEditor() {
     c.width = W; c.height = H
     const ctx = c.getContext('2d')
     ctx.fillStyle = '#f8f9fb'; ctx.fillRect(0, 0, W, H)
-    ctx.fillStyle = '#111827'; ctx.font = 'bold 14px -apple-system,Inter,Arial,sans-serif'
-    ctx.fillText('Палітра ниток вишивки', PAD, 26)
+    ctx.fillStyle = '#111827'; ctx.font = 'bold 22px -apple-system,Inter,Arial,sans-serif'
+    ctx.fillText('Палітра ниток вишивки', PAD, 40)
     groups.forEach((g, i) => {
       const col = i % COLS, row = Math.floor(i / COLS)
       const x = PAD + col * (SW + PAD), y = TITLE_H + row * (SH + CODE_H + PAD)
       ctx.fillStyle = g.colorValue || '#cccccc'
       ctx.fillRect(x, y, SW, SH)
-      ctx.strokeStyle = 'rgba(0,0,0,0.12)'; ctx.lineWidth = 1
+      ctx.strokeStyle = 'rgba(0,0,0,0.12)'; ctx.lineWidth = 1.5
       ctx.strokeRect(x, y, SW, SH)
       const code = g.palCode || g.colorValue || '?'
-      ctx.fillStyle = '#111827'; ctx.font = 'bold 12px monospace'
+      ctx.fillStyle = '#111827'; ctx.font = 'bold 18px monospace'
       const cw = ctx.measureText(code).width
-      ctx.fillText(code, x + (SW - cw) / 2, y + SH + 15)
+      ctx.fillText(code, x + (SW - cw) / 2, y + SH + 22)
       const cnt = g.count || (g.nodes && g.nodes.length) || 0
       if (cnt) {
-        ctx.fillStyle = '#9ca3af'; ctx.font = '9px monospace'
+        ctx.fillStyle = '#9ca3af'; ctx.font = '13px monospace'
         const cs = `${cnt} ел.`, csw = ctx.measureText(cs).width
-        ctx.fillText(cs, x + (SW - csw) / 2, y + SH + 25)
+        ctx.fillText(cs, x + (SW - csw) / 2, y + SH + 40)
       }
     })
     return c.toDataURL('image/png')
   }
 
   async function generateMockupThumbs(mockupProducts, mockupOverlay, designUrl) {
-    const SIZE = 320, thumbs = []
+    const SIZE = 900, thumbs = []
     if (!mockupProducts || mockupProducts.length === 0) return thumbs
     let overlayEl = null
     if (designUrl) {
@@ -1551,7 +1588,7 @@ export default function PaletteEditor() {
           ctx.drawImage(overlayEl, 0, 0, srcW, srcH,
             ov.x / 100 * SIZE - dW / 2, ov.y / 100 * SIZE - dH / 2, dW, dH)
         }
-        thumbs.push({ label: product.nameUk || product.name || product.id, dataUrl: c.toDataURL('image/jpeg', 0.82) })
+        thumbs.push({ label: product.nameUk || product.name || product.id, dataUrl: c.toDataURL('image/jpeg', 0.93) })
       } catch {}
     }
     return thumbs
@@ -1562,27 +1599,22 @@ export default function PaletteEditor() {
     try {
       const now = new Date()
       const cleanId = modalForm.orderNum || String(now.getTime()).slice(-5)
-      const caption = [cleanId, modalForm.size, modalForm.embSize].filter(Boolean).join(' ')
-      const designDataUrl = await exportSvgToDataUrl()
-      const paletteDataUrl = groupsRef.current.length > 0 ? generatePaletteImage(groupsRef.current) : null
       const lsState = location.state || {}
-      const mockupThumbs = await generateMockupThumbs(lsState.mockupProducts, lsState.mockupOverlay, lsState.mockupDesignUrl)
+      const caption = [cleanId, modalForm.size, modalForm.embSize].filter(Boolean).join(' ')
       const order = {
         id: `#${cleanId}`,
         name: cleanId,
         status: 'designer',
+        productName: (lsState.mockupProducts || []).map(p => p.nameUk || p.name).filter(Boolean).join(', '),
         comment: modalForm.comment,
         orderSize: modalForm.size,
         embroiderySize: modalForm.embSize,
         transferDate: now.toISOString(),
         transferDateStr: now.toLocaleString('uk-UA', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Kiev' }).replace(',', ''),
       }
-      const files = []
-      if (designDataUrl) files.push({ dataUrl: designDataUrl, label: caption, filename: `${cleanId}.png` })
-      if (paletteDataUrl) files.push({ dataUrl: paletteDataUrl, label: `${caption} палітра`, filename: `${cleanId}_palette.png` })
-      for (const t of mockupThumbs) {
-        files.push({ dataUrl: t.dataUrl, label: `${caption} ${t.label}`, filename: `${cleanId}_${(t.label || 'mockup').replace(/\s+/g, '_')}.jpg` })
-      }
+      const files = mockupItems
+        .filter(item => item.checked)
+        .map(item => ({ dataUrl: item.dataUrl, label: caption, filename: item.filename }))
       await sendOrderToDesignerTelegram({ order, files })
       setSendStatus('ok')
       setTimeout(() => { setShowModal(false); setSendStatus(null) }, 2500)
@@ -1790,16 +1822,45 @@ export default function PaletteEditor() {
               <div style={{fontSize:11,color:'#9ca3af',textAlign:'right'}}>{modalForm.comment.length}/200</div>
             </div>
 
-            {/* Files summary */}
-            <div style={{padding:'10px 13px',background:'#f8f9fb',borderRadius:10,fontSize:12,color:'#374151',border:'1px solid #f0f0f0'}}>
-              <div style={{fontWeight:600,marginBottom:5,color:'#111'}}>Надсилатиметься в Telegram:</div>
-              <ul style={{margin:0,padding:'0 0 0 15px',lineHeight:1.9,color:'#6b7280'}}>
-                <li>PNG редагованого дизайну</li>
-                <li>Зображення палітри ниток з кодами</li>
-                {(ls.mockupProducts || []).map((p, i) => (
-                  <li key={i}>Мокап: {p.nameUk || p.name || p.id}</li>
-                ))}
-              </ul>
+            {/* Files to send - thumbnail cards */}
+            <div>
+              <div style={{fontWeight:600,marginBottom:8,fontSize:13,color:'#111827'}}>Файли для передачі</div>
+              {preparingMockups ? (
+                <div style={{display:'flex',alignItems:'center',justifyContent:'center',padding:'22px',gap:10,background:'#f8f9fb',borderRadius:10}}>
+                  <svg style={{animation:'pe-spin 1s linear infinite',width:17,height:17}} viewBox="0 0 24 24" fill="none">
+                    <circle cx="12" cy="12" r="10" stroke="#6366f1" strokeWidth="4" strokeOpacity="0.25"/>
+                    <path d="M4 12a8 8 0 018-8" stroke="#6366f1" strokeWidth="4" strokeLinecap="round"/>
+                  </svg>
+                  <span style={{fontSize:12,color:'#9ca3af'}}>Генерація файлів...</span>
+                </div>
+              ) : mockupItems.length === 0 ? (
+                <div style={{fontSize:12,color:'#9ca3af',textAlign:'center',padding:'14px 0',background:'#f8f9fb',borderRadius:10}}>
+                  Завантажте SVG щоб передати файли
+                </div>
+              ) : (
+                <div style={{display:'flex',gap:10,overflowX:'auto',paddingBottom:4}}>
+                  {mockupItems.map((item, idx) => (
+                    <div key={item.id}
+                         style={{flexShrink:0,width:148,border:`2px solid ${item.checked?'#6366f1':'#e5e7eb'}`,borderRadius:12,padding:10,cursor:'pointer',background:item.checked?'rgba(99,102,241,0.03)':'#fff',transition:'border-color .12s,background .12s'}}
+                         onClick={() => setMockupItems(prev => prev.map((it,i) => i===idx ? {...it,checked:!it.checked} : it))}>
+                      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:7}}>
+                        <div style={{width:19,height:19,borderRadius:5,border:`2px solid ${item.checked?'#6366f1':'#d1d5db'}`,background:item.checked?'#6366f1':'#fff',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,transition:'all .12s'}}>
+                          {item.checked && <svg width="10" height="10" viewBox="0 0 12 12" fill="none"><path d="M2 6l3 3 5-5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                        </div>
+                        <button onClick={e=>{e.stopPropagation();setMockupItems(prev=>prev.filter((_,i)=>i!==idx))}}
+                                style={{width:20,height:20,border:'none',background:'transparent',cursor:'pointer',color:'#9ca3af',display:'flex',alignItems:'center',justifyContent:'center',borderRadius:4,padding:0}}>
+                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                        </button>
+                      </div>
+                      <div style={{width:'100%',height:100,background:'#f3f4f6',borderRadius:7,overflow:'hidden',display:'flex',alignItems:'center',justifyContent:'center',marginBottom:7}}>
+                        {item.thumbnail && <img src={item.thumbnail} alt="" style={{width:'100%',height:'100%',objectFit:'contain'}}/>}
+                      </div>
+                      <p style={{margin:0,fontSize:11,fontWeight:600,color:'#111',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{item.label}</p>
+                      <p style={{margin:'2px 0 0',fontSize:9,color:'#9ca3af',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{item.filename}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Status */}

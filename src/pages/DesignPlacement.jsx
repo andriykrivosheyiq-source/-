@@ -1556,7 +1556,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
     let mockupThumb = null
     let mockupThumbs = []
     try {
-      const SIZE = 320
+      const SIZE = 900
       const dSrc = mockupDesignUrl || fullImage
       // mockupDesignUrl is already bg-removed; only apply removeWhiteBg on raw fullImage fallback
       const dSrcNeedsClean = !mockupDesignUrl
@@ -1584,7 +1584,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
             mockupOverlay.y / 100 * SIZE - dH / 2,
             dW, dH)
         }
-        const t = mCanvas.toDataURL('image/jpeg', 0.82)
+        const t = mCanvas.toDataURL('image/jpeg', 0.93)
         if (!mockupThumb) mockupThumb = t
         mockupThumbs.push({ productId: product.id, label: product.nameUk, thumbnail: t })
       }
@@ -1777,7 +1777,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
     let mockupThumb = null
     let mockupThumbs = []
     try {
-      const SIZE = 320
+      const SIZE = 900
       const dSrc = mockupDesignUrl || fullImage
       // mockupDesignUrl is already bg-removed; only apply removeWhiteBg on raw fullImage fallback
       const dSrcNeedsClean = !mockupDesignUrl
@@ -1805,7 +1805,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
             mockupOverlay.y / 100 * SIZE - dH / 2,
             dW, dH)
         }
-        const t = mCanvas.toDataURL('image/jpeg', 0.82)
+        const t = mCanvas.toDataURL('image/jpeg', 0.93)
         if (!mockupThumb) mockupThumb = t
         mockupThumbs.push({ productId: product.id, label: product.nameUk, thumbnail: t })
       }
