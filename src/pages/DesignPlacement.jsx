@@ -16,19 +16,17 @@ const D_PATH_INNER =
   'M289 135L350 183L388 456L343 515L142 542L140 537L133 484L159 480L160 476L125 219L124 217L102 220L98 219L90 163L115 158Z ' +
   'M262 198L191 207L227 470L298 461L317 436L288 221L285 215Z'
 
-// A letter — Varsity/collegiate style with slab serifs at base (360×460)
+// A letter — collegiate varsity style, pointed apex, thick legs, crossbar (360×460)
 const A_PATH =
-  'M 180 0 ' +
-  'L 318 402 L 360 402 L 360 460 L 250 460 L 250 402 L 213 402 ' +
-  'L 210 285 L 150 285 ' +
-  'L 147 402 L 110 402 L 110 460 L 0 460 L 0 402 L 42 402 Z ' +
-  'M 180 28 L 245 252 L 115 252 Z'
+  'M 180 0 L 360 460 L 265 460 L 215 288 L 145 288 L 95 460 L 0 460 Z ' +
+  'M 180 26 L 244 252 L 116 252 Z'
 
-const A_PATH_INNER = 'M 180 28 L 245 252 L 115 252 Z'
+const A_PATH_INNER = 'M 180 26 L 244 252 L 116 252 Z'
 
 // Y letter (360×460 coordinate space)
 const Y_PATH =
   'M 0 0 L 75 0 L 195 215 L 245 215 L 285 0 L 360 0 L 245 230 L 245 460 L 115 460 L 115 230 L 0 0 Z'
+
 const Y_PATH_INNER = 'M 75 0 L 195 215 L 245 215 L 285 0 Z'
 
 const PRESET_COLORS = ['#000000', '#1e3a5f', '#c0392b', '#2d5a27', '#d97706', '#7c3aed', '#9ca3af', '#8b5e3c', '#ffffff', '#f5eed6']
@@ -166,57 +164,96 @@ function removeWhiteBg(img, threshold = 220, noDilation = false) {
   return canvas
 }
 
+// ─── Per-mockup colour overrides ─────────────────────────────────────────────
+
+function hexToRgb(hex) {
+  return [parseInt(hex.slice(1,3),16), parseInt(hex.slice(3,5),16), parseInt(hex.slice(5,7),16)]
+}
+function rgbToHex(r,g,b) {
+  return '#' + [r,g,b].map(v => v.toString(16).padStart(2,'0')).join('')
+}
+
+async function extractDesignColors(imageUrl, maxColors = 24) {
+  const img = await loadImgEl(imageUrl)
+  const W = img.naturalWidth || img.width, H = img.naturalHeight || img.height
+  const canvas = document.createElement('canvas')
+  canvas.width = W; canvas.height = H
+  const ctx = canvas.getContext('2d')
+  ctx.drawImage(img, 0, 0)
+  const data = ctx.getImageData(0, 0, W, H).data
+  const counts = new Map()
+  for (let i = 0; i < data.length; i += 4) {
+    if (data[i+3] < 128) continue
+    const r = Math.min(255, Math.round(data[i]/8)*8)
+    const g = Math.min(255, Math.round(data[i+1]/8)*8)
+    const b = Math.min(255, Math.round(data[i+2]/8)*8)
+    const k = rgbToHex(r, g, b)
+    counts.set(k, (counts.get(k) || 0) + 1)
+  }
+  return [...counts.entries()].sort((a,b) => b[1]-a[1]).slice(0, maxColors).map(([c]) => c)
+}
+
+async function applyMockupColorMap(imageUrl, colorMap) {
+  if (!imageUrl || !colorMap) return imageUrl
+  const entries = Object.entries(colorMap).filter(([from, to]) => from !== to)
+  if (!entries.length) return imageUrl
+  const img = await loadImgEl(imageUrl)
+  const W = img.naturalWidth || img.width, H = img.naturalHeight || img.height
+  const canvas = document.createElement('canvas')
+  canvas.width = W; canvas.height = H
+  const ctx = canvas.getContext('2d')
+  ctx.drawImage(img, 0, 0)
+  const iData = ctx.getImageData(0, 0, W, H)
+  const d = iData.data
+  const pairs = entries.map(([from, to]) => ({ f: hexToRgb(from), t: hexToRgb(to) }))
+  const TOL = 60
+  for (let i = 0; i < d.length; i += 4) {
+    if (d[i+3] < 10) continue
+    for (const { f, t } of pairs) {
+      if (Math.abs(d[i]-f[0]) + Math.abs(d[i+1]-f[1]) + Math.abs(d[i+2]-f[2]) < TOL) {
+        d[i] = t[0]; d[i+1] = t[1]; d[i+2] = t[2]; break
+      }
+    }
+  }
+  ctx.putImageData(iData, 0, 0)
+  return canvas.toDataURL('image/png')
+}
+
 function drawLetters(ctx, letters, W, H, style = 'D') {
   const isTwoColor = style.includes('TWO_COLOR')
   for (const letter of letters) {
+    const lx = letter.x / 100 * W
+    const ly = letter.y / 100 * H
+    const lw = letter.size / 100 * W
+    const lh = lw * 460 / 360
+    const sc = lw / 360
+    ctx.save()
+    ctx.translate(lx + lw / 2, ly + lh / 2)
+    ctx.rotate(letter.rotation * Math.PI / 180)
+    ctx.translate(-lw / 2, -lh / 2)
+    ctx.scale(sc, sc)
     if (letter.type === 'A') {
-      const vW = 360, vH = 460
-      const sc = Math.min((letter.size / 100 * W) / vW, (letter.size / 100 * H * 0.8) / vH)
-      const cx = letter.x / 100 * W, cy = letter.y / 100 * H
-      ctx.save()
-      ctx.translate(cx, cy)
-      ctx.rotate(letter.rotation * Math.PI / 180)
-      ctx.translate(-vW * sc / 2, -vH * sc / 2)
-      ctx.scale(sc, sc)
-      ctx.fillStyle = letter.color
       if (isTwoColor) {
+        ctx.fillStyle = letter.color
         ctx.fill(new Path2D(A_PATH), 'evenodd')
         ctx.fillStyle = letter.fillColor || '#ffffff'
         ctx.fill(new Path2D(A_PATH_INNER), 'evenodd')
       } else {
+        ctx.fillStyle = letter.color
         ctx.fill(new Path2D(A_PATH), 'evenodd')
       }
-      ctx.restore()
     } else if (letter.type === 'Y') {
-      const vW = 360, vH = 460
-      const sc = Math.min((letter.size / 100 * W) / vW, (letter.size / 100 * H * 0.8) / vH)
-      const cx = letter.x / 100 * W, cy = letter.y / 100 * H
-      ctx.save()
-      ctx.translate(cx, cy)
-      ctx.rotate(letter.rotation * Math.PI / 180)
-      ctx.translate(-vW * sc / 2, -vH * sc / 2)
-      ctx.scale(sc, sc)
-      ctx.fillStyle = letter.color
       if (isTwoColor) {
+        ctx.fillStyle = letter.color
         ctx.fill(new Path2D(Y_PATH), 'evenodd')
         ctx.fillStyle = letter.fillColor || '#ffffff'
         ctx.fill(new Path2D(Y_PATH_INNER), 'evenodd')
       } else {
+        ctx.fillStyle = letter.color
         ctx.fill(new Path2D(Y_PATH), 'evenodd')
       }
-      ctx.restore()
     } else {
-      // D letter (type === 'D' or undefined)
-      const lx = letter.x / 100 * W
-      const ly = letter.y / 100 * H
-      const lw = letter.size / 100 * W
-      const lh = lw * 460 / 360
-      const sc = lw / 360
-      ctx.save()
-      ctx.translate(lx + lw / 2, ly + lh / 2)
-      ctx.rotate(letter.rotation * Math.PI / 180)
-      ctx.translate(-lw / 2, -lh / 2)
-      ctx.scale(sc, sc)
+      // type D (default)
       ctx.translate(-60, -110)
       if (isTwoColor) {
         ctx.fillStyle = letter.color
@@ -227,11 +264,12 @@ function drawLetters(ctx, letters, W, H, style = 'D') {
         ctx.fillStyle = letter.color
         ctx.fill(new Path2D(D_PATH), 'evenodd')
       }
-      ctx.restore()
     }
+    ctx.restore()
   }
 }
 
+// Keep old name as alias for backward compat
 const drawDLetters = drawLetters
 
 function drawRR(ctx, x, y, w, h, r) {
@@ -294,6 +332,7 @@ function drawDadText(ctx, dadTextEl, dadText, W, H) {
   ctx.fillStyle = dadTextEl.color
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
+  try { ctx.letterSpacing = '2px' } catch { /* older browsers */ }
   ctx.fillText((dadText || 'DADDY').toUpperCase(), dadTextEl.x / 100 * W, dadTextEl.y / 100 * H)
 }
 
@@ -303,6 +342,7 @@ function drawChildNameText(ctx, childNameEl, childName, W, H) {
   ctx.fillStyle = childNameEl.color
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
+  try { ctx.letterSpacing = '4px' } catch { /* older browsers */ }
   ctx.fillText((childName || '').toUpperCase(), childNameEl.x / 100 * W, childNameEl.y / 100 * H)
 }
 
@@ -348,15 +388,15 @@ async function renderEstTransparent(letters, estEl, estText, showEstText, imageU
   if (imageUrl) {
     try {
       const img = await loadImgEl(imageUrl)
-      const cleaned = removeWhiteBg(img, 230, true)
+      const cleanedSrc = removeWhiteBg(img, 230, true)
       const iW = illus.size / 100 * W
-      const iH = iW * cleaned.height / cleaned.width
+      const iH = iW * cleanedSrc.height / cleanedSrc.width
       const cropFrac = (illus.cropBottom || 0) / 100
-      const srcH = cleaned.height * (1 - cropFrac)
+      const srcH = cleanedSrc.height * (1 - cropFrac)
       const destH = iH * (1 - cropFrac)
       const iX = illus.x / 100 * W - iW / 2
       const iY = illus.y / 100 * H - iH / 2
-      ctx.drawImage(cleaned, 0, 0, cleaned.width, srcH, iX, iY, iW, destH)
+      ctx.drawImage(cleanedSrc, 0, 0, cleanedSrc.width, srcH, iX, iY, iW, destH)
     } catch { /* skip */ }
   }
 
@@ -413,14 +453,14 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
   ])
   const [estEl, setEstEl] = useState(initialState?.estEl || { x: 50, y: 88, color: '#000000', fontSize: 6 })
   const [illus, setIllus] = useState(initialState?.illus || { x: 50, y: 45, size: 52, cropBottom: 0 })
-  const [cleanedUrl, setCleanedUrl] = useState(null)
-  const [selected, setSelected] = useState(null)
-  const [bgColor, setBgColor] = useState(initialState?.bgColor || '#f0f0f0')
   const [childName, setChildName] = useState(initialState?.childName || '')
   const [showChildName, setShowChildName] = useState(initialState?.showChildName ?? false)
   const [childNameEl, setChildNameEl] = useState(initialState?.childNameEl || { x: 50, y: 8, color: '#000000', fontSize: 8 })
   const [dadText, setDadText] = useState(initialState?.dadText || 'DADDY')
   const [dadTextEl, setDadTextEl] = useState(initialState?.dadTextEl || { x: 50, y: 30, color: '#000000', fontSize: 20 })
+  const [cleanedUrl, setCleanedUrl] = useState(null)
+  const [selected, setSelected] = useState(null)
+  const [bgColor, setBgColor] = useState(initialState?.bgColor || '#f0f0f0')
 
   // Pre-process illustration: remove white background for transparent preview
   useEffect(() => {
@@ -451,7 +491,7 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
       const ovEst = { ...estEl, color: ov.estColor !== undefined ? ov.estColor : estEl.color }
       return renderEstTransparent(ovLetters, ovEst, estText, showEstText, imageUrl, illus, letterStyle, ovTto, dadText, dadTextEl, showChildName, childName, childNameEl)
     },
-    getState: () => ({ letters, letterStyle, bgColor, ttoLetters, estEl, illus, childName, showChildName, childNameEl, dadText, dadTextEl }),
+    getState:          () => ({ letters, letterStyle, bgColor, ttoLetters, estEl, illus, childName, showChildName, childNameEl, dadText, dadTextEl }),
   }), [letters, estEl, estText, showEstText, imageUrl, illus, letterStyle, ttoLetters, bgColor, dadText, dadTextEl, showChildName, childName, childNameEl])
 
   // Notify parent when letter positions/style change so mockup stays in sync
@@ -547,10 +587,14 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
   const selectedTTOLetter = ttoLetters.find(l => l.id === selected)
   const isEstSelected = selected === 'est'
   const isIllusSelected = selected === 'illus'
-  const currentColor = isEstSelected ? estEl.color : (selectedLetter || selectedTTOLetter)?.color
+  const isDadTextSelected = selected === 'dadText'
+  const isChildNameSelected = selected === 'childName'
+  const currentColor = isEstSelected ? estEl.color : isDadTextSelected ? dadTextEl.color : isChildNameSelected ? childNameEl.color : (selectedLetter || selectedTTOLetter)?.color
   const currentFillColor = selectedLetter?.fillColor || '#ffffff'
   const setColor = (color) => {
     if (isEstSelected) setEstEl(prev => ({ ...prev, color }))
+    else if (isDadTextSelected) setDadTextEl(prev => ({ ...prev, color }))
+    else if (isChildNameSelected) setChildNameEl(prev => ({ ...prev, color }))
     else if (selectedLetter) setLetters(prev => prev.map(l => l.id === selected ? { ...l, color } : l))
     else if (selectedTTOLetter) setTtoLetters(prev => prev.map(l => l.id === selected ? { ...l, color } : l))
   }
@@ -559,39 +603,6 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
   }
 
   const BG_PALETTE = ['#f0f0f0', '#ffffff', '#1a1a1a', '#2d2d2d', '#f5eed6', '#dce8f5', '#e8f5e9', '#fce4ec', '#fff3e0']
-
-  const bs = (active) => ({ padding: '3px 8px', borderRadius: '7px', fontSize: '11px', fontWeight: 700, border: 'none', cursor: 'pointer', background: active ? '#4f46e5' : 'transparent', color: active ? '#fff' : '#6b7280' })
-  const tcIcon = (active) => (
-    <svg width="12" height="12" viewBox="0 0 12 12" style={{marginRight:'3px'}}>
-      <circle cx="6" cy="6" r="5" fill={active ? '#fff' : '#9ca3af'} stroke={active ? '#fff' : '#6b7280'} strokeWidth="1"/>
-      <circle cx="6" cy="6" r="2.5" fill={active ? '#4f46e5' : 'transparent'}/>
-    </svg>
-  )
-  const switchStyle = (newStyle, makeLetters, alsoShowEst) => {
-    setLetterStyle(newStyle)
-    if (makeLetters) {
-      const cur = letters[0]
-      setLetters(makeLetters(cur?.color || '#000000', cur?.fillColor || '#ffffff'))
-    }
-    if (alsoShowEst && onSetShowEstText) onSetShowEstText(true)
-    setSelected(null)
-  }
-  const mkD = (c, f) => [
-    { id: 'left',  type: 'D', x: 20, y: 20, size: 22, rotation: -4,  color: c, fillColor: f },
-    { id: 'right', type: 'D', x: 63, y: 20, size: 22, rotation: 19,  color: c, fillColor: f },
-  ]
-  const mkDAD = (c, f) => [
-    { id: 'dLeft',   type: 'D', x: 10, y: 15, size: 27, rotation: -4, color: c, fillColor: f },
-    { id: 'aCenter', type: 'A', x: 50, y: 12, size: 28, rotation: 0,  color: c, fillColor: f },
-    { id: 'dRight',  type: 'D', x: 80, y: 15, size: 27, rotation: 4,  color: c, fillColor: f },
-  ]
-  const mkSPLIT = (c, f) => [
-    { id: 'sD1', type: 'D', x: 10, y: 15, size: 22, rotation: -4, color: c, fillColor: f },
-    { id: 'sA',  type: 'A', x: 33, y: 12, size: 22, rotation: 0,  color: c, fillColor: f },
-    { id: 'sD2', type: 'D', x: 67, y: 15, size: 22, rotation: 4,  color: c, fillColor: f },
-    { id: 'sY',  type: 'Y', x: 88, y: 12, size: 22, rotation: 0,  color: c, fillColor: f },
-  ]
-  const mkDADDY = () => []
 
   return (
     <div style={{ background: bgColor, width: '100%', borderRadius: '12px' }}>
@@ -645,28 +656,41 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg>
           </button>
-        <div onMouseDown={e => e.stopPropagation()} style={{ display: 'flex', flexDirection: 'column', background: 'rgba(255,255,255,0.92)', borderRadius: '10px', padding: '5px', boxShadow: '0 1px 6px rgba(0,0,0,0.18)' }}>
-          {/* Row 1: D D styles */}
-          <div style={{display:'flex',gap:'4px',marginBottom:'3px'}}>
-            <button onClick={e=>{e.stopPropagation();switchStyle('D', mkD)}} style={bs(letterStyle==='D')}>D D</button>
-            <button onClick={e=>{e.stopPropagation();switchStyle('D_TWO_COLOR', mkD)}} style={{...bs(letterStyle==='D_TWO_COLOR'),display:'flex',alignItems:'center'}}>{tcIcon(letterStyle==='D_TWO_COLOR')}<span>D D</span></button>
-          </div>
-          {/* Row 2: D A D styles */}
-          <div style={{display:'flex',gap:'4px',marginBottom:'3px'}}>
-            <button onClick={e=>{e.stopPropagation();switchStyle('DAD', mkDAD)}} style={bs(letterStyle==='DAD')}>D A D</button>
-            <button onClick={e=>{e.stopPropagation();switchStyle('DAD_TWO_COLOR', mkDAD)}} style={{...bs(letterStyle==='DAD_TWO_COLOR'),display:'flex',alignItems:'center'}}>{tcIcon(letterStyle==='DAD_TWO_COLOR')}<span>D A D</span></button>
-          </div>
-          {/* Row 3: DADDY split */}
-          <div style={{display:'flex',gap:'4px',marginBottom:'3px'}}>
-            <button onClick={e=>{e.stopPropagation();switchStyle('DADDY_SPLIT', mkSPLIT, true)}} style={bs(letterStyle==='DADDY_SPLIT')}>DA DY</button>
-            <button onClick={e=>{e.stopPropagation();switchStyle('DADDY_SPLIT_TWO_COLOR', mkSPLIT, true)}} style={{...bs(letterStyle==='DADDY_SPLIT_TWO_COLOR'),display:'flex',alignItems:'center'}}>{tcIcon(letterStyle==='DADDY_SPLIT_TWO_COLOR')}<span>DA DY</span></button>
-          </div>
-          {/* Row 4: DADDY text + TTO */}
-          <div style={{display:'flex',gap:'4px'}}>
-            <button onClick={e=>{e.stopPropagation();switchStyle('DADDY', mkDADDY)}} style={bs(letterStyle==='DADDY')}>DADDY</button>
-            <button onClick={e=>{e.stopPropagation();setLetterStyle('TTO');setSelected(null)}} style={bs(letterStyle==='TTO')}>ТТО</button>
-          </div>
-        </div>
+        {(() => {
+          const switchStyle = (newStyle, makeLetters, alsoShowEst) => {
+            const prev0 = letters[0] || {}
+            const prevColor = prev0.color || '#000000'; const prevFill = prev0.fillColor || '#ffffff'
+            setLetterStyle(newStyle)
+            if (makeLetters) setLetters(makeLetters(prevColor, prevFill))
+            if (alsoShowEst) onSetShowEstText?.(true)
+            setSelected(null)
+          }
+          const bs = (active) => ({ padding: '2px 7px', borderRadius: '6px', fontSize: '10px', fontWeight: 700, border: 'none', cursor: 'pointer', background: active ? '#4f46e5' : 'transparent', color: active ? '#fff' : '#6b7280', whiteSpace: 'nowrap' })
+          const tcIcon = (active) => <svg key="tc" viewBox="60 110 360 460" width="8" height="10" style={{ display:'inline-block', verticalAlign:'middle', marginRight:'2px' }}><path d={D_PATH} fill="currentColor" fillRule="evenodd"/><path d={D_PATH_INNER} fill={active ? 'rgba(255,255,255,0.5)' : 'rgba(79,70,229,0.25)'} fillRule="evenodd"/></svg>
+          const mkD = (c,f) => [{ id:'left', type:'D', x:20, y:20, size:22, rotation:-4, color:c, fillColor:f }, { id:'right', type:'D', x:63, y:20, size:22, rotation:19, color:c, fillColor:f }]
+          const mkDAD = (c,f) => [{ id:'dLeft', type:'D', x:2, y:12, size:27, rotation:-4, color:c, fillColor:f }, { id:'aCenter', type:'A', x:36, y:8, size:28, rotation:0, color:c, fillColor:f }, { id:'dRight', type:'D', x:71, y:12, size:27, rotation:4, color:c, fillColor:f }]
+          const mkSPLIT = (c,f) => [{ id:'sD1', type:'D', x:1, y:15, size:22, rotation:-4, color:c, fillColor:f }, { id:'sA', type:'A', x:22, y:12, size:22, rotation:-2, color:c, fillColor:f }, { id:'sD2', type:'D', x:56, y:12, size:22, rotation:2, color:c, fillColor:f }, { id:'sY', type:'Y', x:77, y:15, size:22, rotation:4, color:c, fillColor:f }]
+          return (
+            <div style={{ display:'flex', flexDirection:'column', background:'rgba(255,255,255,0.92)', borderRadius:'10px', padding:'3px', gap:'2px', boxShadow:'0 1px 6px rgba(0,0,0,0.18)' }}>
+              <div style={{ display:'flex', gap:'2px' }}>
+                <button onMouseDown={e=>e.stopPropagation()} onClick={e=>{e.stopPropagation();switchStyle('D',mkD)}} style={bs(letterStyle==='D')}>D D</button>
+                <button onMouseDown={e=>e.stopPropagation()} onClick={e=>{e.stopPropagation();switchStyle('D_TWO_COLOR',mkD)}} style={{...bs(letterStyle==='D_TWO_COLOR'),display:'flex',alignItems:'center'}}>{tcIcon(letterStyle==='D_TWO_COLOR')}<span>D D</span></button>
+              </div>
+              <div style={{ display:'flex', gap:'2px' }}>
+                <button onMouseDown={e=>e.stopPropagation()} onClick={e=>{e.stopPropagation();switchStyle('DAD',mkDAD)}} style={bs(letterStyle==='DAD')}>D A D</button>
+                <button onMouseDown={e=>e.stopPropagation()} onClick={e=>{e.stopPropagation();switchStyle('DAD_TWO_COLOR',mkDAD)}} style={{...bs(letterStyle==='DAD_TWO_COLOR'),display:'flex',alignItems:'center'}}>{tcIcon(letterStyle==='DAD_TWO_COLOR')}<span>D A D</span></button>
+              </div>
+              <div style={{ display:'flex', gap:'2px' }}>
+                <button onMouseDown={e=>e.stopPropagation()} onClick={e=>{e.stopPropagation();switchStyle('DADDY_SPLIT',mkSPLIT,true)}} style={bs(letterStyle==='DADDY_SPLIT')}>DA DY</button>
+                <button onMouseDown={e=>e.stopPropagation()} onClick={e=>{e.stopPropagation();switchStyle('DADDY_SPLIT_TWO_COLOR',mkSPLIT,true)}} style={{...bs(letterStyle==='DADDY_SPLIT_TWO_COLOR'),display:'flex',alignItems:'center'}}>{tcIcon(letterStyle==='DADDY_SPLIT_TWO_COLOR')}<span>DA DY</span></button>
+              </div>
+              <div style={{ display:'flex', gap:'2px' }}>
+                <button onMouseDown={e=>e.stopPropagation()} onClick={e=>{e.stopPropagation();setLetterStyle('DADDY');setSelected(null)}} style={{...bs(letterStyle==='DADDY'),fontFamily:'"Impact","Arial Black",sans-serif',fontStyle:'italic'}}>DADDY</button>
+                <button onMouseDown={e=>e.stopPropagation()} onClick={e=>{e.stopPropagation();setLetterStyle('TTO');setSelected(null);setTtoLetters(prev=>[{id:'tLeft',x:5,y:25,size:20,rotation:0,color:prev[0]?.color||'#000000'},{id:'tRight',x:54,y:25,size:20,rotation:0,color:prev[1]?.color||'#000000'},{id:'o',x:76,y:25,size:22,rotation:0,color:prev[2]?.color||'#000000'}])}} style={bs(letterStyle==='TTO')}>T T O</button>
+              </div>
+            </div>
+          )
+        })()}
         </div>
 
         {!imageUrl && (
@@ -715,10 +739,8 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
           )}
         </div>}
 
-        {(letterStyle !== 'TTO' && letterStyle !== 'DADDY') && letters.map(letter => {
+        {letterStyle !== 'TTO' && letterStyle !== 'DADDY' && letters.map(letter => {
           const isSelected = selected === letter.id
-          const vW = letter.type === 'D' ? 480 : 360
-          const vH = letter.type === 'D' ? 580 : 460
           const isTwoColor = letterStyle.includes('TWO_COLOR')
           return (
             <div key={letter.id} onMouseDown={e => startDrag(letter.id, 'move', e)} onTouchStart={e => startDrag(letter.id, 'move', e)} onClick={e => handleClick(letter.id, e)} style={{ position: 'absolute', left: `${letter.x}%`, top: `${letter.y}%`, width: `${letter.size}%`, transform: `rotate(${letter.rotation}deg)`, transformOrigin: 'center center', cursor: isSelected ? 'grab' : 'pointer', zIndex: isSelected ? 20 : 10 }}>
@@ -733,21 +755,25 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
                   </div>
                 </>
               )}
-              <svg viewBox={letter.type === 'D' ? '60 110 360 460' : `0 0 ${vW} ${vH}`} style={{ width: '100%', height: 'auto', display: 'block' }}>
-                {letter.type === 'A' ? (
-                  isTwoColor ? (
+              {letter.type === 'A' ? (
+                <svg viewBox="0 0 360 460" style={{ width: '100%', height: 'auto', display: 'block' }}>
+                  {isTwoColor ? (
                     <><path d={A_PATH} fill={letter.color} fillRule="evenodd"/><path d={A_PATH_INNER} fill={letter.fillColor || '#ffffff'} fillRule="evenodd"/></>
-                  ) : <path d={A_PATH} fill={letter.color} fillRule="evenodd"/>
-                ) : letter.type === 'Y' ? (
-                  isTwoColor ? (
+                  ) : <path d={A_PATH} fill={letter.color} fillRule="evenodd"/>}
+                </svg>
+              ) : letter.type === 'Y' ? (
+                <svg viewBox="0 0 360 460" style={{ width: '100%', height: 'auto', display: 'block' }}>
+                  {isTwoColor ? (
                     <><path d={Y_PATH} fill={letter.color} fillRule="evenodd"/><path d={Y_PATH_INNER} fill={letter.fillColor || '#ffffff'} fillRule="evenodd"/></>
-                  ) : <path d={Y_PATH} fill={letter.color} fillRule="evenodd"/>
-                ) : (
-                  isTwoColor ? (
+                  ) : <path d={Y_PATH} fill={letter.color} fillRule="evenodd"/>}
+                </svg>
+              ) : (
+                <svg viewBox="60 110 360 460" style={{ width: '100%', height: 'auto', display: 'block' }}>
+                  {isTwoColor ? (
                     <><path d={D_PATH} fill={letter.color} fillRule="evenodd"/><path d={D_PATH_INNER} fill={letter.fillColor || '#ffffff'} fillRule="evenodd"/></>
-                  ) : <path d={D_PATH} fill={letter.color} fillRule="evenodd"/>
-                )}
-              </svg>
+                  ) : <path d={D_PATH} fill={letter.color} fillRule="evenodd"/>}
+                </svg>
+              )}
               {isSelected && (
                 <div onMouseDown={e => startDrag(letter.id, 'resize', e)} onTouchStart={e => startDrag(letter.id, 'resize', e)} onClick={e => e.stopPropagation()} style={{ position: 'absolute', bottom: '-10px', right: '-10px', width: '20px', height: '20px', background: '#4f46e5', border: '2px solid #fff', borderRadius: '4px', cursor: 'nwse-resize', zIndex: 30, boxShadow: '0 1px 4px rgba(0,0,0,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <svg width="8" height="8" viewBox="0 0 8 8" fill="none"><path d="M1 7L7 1M4 7L7 4" stroke="white" strokeWidth="1.5" strokeLinecap="round" /></svg>
@@ -758,11 +784,33 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
         })}
 
         {letterStyle === 'DADDY' && (
-          <div onMouseDown={e => startDrag('dadText', 'move', e)} onTouchStart={e => startDrag('dadText', 'move', e)} onClick={e => handleClick('dadText', e)} style={{ position: 'absolute', left: `${dadTextEl.x}%`, top: `${dadTextEl.y}%`, transform: 'translate(-50%, -50%)', fontFamily: 'Impact, Arial, sans-serif', fontWeight: 900, fontStyle: 'italic', fontSize: `${dadTextEl.fontSize}cqw`, color: dadTextEl.color, cursor: selected === 'dadText' ? 'grab' : 'pointer', zIndex: selected === 'dadText' ? 20 : 10, whiteSpace: 'nowrap' }}>
-            {selected === 'dadText' && <div style={{ position: 'absolute', inset: '-5px', border: '2px dashed #4f46e5', borderRadius: '6px', pointerEvents: 'none' }} />}
+          <div
+            onMouseDown={e => startDrag('dadText', 'move', e)}
+            onTouchStart={e => startDrag('dadText', 'move', e)}
+            onClick={e => handleClick('dadText', e)}
+            style={{ position: 'absolute', left: `${dadTextEl.x}%`, top: `${dadTextEl.y}%`, transform: 'translate(-50%, -50%)', fontFamily: '"Impact", "Arial Black", sans-serif', fontWeight: 900, fontStyle: 'italic', fontSize: `${dadTextEl.fontSize}cqw`, letterSpacing: '2px', color: dadTextEl.color, cursor: isDadTextSelected ? 'grab' : 'pointer', zIndex: isDadTextSelected ? 20 : 10, whiteSpace: 'nowrap' }}
+          >
+            {isDadTextSelected && <div style={{ position: 'absolute', inset: '-5px', border: '2px dashed #4f46e5', borderRadius: '6px', pointerEvents: 'none' }} />}
             {(dadText || 'DADDY').toUpperCase()}
-            {selected === 'dadText' && (
+            {isDadTextSelected && (
               <div onMouseDown={e => startDrag('dadText', 'resize', e)} onTouchStart={e => startDrag('dadText', 'resize', e)} onClick={e => e.stopPropagation()} style={{ position: 'absolute', bottom: '-10px', right: '-10px', width: '20px', height: '20px', background: '#4f46e5', border: '2px solid #fff', borderRadius: '4px', cursor: 'nwse-resize', zIndex: 30, boxShadow: '0 1px 4px rgba(0,0,0,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <svg width="8" height="8" viewBox="0 0 8 8" fill="none"><path d="M1 7L7 1M4 7L7 4" stroke="white" strokeWidth="1.5" strokeLinecap="round" /></svg>
+              </div>
+            )}
+          </div>
+        )}
+
+        {showChildName && childName && (
+          <div
+            onMouseDown={e => startDrag('childName', 'move', e)}
+            onTouchStart={e => startDrag('childName', 'move', e)}
+            onClick={e => handleClick('childName', e)}
+            style={{ position: 'absolute', left: `${childNameEl.x}%`, top: `${childNameEl.y}%`, transform: 'translate(-50%, -50%)', fontFamily: '"Impact", "Arial Black", sans-serif', fontWeight: 900, fontStyle: 'italic', fontSize: `${childNameEl.fontSize}cqw`, letterSpacing: '4px', color: childNameEl.color, cursor: isChildNameSelected ? 'grab' : 'pointer', zIndex: isChildNameSelected ? 20 : 10, whiteSpace: 'nowrap' }}
+          >
+            {isChildNameSelected && <div style={{ position: 'absolute', inset: '-5px', border: '2px dashed #4f46e5', borderRadius: '6px', pointerEvents: 'none' }} />}
+            {childName.toUpperCase()}
+            {isChildNameSelected && (
+              <div onMouseDown={e => startDrag('childName', 'resize', e)} onTouchStart={e => startDrag('childName', 'resize', e)} onClick={e => e.stopPropagation()} style={{ position: 'absolute', bottom: '-10px', right: '-10px', width: '20px', height: '20px', background: '#4f46e5', border: '2px solid #fff', borderRadius: '4px', cursor: 'nwse-resize', zIndex: 30, boxShadow: '0 1px 4px rgba(0,0,0,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <svg width="8" height="8" viewBox="0 0 8 8" fill="none"><path d="M1 7L7 1M4 7L7 4" stroke="white" strokeWidth="1.5" strokeLinecap="round" /></svg>
               </div>
             )}
@@ -807,21 +855,9 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
             </div>
           )
         })}
-
-        {showChildName && childName && (
-          <div onMouseDown={e => startDrag('childName', 'move', e)} onTouchStart={e => startDrag('childName', 'move', e)} onClick={e => handleClick('childName', e)} style={{ position: 'absolute', left: `${childNameEl.x}%`, top: `${childNameEl.y}%`, transform: 'translate(-50%, -50%)', fontFamily: 'Impact, Arial, sans-serif', fontWeight: 900, fontStyle: 'italic', fontSize: `${childNameEl.fontSize}cqw`, color: childNameEl.color, cursor: selected === 'childName' ? 'grab' : 'pointer', zIndex: selected === 'childName' ? 20 : 10, whiteSpace: 'nowrap' }}>
-            {selected === 'childName' && <div style={{ position: 'absolute', inset: '-5px', border: '2px dashed #4f46e5', borderRadius: '6px', pointerEvents: 'none' }} />}
-            {childName.toUpperCase()}
-            {selected === 'childName' && (
-              <div onMouseDown={e => startDrag('childName', 'resize', e)} onTouchStart={e => startDrag('childName', 'resize', e)} onClick={e => e.stopPropagation()} style={{ position: 'absolute', bottom: '-10px', right: '-10px', width: '20px', height: '20px', background: '#4f46e5', border: '2px solid #fff', borderRadius: '4px', cursor: 'nwse-resize', zIndex: 30, boxShadow: '0 1px 4px rgba(0,0,0,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <svg width="8" height="8" viewBox="0 0 8 8" fill="none"><path d="M1 7L7 1M4 7L7 4" stroke="white" strokeWidth="1.5" strokeLinecap="round" /></svg>
-              </div>
-            )}
-          </div>
-        )}
       </div>
 
-      {selected && (selectedLetter || selectedTTOLetter || isEstSelected || isIllusSelected) && (
+      {selected && (selectedLetter || selectedTTOLetter || isEstSelected || isIllusSelected || isDadTextSelected || isChildNameSelected) && (
         <div style={{ padding: '10px 16px', display: 'flex', alignItems: 'center', gap: '8px', borderTop: '1px solid #f3f4f6', background: '#fafafa', borderRadius: '0 0 12px 12px', flexWrap: 'wrap' }}>
           {isIllusSelected ? (
             <>
@@ -849,16 +885,54 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
             </div>
           ) : (
             <>
-              <span style={{ fontSize: '12px', color: '#6b7280', fontWeight: 500 }}>{isEstSelected ? 'EST текст' : selected === 'left' ? 'Ліва D' : selected === 'right' ? 'Права D' : selected === 'tLeft' ? 'Ліва T' : selected === 'tRight' ? 'Права T' : 'Буква O'}:</span>
+              <span style={{ fontSize: '12px', color: '#6b7280', fontWeight: 500 }}>{isEstSelected ? 'EST текст' : isDadTextSelected ? 'DADDY текст' : isChildNameSelected ? "Ім'я дитини" : selectedLetter ? `Буква ${(selectedLetter.type||'D').toUpperCase()}` : selected === 'tLeft' ? 'Ліва T' : selected === 'tRight' ? 'Права T' : 'Буква O'}:</span>
               {PRESET_COLORS.map(color => (
                 <button key={color} onClick={() => setColor(color)} style={{ width: '22px', height: '22px', borderRadius: '50%', background: color, border: currentColor === color ? '3px solid #4f46e5' : '2px solid #d1d5db', cursor: 'pointer', padding: 0, flexShrink: 0 }} />
               ))}
               <input type="color" value={currentColor || '#000000'} onChange={e => setColor(e.target.value)} style={{ width: '28px', height: '28px', padding: 0, border: '2px solid #d1d5db', cursor: 'pointer', borderRadius: '50%', background: 'none' }} title="Власний колір" />
-              <span style={{ fontSize: '11px', color: '#9ca3af', marginLeft: 'auto', whiteSpace: 'nowrap' }}>{isEstSelected ? 'Тягни • кут → розмір' : 'Тягни • ○ поворот • кут → розмір'}</span>
+              <span style={{ fontSize: '11px', color: '#9ca3af', marginLeft: 'auto', whiteSpace: 'nowrap' }}>{isEstSelected || isDadTextSelected || isChildNameSelected ? 'Тягни • кут → розмір' : 'Тягни • ○ поворот • кут → розмір'}</span>
             </>
           )}
         </div>
       )}
+
+      {/* Child name + DADDY text controls */}
+      <div style={{ padding: '8px 12px', borderTop: '1px solid #f3f4f6', background: '#fafafa', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span style={{ fontSize: '11px', color: '#6b7280', fontWeight: 500, minWidth: '80px', flexShrink: 0 }}>Ім'я дитини:</span>
+          <input
+            type="text"
+            value={childName}
+            onChange={e => setChildName(e.target.value)}
+            placeholder="LIANN'S"
+            disabled={!showChildName}
+            style={{ flex: 1, border: '1px solid #e5e7eb', borderRadius: '8px', padding: '4px 10px', fontSize: '12px', outline: 'none', textTransform: 'uppercase', opacity: showChildName ? 1 : 0.4 }}
+          />
+          <button
+            onMouseDown={e => e.stopPropagation()}
+            onClick={e => { e.stopPropagation(); setShowChildName(v => !v) }}
+            title={showChildName ? "Сховати ім'я дитини" : "Показати ім'я дитини"}
+            style={{ flexShrink: 0, padding: '4px', borderRadius: '8px', border: showChildName ? '1px solid #c7d2fe' : '1px solid #e5e7eb', background: showChildName ? '#eef2ff' : '#f9fafb', color: showChildName ? '#4f46e5' : '#9ca3af', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          >
+            {showChildName
+              ? <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              : <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+            }
+          </button>
+        </div>
+        {letterStyle === 'DADDY' && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '11px', color: '#6b7280', fontWeight: 500, minWidth: '80px', flexShrink: 0 }}>DADDY текст:</span>
+            <input
+              type="text"
+              value={dadText}
+              onChange={e => setDadText(e.target.value)}
+              placeholder="DADDY"
+              style={{ flex: 1, border: '1px solid #e5e7eb', borderRadius: '8px', padding: '4px 10px', fontSize: '12px', outline: 'none', textTransform: 'uppercase', fontFamily: '"Impact","Arial Black",sans-serif', fontStyle: 'italic' }}
+            />
+          </div>
+        )}
+      </div>
     </div>
   )
 })
@@ -1159,9 +1233,183 @@ function ChangeProductModal({ current, onSelect, onClose }) {
   )
 }
 
+// ─── MockupColorModal ─────────────────────────────────────────────────────────
+
+const LETTER_COLOR_PRESETS = [
+  '#000000', '#ffffff', '#1e3a5f', '#c0392b', '#2d5a27',
+  '#d97706', '#7c3aed', '#9ca3af', '#8b5e3c', '#1e40af',
+  '#be185d', '#0f766e', '#b45309', '#4338ca',
+]
+
+function getLuminance(hex) {
+  const [r, g, b] = hexToRgb(hex)
+  return (0.299 * r + 0.587 * g + 0.114 * b) / 255
+}
+
+function MockupColorModal({ designUrl, colorOverrides, onSave, onClose, isEst, estPosterState, generatePreview }) {
+  const [overrides, setOverrides] = useState(() => ({ ...colorOverrides }))
+  const [previewUrl, setPreviewUrl] = useState(designUrl)
+  const [previewLoading, setPreviewLoading] = useState(false)
+  const [pixelColors, setPixelColors] = useState([])
+  const [loadingColors, setLoadingColors] = useState(!isEst)
+
+  // For EST designs: derive editable colour entries directly from poster state
+  const estEntries = (() => {
+    if (!isEst || !estPosterState) return []
+    const { letters, letterStyle, estEl } = estPosterState
+    const entries = []
+    if (letters?.[0]) {
+      entries.push({ key: 'letterColor', label: 'Колір букв Д', defaultColor: letters[0].color || '#000000' })
+      if (letterStyle === 'D_TWO_COLOR') {
+        entries.push({ key: 'fillColor', label: 'Заповнення Д', defaultColor: letters[0].fillColor || '#ffffff' })
+      }
+    }
+    if (estEl) {
+      entries.push({ key: 'estColor', label: 'Колір EST тексту', defaultColor: estEl.color || '#000000' })
+    }
+    return entries
+  })()
+
+  // Non-EST: extract letter colours by luminance
+  useEffect(() => {
+    if (isEst) return
+    let cancelled = false
+    setLoadingColors(true)
+    extractDesignColors(designUrl, 30).then(allColors => {
+      if (cancelled) return
+      const letterColors = allColors.filter(c => {
+        const lum = getLuminance(c)
+        return lum < 0.15 || lum > 0.82
+      }).slice(0, 6)
+      setPixelColors(letterColors)
+      setLoadingColors(false)
+    }).catch(() => { if (!cancelled) setLoadingColors(false) })
+    return () => { cancelled = true }
+  }, [designUrl, isEst])
+
+  // Preview: EST → re-render via generatePreview; non-EST → pixel replacement
+  useEffect(() => {
+    let cancelled = false
+    if (isEst && generatePreview) {
+      setPreviewLoading(true)
+      generatePreview(overrides)
+        .then(url => { if (!cancelled) { setPreviewUrl(url); setPreviewLoading(false) } })
+        .catch(() => { if (!cancelled) setPreviewLoading(false) })
+    } else {
+      applyMockupColorMap(designUrl, overrides)
+        .then(url => { if (!cancelled) setPreviewUrl(url) })
+        .catch(() => {})
+    }
+    return () => { cancelled = true }
+  }, [designUrl, overrides, isEst, generatePreview])
+
+  const hasChanges = isEst
+    ? estEntries.some(e => overrides[e.key] !== undefined && overrides[e.key] !== e.defaultColor)
+    : Object.entries(overrides).some(([f, t]) => f !== t)
+
+  const renderColorEntry = ({ key, label, defaultColor }) => {
+    const current = overrides[key] !== undefined ? overrides[key] : defaultColor
+    const changed = current !== defaultColor
+    return (
+      <div key={key} className={`rounded-xl p-3 transition-colors ${changed ? 'bg-indigo-50' : 'bg-gray-50'}`}>
+        <div className="flex items-center gap-2 mb-2.5">
+          <span className="text-xs font-medium text-gray-600 flex-1">{label}</span>
+          <div className="w-7 h-7 rounded-lg border border-gray-300 flex-shrink-0 shadow-sm" style={{ background: defaultColor }} title="Оригінал" />
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2" className="flex-shrink-0"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+          <div className="w-7 h-7 rounded-lg border border-gray-300 flex-shrink-0 shadow-sm" style={{ background: current }} />
+          <input
+            type="color"
+            value={current}
+            onChange={e => setOverrides(prev => ({ ...prev, [key]: e.target.value }))}
+            className="w-7 h-7 rounded cursor-pointer border border-gray-200 p-0 flex-shrink-0"
+          />
+          {changed && (
+            <button
+              onClick={() => setOverrides(prev => { const n = {...prev}; delete n[key]; return n })}
+              className="w-5 h-5 flex items-center justify-center text-gray-300 hover:text-red-400 rounded transition-colors flex-shrink-0"
+              title="Скинути"
+            >
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          )}
+        </div>
+        <div className="flex gap-1.5 flex-wrap">
+          {LETTER_COLOR_PRESETS.map(preset => (
+            <button
+              key={preset}
+              onClick={() => setOverrides(prev => ({ ...prev, [key]: preset }))}
+              title={preset}
+              className={`w-6 h-6 rounded-full transition-all flex-shrink-0 ${current === preset ? 'ring-2 ring-indigo-500 ring-offset-1 scale-110' : 'hover:scale-110'}`}
+              style={{
+                background: preset,
+                border: preset === '#ffffff' ? '1.5px solid #e5e7eb' : '1.5px solid transparent',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.15)',
+              }}
+            />
+          ))}
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[60] flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xs max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-5 pt-5 pb-3 border-b border-gray-100">
+          <h3 className="text-base font-bold text-gray-900">Кольори літер</h3>
+          <button onClick={onClose} className="w-7 h-7 flex items-center justify-center text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+        <div className="px-5 pb-5 pt-4 space-y-4">
+          {/* Live preview */}
+          <div className="w-full h-36 rounded-xl bg-gray-100 flex items-center justify-center overflow-hidden border border-gray-200 relative">
+            <img src={previewUrl} alt="" className="max-h-full max-w-full object-contain" />
+            {previewLoading && (
+              <div className="absolute inset-0 flex items-center justify-center bg-white/60">
+                <svg className="animate-spin w-5 h-5 text-indigo-500" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" className="opacity-25"/><path d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" fill="currentColor"/></svg>
+              </div>
+            )}
+          </div>
+
+          {/* Colour entries */}
+          {isEst ? (
+            <div className="space-y-4">
+              {estEntries.map(renderColorEntry)}
+            </div>
+          ) : loadingColors ? (
+            <div className="flex items-center justify-center py-4 gap-2 text-sm text-gray-400">
+              <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" className="opacity-25"/><path d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" fill="currentColor"/></svg>
+              Аналіз кольорів...
+            </div>
+          ) : pixelColors.length === 0 ? (
+            <p className="text-sm text-gray-400 text-center py-2">Кольори літер не знайдено</p>
+          ) : (
+            <div className="space-y-4">
+              {pixelColors.map(color => renderColorEntry({ key: color, label: color, defaultColor: color }))}
+            </div>
+          )}
+
+          <div className="flex gap-2 pt-1">
+            <button
+              onClick={() => setOverrides({})}
+              disabled={!hasChanges}
+              className="flex-1 border border-gray-200 text-gray-600 hover:bg-gray-50 rounded-xl py-2.5 text-sm transition-colors disabled:opacity-40"
+            >Скинути все</button>
+            <button
+              onClick={() => onSave(overrides)}
+              className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl py-2.5 text-sm font-semibold transition-colors"
+            >Зберегти</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── DesignPlacement ──────────────────────────────────────────────────────────
 
-export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onUpdateOrderFull, onRenameOrder }) {
+export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onUpdateOrderFull, onUpdateOrder, onRenameOrder }) {
   const navigate = useNavigate()
   const estPosterRef = useRef(null)
   const autoSaveRef = useRef(false)
@@ -1199,6 +1447,9 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
   const [showAddMockupModal, setShowAddMockupModal] = useState(false)
   const [changingMockupIndex, setChangingMockupIndex] = useState(null)
   const [downloadingMockupIndex, setDownloadingMockupIndex] = useState(null)
+  const [mockupColorOverrides, setMockupColorOverrides] = useState({})
+  const [editingColorIndex, setEditingColorIndex] = useState(null)
+  const [mockupDesignPreviews, setMockupDesignPreviews] = useState({})
   const [showSendModal, setShowSendModal] = useState(false)
   const [sendItems, setSendItems] = useState([])
   const [preparingSend, setPreparingSend] = useState(false)
@@ -1264,6 +1515,29 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
       ctx.clearRect(0, 0, canvas.width, canvas.height)
     }
   }, [currentDesignImage])
+
+  // Regenerate per-mockup colour previews whenever overrides or base design changes
+  useEffect(() => {
+    if (!mockupDesignUrl) { setMockupDesignPreviews({}); return }
+    let cancelled = false
+    ;(async () => {
+      const next = {}
+      for (let i = 0; i < allMockupProducts.length; i++) {
+        const ov = mockupColorOverrides[i]
+        if (!ov || Object.keys(ov).length === 0) continue
+        try {
+          if (isEst && estPosterRef.current && ('letterColor' in ov || 'fillColor' in ov || 'estColor' in ov)) {
+            const canvas = await estPosterRef.current.exportTransparentWithOverrides(ov)
+            next[i] = canvas.toDataURL('image/png')
+          } else if (Object.entries(ov).some(([f, t]) => f !== t)) {
+            next[i] = await applyMockupColorMap(mockupDesignUrl, ov)
+          }
+        } catch {}
+      }
+      if (!cancelled) setMockupDesignPreviews(next)
+    })()
+    return () => { cancelled = true }
+  }, [mockupColorOverrides, mockupDesignUrl, allMockupProducts.length, isEst]) // eslint-disable-line
 
   // Initialize drawing canvas when tool is activated — bake design (or existing edits) into canvas
   useEffect(() => {
@@ -1482,6 +1756,17 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
         }
         setMockupDesignUrl(designUrl)
       }
+      // Apply per-mockup colour overrides
+      const dlOv = mockupColorOverrides[index] || {}
+      let effectiveDesignUrl = designUrl
+      if (Object.keys(dlOv).length > 0) {
+        if (isEst && estPosterRef.current && ('letterColor' in dlOv || 'fillColor' in dlOv || 'estColor' in dlOv)) {
+          const ovCanvas = await estPosterRef.current.exportTransparentWithOverrides(dlOv)
+          effectiveDesignUrl = ovCanvas.toDataURL('image/png')
+        } else if (designUrl && Object.entries(dlOv).some(([f,t]) => f !== t)) {
+          effectiveDesignUrl = await applyMockupColorMap(designUrl, dlOv)
+        }
+      }
       const SIZE = 1200
       const canvas = document.createElement('canvas')
       canvas.width = SIZE; canvas.height = SIZE
@@ -1494,8 +1779,8 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
       if (pA2 >= 1) { pW2 = SIZE; pH2 = SIZE / pA2; pX2 = 0; pY2 = (SIZE - pH2) / 2 }
       else           { pH2 = SIZE; pW2 = SIZE * pA2; pX2 = (SIZE - pW2) / 2; pY2 = 0 }
       ctx.drawImage(productImg, pX2, pY2, pW2, pH2)
-      if (designUrl) {
-        const designImg = await loadImgEl(designUrl)
+      if (effectiveDesignUrl) {
+        const designImg = await loadImgEl(effectiveDesignUrl)
         const dW = mockupOverlay.size / 100 * SIZE
         const aspect = (designImg.naturalHeight || designImg.height) / (designImg.naturalWidth || designImg.width)
         const dH = dW * aspect
@@ -1575,8 +1860,17 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
       else          { pH = SIZE; pW = SIZE * pA; pX = (SIZE - pW) / 2; pY = 0 }
       ctx.drawImage(productImg, pX, pY, pW, pH)
       if (overlayUrl) {
-        // overlayUrl = mockupDesignUrl (already bg-removed) or EST transparent export — skip double removal
-        const dImg = await loadImgEl(overlayUrl)
+        const sendOv = mockupColorOverrides[i] || {}
+        let effectiveSendUrl = overlayUrl
+        if (Object.keys(sendOv).length > 0) {
+          if (isEst && estPosterRef.current && ('letterColor' in sendOv || 'fillColor' in sendOv || 'estColor' in sendOv)) {
+            const ovCanvas = await estPosterRef.current.exportTransparentWithOverrides(sendOv)
+            effectiveSendUrl = ovCanvas.toDataURL('image/png')
+          } else if (Object.entries(sendOv).some(([f,t]) => f !== t)) {
+            effectiveSendUrl = await applyMockupColorMap(overlayUrl, sendOv)
+          }
+        }
+        const dImg = await loadImgEl(effectiveSendUrl)
         const srcW = dImg.naturalWidth || dImg.width
         const srcH = dImg.naturalHeight || dImg.height
         const dW = mockupOverlay.size / 100 * SIZE
@@ -1595,6 +1889,9 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
         filename: `${fileName || 'mockup'}_Мокап_№${i + 1}.png`,
         size: formatFileSize(Math.round(mockupUrl.length * 0.75)),
         checked: true,
+        itemSize: '',
+        embSize: '',
+        colorLabel: (fileName || '').replace(/^#/, '') || '',
       })
     }
     return items
@@ -1719,16 +2016,18 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
     let mockupThumb = null
     let mockupThumbs = []
     try {
-      const SIZE = 320
+      const SIZE = 900
       const dSrc = mockupDesignUrl || fullImage
       // mockupDesignUrl is already bg-removed; only apply removeWhiteBg on raw fullImage fallback
       const dSrcNeedsClean = !mockupDesignUrl
-      let overlayDesign = null
+      let baseOverlayDataUrl = null
       if (dSrc) {
         const dImg = await loadImgEl(dSrc)
-        overlayDesign = dSrcNeedsClean ? removeWhiteBg(dImg) : dImg
+        baseOverlayDataUrl = dSrcNeedsClean
+          ? removeWhiteBg(dImg).toDataURL('image/png')
+          : dSrc
       }
-      for (const product of allMockupProducts) {
+      for (const [productIdx, product] of allMockupProducts.entries()) {
         if (!product?.image) continue
         const mCanvas = document.createElement('canvas')
         mCanvas.width = SIZE; mCanvas.height = SIZE
@@ -1737,17 +2036,28 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
         mCtx.imageSmoothingQuality = 'high'
         const pImg = await loadImgEl(product.image)
         mCtx.drawImage(pImg, 0, 0, SIZE, SIZE)
-        if (overlayDesign) {
-          const srcW = overlayDesign.naturalWidth || overlayDesign.width
-          const srcH = overlayDesign.naturalHeight || overlayDesign.height
+        if (baseOverlayDataUrl) {
+          const thumbOv = mockupColorOverrides[productIdx] || {}
+          let effectiveThumbUrl = baseOverlayDataUrl
+          if (Object.keys(thumbOv).length > 0) {
+            if (isEst && estPosterRef.current && ('letterColor' in thumbOv || 'fillColor' in thumbOv || 'estColor' in thumbOv)) {
+              const ovCanvas = await estPosterRef.current.exportTransparentWithOverrides(thumbOv)
+              effectiveThumbUrl = ovCanvas.toDataURL('image/png')
+            } else if (Object.entries(thumbOv).some(([f,t]) => f !== t)) {
+              effectiveThumbUrl = await applyMockupColorMap(baseOverlayDataUrl, thumbOv)
+            }
+          }
+          const overlayImg = await loadImgEl(effectiveThumbUrl)
+          const srcW = overlayImg.naturalWidth || overlayImg.width
+          const srcH = overlayImg.naturalHeight || overlayImg.height
           const dW = mockupOverlay.size / 100 * SIZE
           const dH = dW * srcH / srcW
-          mCtx.drawImage(overlayDesign, 0, 0, srcW, srcH,
+          mCtx.drawImage(overlayImg, 0, 0, srcW, srcH,
             mockupOverlay.x / 100 * SIZE - dW / 2,
             mockupOverlay.y / 100 * SIZE - dH / 2,
             dW, dH)
         }
-        const t = mCanvas.toDataURL('image/jpeg', 0.82)
+        const t = mCanvas.toDataURL('image/jpeg', 0.93)
         if (!mockupThumb) mockupThumb = t
         mockupThumbs.push({ productId: product.id, label: product.nameUk, thumbnail: t })
       }
@@ -1940,16 +2250,18 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
     let mockupThumb = null
     let mockupThumbs = []
     try {
-      const SIZE = 320
+      const SIZE = 900
       const dSrc = mockupDesignUrl || fullImage
       // mockupDesignUrl is already bg-removed; only apply removeWhiteBg on raw fullImage fallback
       const dSrcNeedsClean = !mockupDesignUrl
-      let overlayDesign = null
+      let baseOverlayDataUrl = null
       if (dSrc) {
         const dImg = await loadImgEl(dSrc)
-        overlayDesign = dSrcNeedsClean ? removeWhiteBg(dImg) : dImg
+        baseOverlayDataUrl = dSrcNeedsClean
+          ? removeWhiteBg(dImg).toDataURL('image/png')
+          : dSrc
       }
-      for (const product of allMockupProducts) {
+      for (const [productIdx, product] of allMockupProducts.entries()) {
         if (!product?.image) continue
         const mCanvas = document.createElement('canvas')
         mCanvas.width = SIZE; mCanvas.height = SIZE
@@ -1958,17 +2270,28 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
         mCtx.imageSmoothingQuality = 'high'
         const pImg = await loadImgEl(product.image)
         mCtx.drawImage(pImg, 0, 0, SIZE, SIZE)
-        if (overlayDesign) {
-          const srcW = overlayDesign.naturalWidth || overlayDesign.width
-          const srcH = overlayDesign.naturalHeight || overlayDesign.height
+        if (baseOverlayDataUrl) {
+          const thumbOv = mockupColorOverrides[productIdx] || {}
+          let effectiveThumbUrl = baseOverlayDataUrl
+          if (Object.keys(thumbOv).length > 0) {
+            if (isEst && estPosterRef.current && ('letterColor' in thumbOv || 'fillColor' in thumbOv || 'estColor' in thumbOv)) {
+              const ovCanvas = await estPosterRef.current.exportTransparentWithOverrides(thumbOv)
+              effectiveThumbUrl = ovCanvas.toDataURL('image/png')
+            } else if (Object.entries(thumbOv).some(([f,t]) => f !== t)) {
+              effectiveThumbUrl = await applyMockupColorMap(baseOverlayDataUrl, thumbOv)
+            }
+          }
+          const overlayImg = await loadImgEl(effectiveThumbUrl)
+          const srcW = overlayImg.naturalWidth || overlayImg.width
+          const srcH = overlayImg.naturalHeight || overlayImg.height
           const dW = mockupOverlay.size / 100 * SIZE
           const dH = dW * srcH / srcW
-          mCtx.drawImage(overlayDesign, 0, 0, srcW, srcH,
+          mCtx.drawImage(overlayImg, 0, 0, srcW, srcH,
             mockupOverlay.x / 100 * SIZE - dW / 2,
             mockupOverlay.y / 100 * SIZE - dH / 2,
             dW, dH)
         }
-        const t = mCanvas.toDataURL('image/jpeg', 0.82)
+        const t = mCanvas.toDataURL('image/jpeg', 0.93)
         if (!mockupThumb) mockupThumb = t
         mockupThumbs.push({ productId: product.id, label: product.nameUk, thumbnail: t })
       }
@@ -1977,10 +2300,11 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
     const catMap = { 'hoodie-basic': 'hoodie', 'hoodie-fleece': 'hoodie', 'hoodie-premium': 'hoodie', 'tshirt-basic': 'tshirt', 'tshirt-oversized': 'oversized', 'sweatshirt': 'sweatshirt', 'cap': 'cap', 'shopper': 'totebag' }
     const transferDateStr = now.toLocaleString('uk-UA', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Kiev' }).replace(',', '')
     // Only include products whose mockup was checked by the user
-    const allProductNames = sendItems
-      .filter(i => i.checked && i.id.startsWith('mockup-'))
-      .map(i => allMockupProducts[parseInt(i.id.replace('mockup-', ''))]?.nameUk)
+    const checkedMockupsSend = sendItems.filter(i => i.checked && i.id.startsWith('mockup-'))
+    const allProductNames = checkedMockupsSend
+      .map(i => (i.label || '').replace(/^Мокап №\d+ — /, '').trim())
       .filter(Boolean)
+    const orderSizeStr = checkedMockupsSend.map(i => i.itemSize).filter(Boolean).join(', ')
     const order = {
       id: orderNum,
       name: fileName || `Дизайн від ${dateStr}`,
@@ -1998,8 +2322,8 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
       transferDate: now.toISOString(),
       transferDateStr,
       comment: designerComment,
-      orderSize: sendOrderSize,
-      embroiderySize: sendEmbroiderySize,
+      orderSize: orderSizeStr || sendOrderSize,
+      embroiderySize: checkedMockupsSend.map(i => i.embSize).filter(Boolean).join(', ') || sendEmbroiderySize,
     }
     const designSnapshot = {
       selectedProducts: [selectedProduct, ...extraMockupProducts],
@@ -2044,13 +2368,20 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
             }
           } catch {}
           const cleanId = (fileName || order.id).replace(/^#/, '')
-          const caption = [cleanId, allProductNames.join(' + '), sendOrderSize, sendEmbroiderySize].filter(Boolean).join(' ')
-          const designerFiles = checkedFiles.map(item => ({
-            ...item,
-            dataUrl: item.id === 'design' && transparentDesignUrl ? transparentDesignUrl : item.dataUrl,
-            filename: item.id === 'design' ? `${cleanId}.png` : item.filename,
-            label: caption,
-          }))
+          const tgSizes = checkedFiles.filter(f => f.id.startsWith('mockup-')).map(f => f.itemSize).filter(Boolean).join(', ')
+          const tgEmbSizes = checkedFiles.filter(f => f.id.startsWith('mockup-')).map(f => f.embSize).filter(Boolean).join(', ')
+          const caption = [cleanId, allProductNames.join(' + '), tgSizes || sendOrderSize, tgEmbSizes || sendEmbroiderySize].filter(Boolean).join(' ')
+          const designerFiles = checkedFiles.map(item => {
+            if (item.id === 'design') {
+              return { ...item, dataUrl: transparentDesignUrl || item.dataUrl, filename: `${cleanId}.png`, label: cleanId }
+            }
+            const colorPart = (item.colorLabel || cleanId).trim().replace(/[\s/\\]+/g, '_')
+            const productPart = (item.label || '').replace(/^Мокап №\d+ — /, '').trim().replace(/[\s/\\,]+/g, '_').replace(/_{2,}/g, '_')
+            const embPart = (item.embSize || '').trim().replace(/\s+/g, '')
+            const sizePart = item.itemSize || ''
+            const parts = [colorPart, productPart, embPart, sizePart].filter(Boolean)
+            return { ...item, filename: `${parts.join('_')}.png`, label: parts.join('_') }
+          })
           await sendOrderToDesignerTelegram({ order, files: designerFiles })
           setDesignerSendToast('ok')
         } catch {
@@ -2164,27 +2495,29 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
             {regenError && <div className="mt-3 px-4 py-2 bg-red-50 border border-red-200 rounded-xl text-sm text-red-600">{regenError}</div>}
 
             {isEst && !regenerating && (
-              <div className="mt-4 flex items-center gap-3">
-                <label className="text-sm font-medium text-gray-700 whitespace-nowrap">EST текст:</label>
-                <input
-                  type="text"
-                  value={estText}
-                  onChange={e => setEstText(e.target.value)}
-                  placeholder="EST.2025"
-                  disabled={!showEstText}
-                  className="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 disabled:opacity-40 disabled:cursor-not-allowed"
-                  style={{ textTransform: 'uppercase' }}
-                />
-                <button
-                  onClick={() => setShowEstText(v => !v)}
-                  title={showEstText ? 'Сховати EST текст' : 'Показати EST текст'}
-                  className={`flex-shrink-0 p-2 rounded-xl border transition-colors ${showEstText ? 'border-indigo-200 bg-indigo-50 text-indigo-600 hover:bg-indigo-100' : 'border-gray-200 bg-gray-50 text-gray-400 hover:bg-gray-100'}`}
-                >
-                  {showEstText
-                    ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-                    : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
-                  }
-                </button>
+              <div className="mt-4 space-y-2">
+                <div className="flex items-center gap-3">
+                  <label className="text-sm font-medium text-gray-700 whitespace-nowrap">EST текст:</label>
+                  <input
+                    type="text"
+                    value={estText}
+                    onChange={e => setEstText(e.target.value)}
+                    placeholder="EST.2025"
+                    disabled={!showEstText}
+                    className="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 disabled:opacity-40 disabled:cursor-not-allowed"
+                    style={{ textTransform: 'uppercase' }}
+                  />
+                  <button
+                    onClick={() => setShowEstText(v => !v)}
+                    title={showEstText ? 'Сховати EST текст' : 'Показати EST текст'}
+                    className={`flex-shrink-0 p-2 rounded-xl border transition-colors ${showEstText ? 'border-indigo-200 bg-indigo-50 text-indigo-600 hover:bg-indigo-100' : 'border-gray-200 bg-gray-50 text-gray-400 hover:bg-gray-100'}`}
+                  >
+                    {showEstText
+                      ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                      : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                    }
+                  </button>
+                </div>
               </div>
             )}
 
@@ -2322,7 +2655,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
                       className="absolute pointer-events-none"
                       style={{ left: `${mockupOverlay.x}%`, top: `${mockupOverlay.y}%`, width: `${mockupOverlay.size}%`, transform: 'translate(-50%, -50%)' }}
                     >
-                      <img src={mockupDesignUrl} alt="design overlay" className="w-full" />
+                      <img src={mockupDesignPreviews[index] || mockupDesignUrl} alt="design overlay" className="w-full" />
                     </div>
                   )}
                   {preparingMockup && (
@@ -2352,7 +2685,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
                       </div>
                     )}
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 flex-wrap">
                     <button
                       onClick={() => setChangingMockupIndex(index)}
                       className="flex items-center justify-center gap-1.5 border border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-indigo-600 rounded-xl px-3 py-2 text-sm font-medium transition-colors"
@@ -2361,6 +2694,20 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
                       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                       Змінити
                     </button>
+                    {mockupDesignUrl && (
+                      <button
+                        onClick={() => setEditingColorIndex(index)}
+                        className={`flex items-center justify-center gap-1.5 border rounded-xl px-3 py-2 text-sm font-medium transition-colors ${
+                          mockupDesignPreviews[index]
+                            ? 'border-indigo-400 bg-indigo-50 text-indigo-600'
+                            : 'border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-indigo-600'
+                        }`}
+                        title="Редагувати кольори дизайну для цього мокапу"
+                      >
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg>
+                        Кольори
+                      </button>
+                    )}
                     <button
                       onClick={() => handleDownloadMockupForProduct(product, index)}
                       disabled={downloadingMockupIndex === index}
@@ -2469,6 +2816,31 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
                 : <><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>Зберегти дизайн</>
               }
             </button>
+            {currentDesignImage && (
+              <button
+                onClick={() => {
+                  const editingId = designData?.editingOrderId
+                  if (editingId) onUpdateOrder?.(editingId, { status: 'palette' })
+                  navigate('/palette-editor', { state: {
+                    designImage: mockupDesignUrl || currentDesignImage,
+                    mockupDesignUrl: mockupDesignUrl || null,
+                    fileName: fileName || '',
+                    orderSize: sendOrderSize || '',
+                    embroiderySize: sendEmbroiderySize || '',
+                    editingOrderId: editingId || null,
+                    mockupProducts: allMockupProducts.map(p => ({ id: p.id, nameUk: p.nameUk, image: p.image, category: p.category })),
+                    mockupOverlay,
+                  } })
+                }}
+                className="w-full flex items-center justify-center gap-2 border border-violet-300 text-violet-700 hover:bg-violet-50 rounded-xl py-2.5 text-sm font-semibold transition-colors"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="13.5" cy="6.5" r="0.5" fill="currentColor"/><circle cx="17.5" cy="10.5" r="0.5" fill="currentColor"/><circle cx="8.5" cy="7.5" r="0.5" fill="currentColor"/><circle cx="6.5" cy="12.5" r="0.5" fill="currentColor"/>
+                  <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/>
+                </svg>
+                Палітра кольорів
+              </button>
+            )}
             <button
               onClick={handleOpenClientModal}
               className="w-full flex items-center justify-center gap-2 border border-emerald-300 text-emerald-700 hover:bg-emerald-50 rounded-xl py-2.5 text-sm font-semibold transition-colors"
@@ -2515,6 +2887,24 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
         />
       )}
 
+      {editingColorIndex !== null && mockupDesignUrl && (
+        <MockupColorModal
+          designUrl={mockupDesignUrl}
+          colorOverrides={mockupColorOverrides[editingColorIndex] || {}}
+          isEst={isEst}
+          estPosterState={isEst ? estPosterRef.current?.getState() : null}
+          generatePreview={isEst && estPosterRef.current ? async (ov) => {
+            const canvas = await estPosterRef.current.exportTransparentWithOverrides(ov)
+            return canvas.toDataURL('image/png')
+          } : null}
+          onSave={(overrides) => {
+            setMockupColorOverrides(prev => ({ ...prev, [editingColorIndex]: overrides }))
+            setEditingColorIndex(null)
+          }}
+          onClose={() => setEditingColorIndex(null)}
+        />
+      )}
+
       {showSendModal && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setShowSendModal(false)}>
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
@@ -2549,19 +2939,23 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
                       {preparingSend ? '…' : (() => {
                         const names = sendItems
                           .filter(i => i.checked && i.id.startsWith('mockup-'))
-                          .map(i => allMockupProducts[parseInt(i.id.replace('mockup-', ''))]?.nameUk)
+                          .map(i => (i.label || '').replace(/^Мокап №\d+ — /, '').trim())
                           .filter(Boolean)
                         return names.length ? names.join(', ') : '—'
                       })()}
                     </div>
                   </div>
                   <div>
-                    <label className="text-xs text-gray-500 block mb-1">Розмір</label>
-                    <input value={sendOrderSize} onChange={e => setSendOrderSize(e.target.value)} className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300" placeholder="XL" />
+                    <label className="text-xs text-gray-500 block mb-1">Розмір (з мокапів)</label>
+                    <div className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-800 bg-gray-50 min-h-[38px]">
+                      {sendItems.filter(i => i.checked && i.id.startsWith('mockup-')).map(i => i.itemSize).filter(Boolean).join(', ') || '—'}
+                    </div>
                   </div>
                   <div>
                     <label className="text-xs text-gray-500 block mb-1">Розмір вишивки</label>
-                    <input value={sendEmbroiderySize} onChange={e => setSendEmbroiderySize(e.target.value)} className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300" placeholder="23 см" />
+                    <div className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-800 bg-gray-50 min-h-[38px]">
+                      {sendItems.filter(i => i.checked && i.id.startsWith('mockup-')).map(i => i.embSize).filter(Boolean).join(', ') || '—'}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -2578,7 +2972,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
                 ) : (
                   <div className="flex gap-3 overflow-x-auto pb-2">
                     {sendItems.map((item, idx) => (
-                      <div key={item.id} className={`flex-shrink-0 w-44 border-2 rounded-xl p-3 cursor-pointer transition-all ${item.checked ? 'border-indigo-500 bg-indigo-50/40' : 'border-gray-200 bg-white'}`} onClick={() => setSendItems(prev => prev.map((it, i) => i === idx ? { ...it, checked: !it.checked } : it))}>
+                      <div key={item.id} className={`flex-shrink-0 w-48 border-2 rounded-xl p-3 cursor-pointer transition-all ${item.checked ? 'border-indigo-500 bg-indigo-50/40' : 'border-gray-200 bg-white'}`} onClick={() => setSendItems(prev => prev.map((it, i) => i === idx ? { ...it, checked: !it.checked } : it))}>
                         <div className="flex items-center justify-between mb-2">
                           <div className={`w-5 h-5 rounded flex items-center justify-center border-2 transition-colors ${item.checked ? 'bg-indigo-600 border-indigo-600' : 'border-gray-300 bg-white'}`}>
                             {item.checked && <svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M2 6l3 3 5-5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
@@ -2590,8 +2984,32 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
                         <div className="w-full h-28 bg-white rounded-lg overflow-hidden border border-gray-100 flex items-center justify-center mb-2">
                           <img src={item.thumbnail} alt="" className="w-full h-full object-contain" />
                         </div>
-                        <p className="text-xs font-semibold text-gray-800 truncate">{item.label.replace('.png','')}</p>
-                        <p className="text-[10px] text-gray-400 mt-0.5 truncate">{item.filename}</p>
+                        <p className="text-xs font-semibold text-gray-800 truncate mb-1">{item.id.startsWith('mockup-') ? (item.colorLabel || item.label) : item.label.replace('.png','')}</p>
+                        {item.id.startsWith('mockup-') && (
+                          <div onClick={e => e.stopPropagation()} className="space-y-1.5">
+                            <div className="flex gap-0.5 flex-wrap">
+                              {['XS','S','M','L','XL'].map(sz => (
+                                <button key={sz} type="button"
+                                  onClick={() => setSendItems(prev => prev.map((it, i) => i === idx ? { ...it, itemSize: sz } : it))}
+                                  className={`px-1.5 py-0.5 text-[10px] font-bold rounded border transition-colors ${item.itemSize === sz ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-gray-300 text-gray-500 hover:border-indigo-400'}`}
+                                >{sz}</button>
+                              ))}
+                            </div>
+                            <input
+                              value={item.embSize || ''}
+                              onChange={e => setSendItems(prev => prev.map((it, i) => i === idx ? { ...it, embSize: e.target.value } : it))}
+                              placeholder="Вишивка (напр. 27см)"
+                              className="w-full border border-gray-200 rounded-lg px-2 py-1 text-[11px] focus:outline-none focus:ring-1 focus:ring-indigo-300"
+                            />
+                            <input
+                              value={item.colorLabel || ''}
+                              onChange={e => setSendItems(prev => prev.map((it, i) => i === idx ? { ...it, colorLabel: e.target.value } : it))}
+                              placeholder="напр. 387437_1"
+                              className="w-full border border-gray-200 rounded-lg px-2 py-1 text-[11px] focus:outline-none focus:ring-1 focus:ring-indigo-300"
+                            />
+                          </div>
+                        )}
+                        {!item.id.startsWith('mockup-') && <p className="text-[10px] text-gray-400 mt-0.5 truncate">{item.filename}</p>}
                       </div>
                     ))}
                   </div>
