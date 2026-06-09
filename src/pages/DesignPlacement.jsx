@@ -16,17 +16,13 @@ const D_PATH_INNER =
   'M289 135L350 183L388 456L343 515L142 542L140 537L133 484L159 480L160 476L125 219L124 217L102 220L98 219L90 163L115 158Z ' +
   'M262 198L191 207L227 470L298 461L317 436L288 221L285 215Z'
 
-// A letter — Varsity multi-outline collegiate style (695×700 viewBox)
-// Derived from original SVG path rotated 180° (x→695-x, y→700-y)
+// A letter — collegiate block A (1223×1799 viewBox)
+// SVG source: path with transform="translate(0 1799) scale(1 -1)" → y→1799-y applied
 const A_PATH =
-  'M674 700 V543 H632 L504 158 H535 V0 H163 V158 H198 L70 543 H29 V700 H297 V543 H273 L284 510 H418 L430 543 H406 V700 Z ' +
-  'M423 683 V559 H449 L433 494 H269 L254 559 H280 V683 H45 V559 H85 L219 141 H180 V17 H518 V141 H484 L618 559 H657 V683 Z ' +
-  'M635 661 V581 H605 L452 119 H496 V39 H201 V119 H250 L97 581 H67 V661 H258 V581 H220 L256 472 H447 L483 581 H445 V661 Z ' +
-  'M276 414 351 186 428 414 Z M394 394 351 255 309 394 Z M328 376 351 309 374 376 Z'
+  'M662 1331 L697 1532 H635 V1799 H1073 V1532 H973 L662 0 H390 L95 1532 H0 V1799 H438 V1532 H372 L407 1331 Z ' +
+  'M452 1075 534 603 617 1075 Z'
 
-const A_PATH_INNER =
-  'M635 661 V581 H605 L452 119 H496 V39 H201 V119 H250 L97 581 H67 V661 H258 V581 H220 L256 472 H447 L483 581 H445 V661 Z ' +
-  'M276 414 351 186 428 414 Z M394 394 351 255 309 394 Z M328 376 351 309 374 376 Z'
+const A_PATH_INNER = 'M452 1075 534 603 617 1075 Z'
 
 // Y letter (360×460 coordinate space)
 const Y_PATH =
@@ -230,7 +226,7 @@ function drawLetters(ctx, letters, W, H, style = 'D') {
     const lx = letter.x / 100 * W
     const ly = letter.y / 100 * H
     const isA = letter.type === 'A'
-    const vW = isA ? 695 : 360, vH = isA ? 700 : 460
+    const vW = isA ? 1223 : 360, vH = isA ? 1799 : 460
     const lw = letter.size / 100 * W
     const lh = lw * vH / vW
     const sc = lw / vW
@@ -763,7 +759,7 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
                 </>
               )}
               {letter.type === 'A' ? (
-                <svg viewBox="0 0 695 700" style={{ width: '100%', height: 'auto', display: 'block' }}>
+                <svg viewBox="0 0 1223 1799" style={{ width: '100%', height: 'auto', display: 'block' }}>
                   {isTwoColor ? (
                     <><path d={A_PATH} fill={letter.color} fillRule="evenodd"/><path d={A_PATH_INNER} fill={letter.fillColor || '#ffffff'} fillRule="evenodd"/></>
                   ) : <path d={A_PATH} fill={letter.color} fillRule="evenodd"/>}
