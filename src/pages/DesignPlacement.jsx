@@ -16,17 +16,12 @@ const D_PATH_INNER =
   'M289 135L350 183L388 456L343 515L142 542L140 537L133 484L159 480L160 476L125 219L124 217L102 220L98 219L90 163L115 158Z ' +
   'M262 198L191 207L227 470L298 461L317 436L288 221L285 215Z'
 
-// A letter — collegiate block A, centered in 1409×1799 viewBox (x+168 from original 1073-wide path)
-// Single-color: outer+inner evenodd → hollow bordered A; Two-color: inner body filled with second color
-const A_PATH =
-  'M830 1331 L865 1532 H803 V1799 H1241 V1532 H1141 L830 0 H558 L263 1532 H168 V1799 H606 V1532 H540 L575 1331 Z ' +
-  'M811 1266 L841 1437 H788 V1664 H1161 V1437 H1076 L811 135 H580 L329 1437 H249 V1664 H621 V1437 H565 L594 1266 Z ' +
-  'M620 1075 702 603 785 1075 Z'
-
-// Two-color fill layer: inner body + crossbar triangle (evenodd = body filled, triangle hollow)
-const A_PATH_INNER =
-  'M811 1266 L841 1437 H788 V1664 H1161 V1437 H1076 L811 135 H580 L329 1437 H249 V1664 H621 V1437 H565 L594 1266 Z ' +
-  'M620 1075 702 603 785 1075 Z'
+// A letter — original SVG coords (y=0 at foot, y=1799 at apex)
+// Rendered with transform translate(49 1799) scale(1.4 -1) → x*1.4+49, y→1799-y
+// ViewBox: 0 0 1600 1799
+const A_PATH_ORIG = 'M662 468 697 267H635V0H1073V267H973L662 1799H390L95 267H0V0H438V267H372L407 468Z'
+const A_INNER_ORIG = 'M452 724 534 1196 617 724Z'
+const A_STROKE_W = 35
 
 // Y letter (360×460 coordinate space)
 const Y_PATH =
@@ -230,7 +225,7 @@ function drawLetters(ctx, letters, W, H, style = 'D') {
     const lx = letter.x / 100 * W
     const ly = letter.y / 100 * H
     const isA = letter.type === 'A'
-    const vW = isA ? 1409 : 360, vH = isA ? 1799 : 460
+    const vW = isA ? 1600 : 360, vH = isA ? 1799 : 460
     const lw = letter.size / 100 * W
     const lh = lw * vH / vW
     const sc = lw / vW
@@ -240,15 +235,18 @@ function drawLetters(ctx, letters, W, H, style = 'D') {
     ctx.translate(-lw / 2, -lh / 2)
     ctx.scale(sc, sc)
     if (letter.type === 'A') {
+      // transform: x→1.4x+49, y→1799-y (matches SVG translate(49 1799) scale(1.4 -1))
+      ctx.transform(1.4, 0, 0, -1, 49, 1799)
+      const aOuter = new Path2D(A_PATH_ORIG)
+      const aHole = new Path2D(A_INNER_ORIG)
       if (isTwoColor) {
-        ctx.fillStyle = letter.color
-        ctx.fill(new Path2D(A_PATH), 'evenodd')
         ctx.fillStyle = letter.fillColor || '#ffffff'
-        ctx.fill(new Path2D(A_PATH_INNER), 'evenodd')
-      } else {
-        ctx.fillStyle = letter.color
-        ctx.fill(new Path2D(A_PATH), 'evenodd')
+        ctx.fill(new Path2D(A_PATH_ORIG + ' ' + A_INNER_ORIG), 'evenodd')
       }
+      ctx.strokeStyle = letter.color
+      ctx.lineWidth = A_STROKE_W
+      ctx.stroke(aOuter)
+      ctx.stroke(aHole)
     } else if (letter.type === 'Y') {
       if (isTwoColor) {
         ctx.fillStyle = letter.color
@@ -763,10 +761,12 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
                 </>
               )}
               {letter.type === 'A' ? (
-                <svg viewBox="0 0 1409 1799" style={{ width: '100%', height: 'auto', display: 'block' }}>
-                  {isTwoColor ? (
-                    <><path d={A_PATH} fill={letter.color} fillRule="evenodd"/><path d={A_PATH_INNER} fill={letter.fillColor || '#ffffff'} fillRule="evenodd"/></>
-                  ) : <path d={A_PATH} fill={letter.color} fillRule="evenodd"/>}
+                <svg viewBox="0 0 1600 1799" style={{ width: '100%', height: 'auto', display: 'block' }}>
+                  <g transform="translate(49 1799) scale(1.4 -1)">
+                    {isTwoColor && <path d={`${A_PATH_ORIG} ${A_INNER_ORIG}`} fill={letter.fillColor || '#ffffff'} fillRule="evenodd"/>}
+                    <path d={A_PATH_ORIG} fill="none" stroke={letter.color} strokeWidth={A_STROKE_W}/>
+                    <path d={A_INNER_ORIG} fill="none" stroke={letter.color} strokeWidth={A_STROKE_W}/>
+                  </g>
                 </svg>
               ) : letter.type === 'Y' ? (
                 <svg viewBox="0 0 360 460" style={{ width: '100%', height: 'auto', display: 'block' }}>
