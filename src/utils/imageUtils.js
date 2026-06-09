@@ -1,5 +1,3 @@
-import { removeBackgroundPhotoroom } from '../services/photoroom.js'
-
 export function loadImgEl(src) {
   return new Promise((resolve, reject) => {
     const img = new Image()
@@ -125,21 +123,16 @@ async function toDataUrl(url) {
   })
 }
 
-/** Remove background via Clipdrop API. Falls back to BFS on error. */
+/** Remove background via BFS flood-fill. */
 export async function removeBgFromUrl(url) {
-  try {
-    return await removeBackgroundPhotoroom(url)
-  } catch (e) {
-    console.warn('PhotoRoom bg removal failed, using BFS fallback:', e)
-    const dataUrl = await toDataUrl(url)
-    const img = await loadImgEl(dataUrl)
-    return removeWhiteBg(img).toDataURL('image/png')
-  }
+  const dataUrl = await toDataUrl(url)
+  const img = await loadImgEl(dataUrl)
+  return removeWhiteBg(img).toDataURL('image/png')
 }
 
 /**
  * Remove background only if image is not already transparent (corner check).
- * Uses ML removal; falls back to BFS on error.
+ * Uses BFS flood-fill; skips if corners are already transparent.
  */
 export async function removeBgFromUrlIfNeeded(url) {
   const dataUrl = await toDataUrl(url)
@@ -159,5 +152,5 @@ export async function removeBgFromUrlIfNeeded(url) {
   if (corners.some(p => p[3] < 128)) {
     return check.toDataURL('image/png') // Already transparent — skip removal
   }
-  return removeBgFromUrl(url) // Use ML
+  return removeWhiteBg(img).toDataURL('image/png')
 }

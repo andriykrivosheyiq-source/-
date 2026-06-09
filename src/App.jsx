@@ -251,6 +251,7 @@ function AppInner() {
                 onUpdate={(upd) => setDesignData(prev => ({ ...prev, ...upd }))}
                 onSaveOrder={handleSaveOrder}
                 onUpdateOrderFull={handleUpdateOrderFull}
+                onUpdateOrder={handleUpdateOrder}
                 onRenameOrder={handleRenameOrder}
               />
             }
@@ -272,7 +273,7 @@ function AppInner() {
           <Route path="/templates" element={<Templates />} />
           <Route path="/favorites" element={<Favorites />} />
           <Route path="/settings" element={<Settings />} />
-          <Route path="/palette-editor" element={<PaletteEditor />} />
+          <Route path="/palette-editor" element={<PaletteEditor onUpdateOrder={handleUpdateOrder} />} />
         </Routes>
       </main>
     </div>
