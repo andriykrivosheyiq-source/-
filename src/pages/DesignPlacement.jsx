@@ -16,6 +16,21 @@ const D_PATH_INNER =
   'M289 135L350 183L388 456L343 515L142 542L140 537L133 484L159 480L160 476L125 219L124 217L102 220L98 219L90 163L115 158Z ' +
   'M262 198L191 207L227 470L298 461L317 436L288 221L285 215Z'
 
+// A letter — Varsity/collegiate style with slab serifs at base (360×460)
+const A_PATH =
+  'M 180 0 ' +
+  'L 318 402 L 360 402 L 360 460 L 250 460 L 250 402 L 213 402 ' +
+  'L 210 285 L 150 285 ' +
+  'L 147 402 L 110 402 L 110 460 L 0 460 L 0 402 L 42 402 Z ' +
+  'M 180 28 L 245 252 L 115 252 Z'
+
+const A_PATH_INNER = 'M 180 28 L 245 252 L 115 252 Z'
+
+// Y letter (360×460 coordinate space)
+const Y_PATH =
+  'M 0 0 L 75 0 L 195 215 L 245 215 L 285 0 L 360 0 L 245 230 L 245 460 L 115 460 L 115 230 L 0 0 Z'
+const Y_PATH_INNER = 'M 75 0 L 195 215 L 245 215 L 285 0 Z'
+
 const PRESET_COLORS = ['#000000', '#1e3a5f', '#c0392b', '#2d5a27', '#d97706', '#7c3aed', '#9ca3af', '#8b5e3c', '#ffffff', '#f5eed6']
 
 const DESIGNERS = [
@@ -151,31 +166,73 @@ function removeWhiteBg(img, threshold = 220, noDilation = false) {
   return canvas
 }
 
-function drawDLetters(ctx, letters, W, H, style = 'D') {
+function drawLetters(ctx, letters, W, H, style = 'D') {
+  const isTwoColor = style.includes('TWO_COLOR')
   for (const letter of letters) {
-    const lx = letter.x / 100 * W
-    const ly = letter.y / 100 * H
-    const lw = letter.size / 100 * W
-    const lh = lw * 460 / 360
-    const sc = lw / 360
-    ctx.save()
-    ctx.translate(lx + lw / 2, ly + lh / 2)
-    ctx.rotate(letter.rotation * Math.PI / 180)
-    ctx.translate(-lw / 2, -lh / 2)
-    ctx.scale(sc, sc)
-    ctx.translate(-60, -110)
-    if (style === 'D_TWO_COLOR') {
+    if (letter.type === 'A') {
+      const vW = 360, vH = 460
+      const sc = Math.min((letter.size / 100 * W) / vW, (letter.size / 100 * H * 0.8) / vH)
+      const cx = letter.x / 100 * W, cy = letter.y / 100 * H
+      ctx.save()
+      ctx.translate(cx, cy)
+      ctx.rotate(letter.rotation * Math.PI / 180)
+      ctx.translate(-vW * sc / 2, -vH * sc / 2)
+      ctx.scale(sc, sc)
       ctx.fillStyle = letter.color
-      ctx.fill(new Path2D(D_PATH), 'evenodd')
-      ctx.fillStyle = letter.fillColor || '#ffffff'
-      ctx.fill(new Path2D(D_PATH_INNER), 'evenodd')
+      if (isTwoColor) {
+        ctx.fill(new Path2D(A_PATH), 'evenodd')
+        ctx.fillStyle = letter.fillColor || '#ffffff'
+        ctx.fill(new Path2D(A_PATH_INNER), 'evenodd')
+      } else {
+        ctx.fill(new Path2D(A_PATH), 'evenodd')
+      }
+      ctx.restore()
+    } else if (letter.type === 'Y') {
+      const vW = 360, vH = 460
+      const sc = Math.min((letter.size / 100 * W) / vW, (letter.size / 100 * H * 0.8) / vH)
+      const cx = letter.x / 100 * W, cy = letter.y / 100 * H
+      ctx.save()
+      ctx.translate(cx, cy)
+      ctx.rotate(letter.rotation * Math.PI / 180)
+      ctx.translate(-vW * sc / 2, -vH * sc / 2)
+      ctx.scale(sc, sc)
+      ctx.fillStyle = letter.color
+      if (isTwoColor) {
+        ctx.fill(new Path2D(Y_PATH), 'evenodd')
+        ctx.fillStyle = letter.fillColor || '#ffffff'
+        ctx.fill(new Path2D(Y_PATH_INNER), 'evenodd')
+      } else {
+        ctx.fill(new Path2D(Y_PATH), 'evenodd')
+      }
+      ctx.restore()
     } else {
-      ctx.fillStyle = letter.color
-      ctx.fill(new Path2D(D_PATH), 'evenodd')
+      // D letter (type === 'D' or undefined)
+      const lx = letter.x / 100 * W
+      const ly = letter.y / 100 * H
+      const lw = letter.size / 100 * W
+      const lh = lw * 460 / 360
+      const sc = lw / 360
+      ctx.save()
+      ctx.translate(lx + lw / 2, ly + lh / 2)
+      ctx.rotate(letter.rotation * Math.PI / 180)
+      ctx.translate(-lw / 2, -lh / 2)
+      ctx.scale(sc, sc)
+      ctx.translate(-60, -110)
+      if (isTwoColor) {
+        ctx.fillStyle = letter.color
+        ctx.fill(new Path2D(D_PATH), 'evenodd')
+        ctx.fillStyle = letter.fillColor || '#ffffff'
+        ctx.fill(new Path2D(D_PATH_INNER), 'evenodd')
+      } else {
+        ctx.fillStyle = letter.color
+        ctx.fill(new Path2D(D_PATH), 'evenodd')
+      }
+      ctx.restore()
     }
-    ctx.restore()
   }
 }
+
+const drawDLetters = drawLetters
 
 function drawRR(ctx, x, y, w, h, r) {
   ctx.beginPath()
@@ -231,8 +288,26 @@ function drawEstText(ctx, estEl, estText, W, H) {
   ctx.fillText((estText || 'EST.2025').toUpperCase(), estEl.x / 100 * W, estEl.y / 100 * H)
 }
 
+function drawDadText(ctx, dadTextEl, dadText, W, H) {
+  const fontPx = dadTextEl.fontSize * W / 100
+  ctx.font = `900 italic ${fontPx}px Impact, Arial, sans-serif`
+  ctx.fillStyle = dadTextEl.color
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  ctx.fillText((dadText || 'DADDY').toUpperCase(), dadTextEl.x / 100 * W, dadTextEl.y / 100 * H)
+}
+
+function drawChildNameText(ctx, childNameEl, childName, W, H) {
+  const fontPx = childNameEl.fontSize * W / 100
+  ctx.font = `900 italic ${fontPx}px Impact, Arial, sans-serif`
+  ctx.fillStyle = childNameEl.color
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  ctx.fillText((childName || '').toUpperCase(), childNameEl.x / 100 * W, childNameEl.y / 100 * H)
+}
+
 // Full composite with white background (for regular download)
-async function renderEstToCanvas(letters, estEl, estText, showEstText, imageUrl, illus, letterStyle, ttoLetters, bgColor = '#f0f0f0') {
+async function renderEstToCanvas(letters, estEl, estText, showEstText, imageUrl, illus, letterStyle, ttoLetters, bgColor = '#f0f0f0', dadText, dadTextEl, showChildName, childName, childNameEl) {
   const W = 1600, H = 900
   const canvas = document.createElement('canvas')
   canvas.width = W; canvas.height = H
@@ -256,13 +331,15 @@ async function renderEstToCanvas(letters, estEl, estText, showEstText, imageUrl,
   }
 
   if (letterStyle === 'TTO') drawTTOLetters(ctx, ttoLetters, W, H)
-  else drawDLetters(ctx, letters, W, H, letterStyle)
+  else if (letterStyle !== 'DADDY') drawLetters(ctx, letters, W, H, letterStyle)
+  if (letterStyle === 'DADDY' && dadTextEl && dadText) drawDadText(ctx, dadTextEl, dadText, W, H)
+  if (showChildName && childNameEl && childName) drawChildNameText(ctx, childNameEl, childName, W, H)
   if (showEstText) drawEstText(ctx, estEl, estText, W, H)
   return canvas
 }
 
 // Transparent composite for mockup (no white fill, illustration bg removed)
-async function renderEstTransparent(letters, estEl, estText, showEstText, imageUrl, illus, letterStyle, ttoLetters) {
+async function renderEstTransparent(letters, estEl, estText, showEstText, imageUrl, illus, letterStyle, ttoLetters, dadText, dadTextEl, showChildName, childName, childNameEl) {
   const W = 1600, H = 900
   const canvas = document.createElement('canvas')
   canvas.width = W; canvas.height = H
@@ -284,7 +361,9 @@ async function renderEstTransparent(letters, estEl, estText, showEstText, imageU
   }
 
   if (letterStyle === 'TTO') drawTTOLetters(ctx, ttoLetters, W, H)
-  else drawDLetters(ctx, letters, W, H, letterStyle)
+  else if (letterStyle !== 'DADDY') drawLetters(ctx, letters, W, H, letterStyle)
+  if (letterStyle === 'DADDY' && dadTextEl && dadText) drawDadText(ctx, dadTextEl, dadText, W, H)
+  if (showChildName && childNameEl && childName) drawChildNameText(ctx, childNameEl, childName, W, H)
   if (showEstText) drawEstText(ctx, estEl, estText, W, H)
 
   // Crop to tight bounding box of non-transparent pixels so the overlay fills the product correctly
@@ -314,7 +393,7 @@ async function renderEstTransparent(letters, estEl, estText, showEstText, imageU
 
 // ─── EstPosterView ────────────────────────────────────────────────────────────
 
-const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estText, showEstText, initialState, onStateChange }, ref) {
+const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estText, showEstText, onSetShowEstText, initialState, onStateChange }, ref) {
   const containerRef = useRef(null)
   const illusImgRef = useRef(null)
   const dragRef = useRef(null)
@@ -322,8 +401,8 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
   const wasSelectedRef = useRef(false)
 
   const [letters, setLetters] = useState(initialState?.letters || [
-    { id: 'left',  x: 20, y: 20, size: 22, rotation: -4,  color: '#000000', fillColor: '#ffffff' },
-    { id: 'right', x: 63, y: 20, size: 22, rotation: 19,  color: '#000000', fillColor: '#ffffff' },
+    { id: 'left',  type: 'D', x: 20, y: 20, size: 22, rotation: -4,  color: '#000000', fillColor: '#ffffff' },
+    { id: 'right', type: 'D', x: 63, y: 20, size: 22, rotation: 19,  color: '#000000', fillColor: '#ffffff' },
   ])
   const [letterStyle, setLetterStyle] = useState(initialState?.letterStyle || 'D')
   const [showGrid, setShowGrid] = useState(false)
@@ -337,6 +416,11 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
   const [cleanedUrl, setCleanedUrl] = useState(null)
   const [selected, setSelected] = useState(null)
   const [bgColor, setBgColor] = useState(initialState?.bgColor || '#f0f0f0')
+  const [childName, setChildName] = useState(initialState?.childName || '')
+  const [showChildName, setShowChildName] = useState(initialState?.showChildName ?? false)
+  const [childNameEl, setChildNameEl] = useState(initialState?.childNameEl || { x: 50, y: 8, color: '#000000', fontSize: 8 })
+  const [dadText, setDadText] = useState(initialState?.dadText || 'DADDY')
+  const [dadTextEl, setDadTextEl] = useState(initialState?.dadTextEl || { x: 50, y: 30, color: '#000000', fontSize: 20 })
 
   // Pre-process illustration: remove white background for transparent preview
   useEffect(() => {
@@ -355,10 +439,20 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
   }, [imageUrl])
 
   useImperativeHandle(ref, () => ({
-    exportToCanvas:    () => renderEstToCanvas(letters, estEl, estText, showEstText, imageUrl, illus, letterStyle, ttoLetters, bgColor),
-    exportTransparent: () => renderEstTransparent(letters, estEl, estText, showEstText, imageUrl, illus, letterStyle, ttoLetters),
-    getState:          () => ({ letters, letterStyle, bgColor, ttoLetters, estEl, illus }),
-  }), [letters, estEl, estText, showEstText, imageUrl, illus, letterStyle, ttoLetters, bgColor])
+    exportToCanvas:    () => renderEstToCanvas(letters, estEl, estText, showEstText, imageUrl, illus, letterStyle, ttoLetters, bgColor, dadText, dadTextEl, showChildName, childName, childNameEl),
+    exportTransparent: () => renderEstTransparent(letters, estEl, estText, showEstText, imageUrl, illus, letterStyle, ttoLetters, dadText, dadTextEl, showChildName, childName, childNameEl),
+    exportTransparentWithOverrides: (ov = {}) => {
+      const ovLetters = letters.map(l => ({
+        ...l,
+        color:     ov.letterColor !== undefined ? ov.letterColor : l.color,
+        fillColor: ov.fillColor   !== undefined ? ov.fillColor   : l.fillColor,
+      }))
+      const ovTto = ttoLetters.map(l => ({ ...l, color: ov.letterColor !== undefined ? ov.letterColor : l.color }))
+      const ovEst = { ...estEl, color: ov.estColor !== undefined ? ov.estColor : estEl.color }
+      return renderEstTransparent(ovLetters, ovEst, estText, showEstText, imageUrl, illus, letterStyle, ovTto, dadText, dadTextEl, showChildName, childName, childNameEl)
+    },
+    getState: () => ({ letters, letterStyle, bgColor, ttoLetters, estEl, illus, childName, showChildName, childNameEl, dadText, dadTextEl }),
+  }), [letters, estEl, estText, showEstText, imageUrl, illus, letterStyle, ttoLetters, bgColor, dadText, dadTextEl, showChildName, childName, childNameEl])
 
   // Notify parent when letter positions/style change so mockup stays in sync
   const estMountedRef = useRef(false)
@@ -381,6 +475,12 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
       if (dr.id === 'est') {
         if (dr.type === 'move')   setEstEl(prev => ({ ...prev, x: dr.ox + dx, y: dr.oy + dy }))
         if (dr.type === 'resize') setEstEl(prev => ({ ...prev, fontSize: Math.max(1, Math.min(30, dr.os + (dx + dy) * 0.12)) }))
+      } else if (dr.id === 'dadText') {
+        if (dr.type === 'move')   setDadTextEl(prev => ({ ...prev, x: dr.ox + dx, y: dr.oy + dy }))
+        if (dr.type === 'resize') setDadTextEl(prev => ({ ...prev, fontSize: Math.max(4, Math.min(50, dr.os + (dx + dy) * 0.12)) }))
+      } else if (dr.id === 'childName') {
+        if (dr.type === 'move')   setChildNameEl(prev => ({ ...prev, x: dr.ox + dx, y: dr.oy + dy }))
+        if (dr.type === 'resize') setChildNameEl(prev => ({ ...prev, fontSize: Math.max(2, Math.min(25, dr.os + (dx + dy) * 0.12)) }))
       } else if (dr.id === 'illus') {
         if (dr.type === 'move')    setIllus(prev => ({ ...prev, x: dr.ox + dx, y: dr.oy + dy }))
         if (dr.type === 'resize')  setIllus(prev => ({ ...prev, size: Math.max(10, Math.min(100, dr.os + (dx + dy) * 0.5)) }))
@@ -424,6 +524,10 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
     const clientY = e.touches ? e.touches[0].clientY : e.clientY
     if (id === 'est') {
       dragRef.current = { id, type, sx: clientX, sy: clientY, ox: estEl.x, oy: estEl.y, os: estEl.fontSize, cw: rect.width, ch: rect.height }
+    } else if (id === 'dadText') {
+      dragRef.current = { id, type, sx: clientX, sy: clientY, ox: dadTextEl.x, oy: dadTextEl.y, os: dadTextEl.fontSize, cw: rect.width, ch: rect.height }
+    } else if (id === 'childName') {
+      dragRef.current = { id, type, sx: clientX, sy: clientY, ox: childNameEl.x, oy: childNameEl.y, os: childNameEl.fontSize, cw: rect.width, ch: rect.height }
     } else if (id === 'illus') {
       const imgH = illusImgRef.current?.getBoundingClientRect().height || 100
       const os = type === 'cropBottom' ? illus.cropBottom : illus.size
@@ -455,6 +559,39 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
   }
 
   const BG_PALETTE = ['#f0f0f0', '#ffffff', '#1a1a1a', '#2d2d2d', '#f5eed6', '#dce8f5', '#e8f5e9', '#fce4ec', '#fff3e0']
+
+  const bs = (active) => ({ padding: '3px 8px', borderRadius: '7px', fontSize: '11px', fontWeight: 700, border: 'none', cursor: 'pointer', background: active ? '#4f46e5' : 'transparent', color: active ? '#fff' : '#6b7280' })
+  const tcIcon = (active) => (
+    <svg width="12" height="12" viewBox="0 0 12 12" style={{marginRight:'3px'}}>
+      <circle cx="6" cy="6" r="5" fill={active ? '#fff' : '#9ca3af'} stroke={active ? '#fff' : '#6b7280'} strokeWidth="1"/>
+      <circle cx="6" cy="6" r="2.5" fill={active ? '#4f46e5' : 'transparent'}/>
+    </svg>
+  )
+  const switchStyle = (newStyle, makeLetters, alsoShowEst) => {
+    setLetterStyle(newStyle)
+    if (makeLetters) {
+      const cur = letters[0]
+      setLetters(makeLetters(cur?.color || '#000000', cur?.fillColor || '#ffffff'))
+    }
+    if (alsoShowEst && onSetShowEstText) onSetShowEstText(true)
+    setSelected(null)
+  }
+  const mkD = (c, f) => [
+    { id: 'left',  type: 'D', x: 20, y: 20, size: 22, rotation: -4,  color: c, fillColor: f },
+    { id: 'right', type: 'D', x: 63, y: 20, size: 22, rotation: 19,  color: c, fillColor: f },
+  ]
+  const mkDAD = (c, f) => [
+    { id: 'dLeft',   type: 'D', x: 10, y: 15, size: 27, rotation: -4, color: c, fillColor: f },
+    { id: 'aCenter', type: 'A', x: 50, y: 12, size: 28, rotation: 0,  color: c, fillColor: f },
+    { id: 'dRight',  type: 'D', x: 80, y: 15, size: 27, rotation: 4,  color: c, fillColor: f },
+  ]
+  const mkSPLIT = (c, f) => [
+    { id: 'sD1', type: 'D', x: 10, y: 15, size: 22, rotation: -4, color: c, fillColor: f },
+    { id: 'sA',  type: 'A', x: 33, y: 12, size: 22, rotation: 0,  color: c, fillColor: f },
+    { id: 'sD2', type: 'D', x: 67, y: 15, size: 22, rotation: 4,  color: c, fillColor: f },
+    { id: 'sY',  type: 'Y', x: 88, y: 12, size: 22, rotation: 0,  color: c, fillColor: f },
+  ]
+  const mkDADDY = () => []
 
   return (
     <div style={{ background: bgColor, width: '100%', borderRadius: '12px' }}>
@@ -508,33 +645,27 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg>
           </button>
-        <div style={{ display: 'flex', background: 'rgba(255,255,255,0.92)', borderRadius: '10px', padding: '3px', gap: '2px', boxShadow: '0 1px 6px rgba(0,0,0,0.18)' }}>
-          <button
-            onMouseDown={e => e.stopPropagation()}
-            onClick={e => { e.stopPropagation(); setLetterStyle('D'); setSelected(null) }}
-            style={{ padding: '3px 10px', borderRadius: '7px', fontSize: '11px', fontWeight: 700, border: 'none', cursor: 'pointer', background: letterStyle === 'D' ? '#4f46e5' : 'transparent', color: letterStyle === 'D' ? '#fff' : '#6b7280' }}
-          >D D</button>
-          <button
-            onMouseDown={e => e.stopPropagation()}
-            onClick={e => { e.stopPropagation(); setLetterStyle('D_TWO_COLOR'); setSelected(null) }}
-            title="D з обводкою та заповненням"
-            style={{ padding: '3px 8px', borderRadius: '7px', fontSize: '11px', fontWeight: 700, border: 'none', cursor: 'pointer', background: letterStyle === 'D_TWO_COLOR' ? '#4f46e5' : 'transparent', color: letterStyle === 'D_TWO_COLOR' ? '#fff' : '#6b7280', display: 'flex', alignItems: 'center', gap: '3px' }}
-          >
-            <svg viewBox="60 110 360 460" width="9" height="12" style={{ display: 'block', flexShrink: 0 }}>
-              <path d={D_PATH} fill="currentColor" fillRule="evenodd" />
-              <path d={D_PATH_INNER} fill={letterStyle === 'D_TWO_COLOR' ? 'rgba(255,255,255,0.5)' : 'rgba(79,70,229,0.25)'} fillRule="evenodd" />
-            </svg>
-            D
-          </button>
-          <button
-            onMouseDown={e => e.stopPropagation()}
-            onClick={e => { e.stopPropagation(); setLetterStyle('TTO'); setSelected(null); setTtoLetters(prev => [
-              { id: 'tLeft',  x: 5,  y: 25, size: 20, rotation: 0, color: prev[0]?.color || '#000000' },
-              { id: 'tRight', x: 54, y: 25, size: 20, rotation: 0, color: prev[1]?.color || '#000000' },
-              { id: 'o',      x: 76, y: 25, size: 22, rotation: 0, color: prev[2]?.color || '#000000' },
-            ]) }}
-            style={{ padding: '3px 10px', borderRadius: '7px', fontSize: '11px', fontWeight: 700, border: 'none', cursor: 'pointer', background: letterStyle === 'TTO' ? '#4f46e5' : 'transparent', color: letterStyle === 'TTO' ? '#fff' : '#6b7280' }}
-          >T T O</button>
+        <div onMouseDown={e => e.stopPropagation()} style={{ display: 'flex', flexDirection: 'column', background: 'rgba(255,255,255,0.92)', borderRadius: '10px', padding: '5px', boxShadow: '0 1px 6px rgba(0,0,0,0.18)' }}>
+          {/* Row 1: D D styles */}
+          <div style={{display:'flex',gap:'4px',marginBottom:'3px'}}>
+            <button onClick={e=>{e.stopPropagation();switchStyle('D', mkD)}} style={bs(letterStyle==='D')}>D D</button>
+            <button onClick={e=>{e.stopPropagation();switchStyle('D_TWO_COLOR', mkD)}} style={{...bs(letterStyle==='D_TWO_COLOR'),display:'flex',alignItems:'center'}}>{tcIcon(letterStyle==='D_TWO_COLOR')}<span>D D</span></button>
+          </div>
+          {/* Row 2: D A D styles */}
+          <div style={{display:'flex',gap:'4px',marginBottom:'3px'}}>
+            <button onClick={e=>{e.stopPropagation();switchStyle('DAD', mkDAD)}} style={bs(letterStyle==='DAD')}>D A D</button>
+            <button onClick={e=>{e.stopPropagation();switchStyle('DAD_TWO_COLOR', mkDAD)}} style={{...bs(letterStyle==='DAD_TWO_COLOR'),display:'flex',alignItems:'center'}}>{tcIcon(letterStyle==='DAD_TWO_COLOR')}<span>D A D</span></button>
+          </div>
+          {/* Row 3: DADDY split */}
+          <div style={{display:'flex',gap:'4px',marginBottom:'3px'}}>
+            <button onClick={e=>{e.stopPropagation();switchStyle('DADDY_SPLIT', mkSPLIT, true)}} style={bs(letterStyle==='DADDY_SPLIT')}>DA DY</button>
+            <button onClick={e=>{e.stopPropagation();switchStyle('DADDY_SPLIT_TWO_COLOR', mkSPLIT, true)}} style={{...bs(letterStyle==='DADDY_SPLIT_TWO_COLOR'),display:'flex',alignItems:'center'}}>{tcIcon(letterStyle==='DADDY_SPLIT_TWO_COLOR')}<span>DA DY</span></button>
+          </div>
+          {/* Row 4: DADDY text + TTO */}
+          <div style={{display:'flex',gap:'4px'}}>
+            <button onClick={e=>{e.stopPropagation();switchStyle('DADDY', mkDADDY)}} style={bs(letterStyle==='DADDY')}>DADDY</button>
+            <button onClick={e=>{e.stopPropagation();setLetterStyle('TTO');setSelected(null)}} style={bs(letterStyle==='TTO')}>ТТО</button>
+          </div>
         </div>
         </div>
 
@@ -584,8 +715,11 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
           )}
         </div>}
 
-        {(letterStyle === 'D' || letterStyle === 'D_TWO_COLOR') && letters.map(letter => {
+        {(letterStyle !== 'TTO' && letterStyle !== 'DADDY') && letters.map(letter => {
           const isSelected = selected === letter.id
+          const vW = letter.type === 'D' ? 480 : 360
+          const vH = letter.type === 'D' ? 580 : 460
+          const isTwoColor = letterStyle.includes('TWO_COLOR')
           return (
             <div key={letter.id} onMouseDown={e => startDrag(letter.id, 'move', e)} onTouchStart={e => startDrag(letter.id, 'move', e)} onClick={e => handleClick(letter.id, e)} style={{ position: 'absolute', left: `${letter.x}%`, top: `${letter.y}%`, width: `${letter.size}%`, transform: `rotate(${letter.rotation}deg)`, transformOrigin: 'center center', cursor: isSelected ? 'grab' : 'pointer', zIndex: isSelected ? 20 : 10 }}>
               {isSelected && <div style={{ position: 'absolute', inset: '-5px', border: '2px dashed #4f46e5', borderRadius: '6px', pointerEvents: 'none' }} />}
@@ -599,14 +733,19 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
                   </div>
                 </>
               )}
-              <svg viewBox="60 110 360 460" style={{ width: '100%', height: 'auto', display: 'block' }}>
-                {letterStyle === 'D_TWO_COLOR' ? (
-                  <>
-                    <path d={D_PATH} fill={letter.color} fillRule="evenodd" />
-                    <path d={D_PATH_INNER} fill={letter.fillColor || '#ffffff'} fillRule="evenodd" />
-                  </>
+              <svg viewBox={letter.type === 'D' ? '60 110 360 460' : `0 0 ${vW} ${vH}`} style={{ width: '100%', height: 'auto', display: 'block' }}>
+                {letter.type === 'A' ? (
+                  isTwoColor ? (
+                    <><path d={A_PATH} fill={letter.color} fillRule="evenodd"/><path d={A_PATH_INNER} fill={letter.fillColor || '#ffffff'} fillRule="evenodd"/></>
+                  ) : <path d={A_PATH} fill={letter.color} fillRule="evenodd"/>
+                ) : letter.type === 'Y' ? (
+                  isTwoColor ? (
+                    <><path d={Y_PATH} fill={letter.color} fillRule="evenodd"/><path d={Y_PATH_INNER} fill={letter.fillColor || '#ffffff'} fillRule="evenodd"/></>
+                  ) : <path d={Y_PATH} fill={letter.color} fillRule="evenodd"/>
                 ) : (
-                  <path d={D_PATH} fill={letter.color} fillRule="evenodd" />
+                  isTwoColor ? (
+                    <><path d={D_PATH} fill={letter.color} fillRule="evenodd"/><path d={D_PATH_INNER} fill={letter.fillColor || '#ffffff'} fillRule="evenodd"/></>
+                  ) : <path d={D_PATH} fill={letter.color} fillRule="evenodd"/>
                 )}
               </svg>
               {isSelected && (
@@ -617,6 +756,18 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
             </div>
           )
         })}
+
+        {letterStyle === 'DADDY' && (
+          <div onMouseDown={e => startDrag('dadText', 'move', e)} onTouchStart={e => startDrag('dadText', 'move', e)} onClick={e => handleClick('dadText', e)} style={{ position: 'absolute', left: `${dadTextEl.x}%`, top: `${dadTextEl.y}%`, transform: 'translate(-50%, -50%)', fontFamily: 'Impact, Arial, sans-serif', fontWeight: 900, fontStyle: 'italic', fontSize: `${dadTextEl.fontSize}cqw`, color: dadTextEl.color, cursor: selected === 'dadText' ? 'grab' : 'pointer', zIndex: selected === 'dadText' ? 20 : 10, whiteSpace: 'nowrap' }}>
+            {selected === 'dadText' && <div style={{ position: 'absolute', inset: '-5px', border: '2px dashed #4f46e5', borderRadius: '6px', pointerEvents: 'none' }} />}
+            {(dadText || 'DADDY').toUpperCase()}
+            {selected === 'dadText' && (
+              <div onMouseDown={e => startDrag('dadText', 'resize', e)} onTouchStart={e => startDrag('dadText', 'resize', e)} onClick={e => e.stopPropagation()} style={{ position: 'absolute', bottom: '-10px', right: '-10px', width: '20px', height: '20px', background: '#4f46e5', border: '2px solid #fff', borderRadius: '4px', cursor: 'nwse-resize', zIndex: 30, boxShadow: '0 1px 4px rgba(0,0,0,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <svg width="8" height="8" viewBox="0 0 8 8" fill="none"><path d="M1 7L7 1M4 7L7 4" stroke="white" strokeWidth="1.5" strokeLinecap="round" /></svg>
+              </div>
+            )}
+          </div>
+        )}
 
         {letterStyle === 'TTO' && ttoLetters.map(letter => {
           const isSelected = selected === letter.id
@@ -656,6 +807,18 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
             </div>
           )
         })}
+
+        {showChildName && childName && (
+          <div onMouseDown={e => startDrag('childName', 'move', e)} onTouchStart={e => startDrag('childName', 'move', e)} onClick={e => handleClick('childName', e)} style={{ position: 'absolute', left: `${childNameEl.x}%`, top: `${childNameEl.y}%`, transform: 'translate(-50%, -50%)', fontFamily: 'Impact, Arial, sans-serif', fontWeight: 900, fontStyle: 'italic', fontSize: `${childNameEl.fontSize}cqw`, color: childNameEl.color, cursor: selected === 'childName' ? 'grab' : 'pointer', zIndex: selected === 'childName' ? 20 : 10, whiteSpace: 'nowrap' }}>
+            {selected === 'childName' && <div style={{ position: 'absolute', inset: '-5px', border: '2px dashed #4f46e5', borderRadius: '6px', pointerEvents: 'none' }} />}
+            {childName.toUpperCase()}
+            {selected === 'childName' && (
+              <div onMouseDown={e => startDrag('childName', 'resize', e)} onTouchStart={e => startDrag('childName', 'resize', e)} onClick={e => e.stopPropagation()} style={{ position: 'absolute', bottom: '-10px', right: '-10px', width: '20px', height: '20px', background: '#4f46e5', border: '2px solid #fff', borderRadius: '4px', cursor: 'nwse-resize', zIndex: 30, boxShadow: '0 1px 4px rgba(0,0,0,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <svg width="8" height="8" viewBox="0 0 8 8" fill="none"><path d="M1 7L7 1M4 7L7 4" stroke="white" strokeWidth="1.5" strokeLinecap="round" /></svg>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {selected && (selectedLetter || selectedTTOLetter || isEstSelected || isIllusSelected) && (
@@ -667,7 +830,7 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
               {illus.cropBottom > 0 && <span style={{ fontSize: '11px', color: '#4f46e5', fontWeight: 600 }}>обрізано знизу {Math.round(illus.cropBottom)}%</span>}
               <span style={{ fontSize: '11px', color: '#9ca3af', marginLeft: 'auto', whiteSpace: 'nowrap' }}>Тягни · ↑ обрізання · кут → розмір</span>
             </>
-          ) : letterStyle === 'D_TWO_COLOR' && selectedLetter ? (
+          ) : letterStyle.includes('TWO_COLOR') && selectedLetter ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', width: '100%' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
                 <span style={{ fontSize: '11px', color: '#6b7280', fontWeight: 600, minWidth: '70px' }}>Обводка:</span>
@@ -1955,7 +2118,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
                 style={{ background: isEst ? undefined : (designBgColor || '#f0f0f0'), maxHeight: isEst ? 'none' : '75vh', overflow: isEst ? 'visible' : ((drawingTool && drawZoom > 1) ? 'auto' : 'hidden') }}
               >
                 {isEst ? (
-                  <EstPosterView ref={estPosterRef} imageUrl={currentDesignImage} estText={estText} showEstText={showEstText} initialState={designData?.estPosterState} onStateChange={() => setEstVersion(v => v + 1)} />
+                  <EstPosterView ref={estPosterRef} imageUrl={currentDesignImage} estText={estText} showEstText={showEstText} onSetShowEstText={setShowEstText} initialState={designData?.estPosterState} onStateChange={() => setEstVersion(v => v + 1)} />
                 ) : currentDesignImage ? (
                   <div style={{ width: (drawingTool && drawZoom > 1) ? `${drawZoom * 100}%` : '100%', minWidth: '100%' }}>
                   <div style={{ position: 'relative', width: (drawingTool && drawZoom > 1) ? '100%' : 'fit-content', margin: '0 auto' }}>
