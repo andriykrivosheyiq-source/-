@@ -1433,7 +1433,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
         size: formatFileSize(Math.round(mockupUrl.length * 0.75)),
         checked: true,
         itemSize: sendOrderSize || 'XL',
-        colorLabel: product.nameUk || '',
+        colorLabel: (fileName || '').replace(/^#/, '') || '',
       })
     }
     return items
@@ -1890,9 +1890,9 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
             if (item.id === 'design') {
               return { ...item, dataUrl: transparentDesignUrl || item.dataUrl, filename: `${cleanId}.png`, label: cleanId }
             }
-            const colorPart = (item.colorLabel || '').trim().replace(/[\s/\\]+/g, '_')
+            const colorPart = (item.colorLabel || cleanId).trim().replace(/[\s/\\]+/g, '_')
             const sizePart = item.itemSize || 'XL'
-            const parts = [cleanId, colorPart, sizePart].filter(Boolean)
+            const parts = [colorPart, sizePart].filter(Boolean)
             return { ...item, filename: `${parts.join('_')}.png`, label: parts.join('_') }
           })
           await sendOrderToDesignerTelegram({ order, files: designerFiles })
@@ -2461,7 +2461,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
                         <div className="w-full h-28 bg-white rounded-lg overflow-hidden border border-gray-100 flex items-center justify-center mb-2">
                           <img src={item.thumbnail} alt="" className="w-full h-full object-contain" />
                         </div>
-                        <p className="text-xs font-semibold text-gray-800 truncate mb-1">{item.label.replace('.png','')}</p>
+                        <p className="text-xs font-semibold text-gray-800 truncate mb-1">{item.id.startsWith('mockup-') ? (item.colorLabel || item.label) : item.label.replace('.png','')}</p>
                         {item.id.startsWith('mockup-') && (
                           <div onClick={e => e.stopPropagation()} className="space-y-1.5">
                             <div className="flex gap-0.5 flex-wrap">
@@ -2475,7 +2475,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
                             <input
                               value={item.colorLabel || ''}
                               onChange={e => setSendItems(prev => prev.map((it, i) => i === idx ? { ...it, colorLabel: e.target.value } : it))}
-                              placeholder="Назва (напр. Синій худі)"
+                              placeholder="напр. 387437_1"
                               className="w-full border border-gray-200 rounded-lg px-2 py-1 text-[11px] focus:outline-none focus:ring-1 focus:ring-indigo-300"
                             />
                           </div>

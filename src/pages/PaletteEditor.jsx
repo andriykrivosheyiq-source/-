@@ -149,13 +149,13 @@ export default function PaletteEditor({ onUpdateOrder }) {
           if (!t.thumbnail) return
           const label = t.label || `Мокап ${i + 1}`
           const safe = label.replace(/\s+/g, '_')
-          items.push({ id: `mockup-${i}`, label, filename: `${cleanId}_${safe}.jpg`, thumbnail: t.thumbnail, dataUrl: t.thumbnail, checked: true, itemSize: lsState.orderSize || 'XL', colorLabel: label })
+          items.push({ id: `mockup-${i}`, label, filename: `${cleanId}_${safe}.jpg`, thumbnail: t.thumbnail, dataUrl: t.thumbnail, checked: true, itemSize: lsState.orderSize || 'XL', colorLabel: cleanId })
         })
       } else if (lsState.mockupProducts?.length) {
         const thumbs = await generateMockupThumbs(lsState.mockupProducts, lsState.mockupOverlay, lsState.mockupDesignUrl)
         thumbs.forEach((t, i) => {
           const safe = (t.label || `mockup_${i}`).replace(/\s+/g, '_')
-          items.push({ id: `mockup-${i}`, label: t.label, filename: `${cleanId}_${safe}.jpg`, thumbnail: t.dataUrl, dataUrl: t.dataUrl, checked: true, itemSize: lsState.orderSize || 'XL', colorLabel: t.label || '' })
+          items.push({ id: `mockup-${i}`, label: t.label, filename: `${cleanId}_${safe}.jpg`, thumbnail: t.dataUrl, dataUrl: t.dataUrl, checked: true, itemSize: lsState.orderSize || 'XL', colorLabel: cleanId })
         })
       }
       setMockupItems(items)
@@ -1610,7 +1610,7 @@ export default function PaletteEditor({ onUpdateOrder }) {
       const lsState = location.state || {}
       const checkedMockups = mockupItems.filter(item => item.checked && item.id.startsWith('mockup-'))
       const orderSizeStr = checkedMockups.map(i => i.itemSize || 'XL').join(', ')
-      const productNames = checkedMockups.map(i => i.colorLabel || i.label).filter(Boolean).join(', ') || (lsState.mockupProducts || []).map(p => p.nameUk || p.name).filter(Boolean).join(', ')
+      const productNames = checkedMockups.map(i => i.label).filter(Boolean).join(', ') || (lsState.mockupProducts || []).map(p => p.nameUk || p.name).filter(Boolean).join(', ')
       const caption = [cleanId, productNames, orderSizeStr, modalForm.embSize].filter(Boolean).join(' ')
       const order = {
         id: `#${cleanId}`,
@@ -1627,9 +1627,9 @@ export default function PaletteEditor({ onUpdateOrder }) {
         .filter(item => item.checked)
         .map(item => {
           if (!item.id.startsWith('mockup-')) return { dataUrl: item.dataUrl, label: item.filename.replace(/\.\w+$/, ''), filename: item.filename }
-          const colorPart = (item.colorLabel || '').trim().replace(/[\s/\\]+/g, '_')
+          const colorPart = (item.colorLabel || cleanId).trim().replace(/[\s/\\]+/g, '_')
           const sizePart = item.itemSize || 'XL'
-          const filenameBase = [cleanId, colorPart, sizePart].filter(Boolean).join('_')
+          const filenameBase = [colorPart, sizePart].filter(Boolean).join('_')
           return { dataUrl: item.dataUrl, label: filenameBase, filename: filenameBase + '.jpg' }
         })
       await sendOrderToDesignerTelegram({ order, files })
@@ -1883,7 +1883,7 @@ export default function PaletteEditor({ onUpdateOrder }) {
                       <div style={{width:'100%',height:100,background:'#f3f4f6',borderRadius:7,overflow:'hidden',display:'flex',alignItems:'center',justifyContent:'center',marginBottom:7}}>
                         {item.thumbnail && <img src={item.thumbnail} alt="" style={{width:'100%',height:'100%',objectFit:'contain'}}/>}
                       </div>
-                      <p style={{margin:0,fontSize:11,fontWeight:600,color:'#111',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',marginBottom:item.id.startsWith('mockup-')?5:0}}>{item.label}</p>
+                      <p style={{margin:0,fontSize:11,fontWeight:600,color:'#111',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',marginBottom:item.id.startsWith('mockup-')?5:0}}>{item.id.startsWith('mockup-') ? (item.colorLabel || item.label) : item.label}</p>
                       {item.id.startsWith('mockup-') ? (
                         <div onClick={e => e.stopPropagation()}>
                           <div style={{display:'flex',gap:2,flexWrap:'wrap',marginBottom:4}}>
@@ -1895,7 +1895,7 @@ export default function PaletteEditor({ onUpdateOrder }) {
                             ))}
                           </div>
                           <input value={item.colorLabel || ''} onChange={e => setMockupItems(prev => prev.map((it,i) => i===idx ? {...it,colorLabel:e.target.value} : it))}
-                            placeholder="Синій худі" style={{width:'100%',boxSizing:'border-box',border:'1px solid #e5e7eb',borderRadius:5,padding:'3px 6px',fontSize:10,fontFamily:'inherit',outline:'none'}} />
+                            placeholder="напр. 387437_1" style={{width:'100%',boxSizing:'border-box',border:'1px solid #e5e7eb',borderRadius:5,padding:'3px 6px',fontSize:10,fontFamily:'inherit',outline:'none'}} />
                         </div>
                       ) : (
                         <p style={{margin:'2px 0 0',fontSize:9,color:'#9ca3af',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{item.filename}</p>

@@ -253,7 +253,7 @@ function TransferToDesignerModal({ order, extras, onConfirm, onClose }) {
     }
     if (order.mockupThumbs?.length > 0) {
       order.mockupThumbs.forEach((m, i) => {
-        result.push({ id: `mockup-${i}`, label: `Мокап №${i + 1} — ${m.label}`, thumbnail: m.thumbnail, checked: true, itemSize: order.orderSize || 'XL', colorLabel: m.label || '' })
+        result.push({ id: `mockup-${i}`, label: `Мокап №${i + 1} — ${m.label}`, thumbnail: m.thumbnail, checked: true, itemSize: order.orderSize || 'XL', colorLabel: (order.id || '').replace(/^#/, '') })
       })
     } else {
       const productIds = extras?.designSnapshot?.selectedProducts || (order.productId ? [order.productId] : [])
@@ -261,7 +261,7 @@ function TransferToDesignerModal({ order, extras, onConfirm, onClose }) {
         const product = allProducts.find(p => p.id === pid)
         if (product) {
           const thumbnail = (i === 0 && order.mockupThumb) ? order.mockupThumb : product.image
-          result.push({ id: `mockup-${i}`, label: `Мокап №${i + 1} — ${product.nameUk}`, thumbnail, checked: true, itemSize: order.orderSize || 'XL', colorLabel: product.nameUk || '' })
+          result.push({ id: `mockup-${i}`, label: `Мокап №${i + 1} — ${product.nameUk}`, thumbnail, checked: true, itemSize: order.orderSize || 'XL', colorLabel: (order.id || '').replace(/^#/, '') })
         }
       })
     }
@@ -341,7 +341,7 @@ function TransferToDesignerModal({ order, extras, onConfirm, onClose }) {
                     <div className="w-full h-28 bg-white rounded-lg overflow-hidden border border-gray-100 flex items-center justify-center mb-2">
                       <img src={item.thumbnail} alt="" className="w-full h-full object-contain" />
                     </div>
-                    <p className="text-xs font-semibold text-gray-800 truncate mb-2">{item.label}</p>
+                    <p className="text-xs font-semibold text-gray-800 truncate mb-2">{item.id.startsWith('mockup-') ? (item.colorLabel || item.label) : item.label}</p>
                     {item.id.startsWith('mockup-') && (
                       <div onClick={e => e.stopPropagation()} className="space-y-1.5">
                         <div className="flex gap-0.5 flex-wrap">
@@ -355,7 +355,7 @@ function TransferToDesignerModal({ order, extras, onConfirm, onClose }) {
                         <input
                           value={item.colorLabel || ''}
                           onChange={e => setFiles(prev => prev.map((f, i) => i === idx ? { ...f, colorLabel: e.target.value } : f))}
-                          placeholder="Назва (напр. Синій худі)"
+                          placeholder="напр. 387437_1"
                           className="w-full border border-gray-200 rounded-lg px-2 py-1 text-[11px] focus:outline-none focus:ring-1 focus:ring-indigo-300"
                         />
                       </div>
@@ -728,9 +728,9 @@ export default function MyOrders({ savedOrders = [], ordersLoading = false, orde
         const filename = f.id === 'design'
           ? `${cleanId}.png`
           : (() => {
-              const colorPart = (f.colorLabel || '').trim().replace(/[\s/\\]+/g, '_')
+              const colorPart = (f.colorLabel || cleanId).trim().replace(/[\s/\\]+/g, '_')
               const sizePart = f.itemSize || 'XL'
-              return [cleanId, colorPart, sizePart].filter(Boolean).join('_') + '.png'
+              return [colorPart, sizePart].filter(Boolean).join('_') + '.png'
             })()
         return { dataUrl, label: filename.replace(/\.\w+$/, ''), filename }
       }))
