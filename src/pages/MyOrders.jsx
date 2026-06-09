@@ -272,11 +272,12 @@ function TransferToDesignerModal({ order, extras, onConfirm, onClose }) {
   const orderSizeStr = checkedMockups.map(f => f.itemSize).filter(Boolean).join(', ')
 
   const handleConfirm = () => {
+    const orderEmbSizeStr = checkedMockups.map(f => f.embSize).filter(Boolean).join(', ')
     onConfirm({
       transferDate: new Date().toISOString(),
       comment,
       orderSize: orderSizeStr,
-      embroiderySize,
+      embroiderySize: orderEmbSizeStr || embroiderySize,
       checkedFiles: files.filter(f => f.checked),
     })
   }
@@ -673,11 +674,11 @@ export default function MyOrders({ savedOrders = [], ordersLoading = false, orde
 
     setTgToast('sending')
     const cleanId = (order.id || '').replace(/^#/, '')
-    const productIds = extras?.designSnapshot?.selectedProducts
-    const allProductNames = productIds?.length
-      ? productIds.map(pid => allProducts.find(p => p.id === pid)?.nameUk).filter(Boolean)
-      : order.productName ? [order.productName] : []
-    const productNamesStr = allProductNames.join(', ') || order.productName || '';
+    const checkedMockupNames = checkedFiles
+      .filter(f => f.id.startsWith('mockup-'))
+      .map(f => (f.label || '').replace(/^Мокап №\d+ — /, '').trim())
+      .filter(Boolean)
+    const productNamesStr = checkedMockupNames.join(', ') || order.productName || '';
 
     (async () => {
       const caption = [cleanId, productNamesStr, designerData.orderSize, designerData.embroiderySize].filter(Boolean).join(' ')

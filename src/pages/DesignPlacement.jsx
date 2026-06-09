@@ -1819,9 +1819,9 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
     // Only include products whose mockup was checked by the user
     const checkedMockupsSend = sendItems.filter(i => i.checked && i.id.startsWith('mockup-'))
     const allProductNames = checkedMockupsSend
-      .map(i => allMockupProducts[parseInt(i.id.replace('mockup-', ''))]?.nameUk)
+      .map(i => (i.label || '').replace(/^Мокап №\d+ — /, '').trim())
       .filter(Boolean)
-    const orderSizeStr = checkedMockupsSend.map(i => i.itemSize || 'XL').join(', ')
+    const orderSizeStr = checkedMockupsSend.map(i => i.itemSize).filter(Boolean).join(', ')
     const order = {
       id: orderNum,
       name: fileName || `Дизайн від ${dateStr}`,
@@ -1840,7 +1840,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
       transferDateStr,
       comment: designerComment,
       orderSize: orderSizeStr || sendOrderSize,
-      embroiderySize: sendEmbroiderySize,
+      embroiderySize: checkedMockupsSend.map(i => i.embSize).filter(Boolean).join(', ') || sendEmbroiderySize,
     }
     const designSnapshot = {
       selectedProducts: [selectedProduct, ...extraMockupProducts],
@@ -1885,8 +1885,9 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
             }
           } catch {}
           const cleanId = (fileName || order.id).replace(/^#/, '')
-          const tgSizes = checkedFiles.filter(f => f.id.startsWith('mockup-')).map(f => f.itemSize || 'XL').join(', ')
-          const caption = [cleanId, allProductNames.join(' + '), tgSizes || sendOrderSize, sendEmbroiderySize].filter(Boolean).join(' ')
+          const tgSizes = checkedFiles.filter(f => f.id.startsWith('mockup-')).map(f => f.itemSize).filter(Boolean).join(', ')
+          const tgEmbSizes = checkedFiles.filter(f => f.id.startsWith('mockup-')).map(f => f.embSize).filter(Boolean).join(', ')
+          const caption = [cleanId, allProductNames.join(' + '), tgSizes || sendOrderSize, tgEmbSizes || sendEmbroiderySize].filter(Boolean).join(' ')
           const designerFiles = checkedFiles.map(item => {
             if (item.id === 'design') {
               return { ...item, dataUrl: transparentDesignUrl || item.dataUrl, filename: `${cleanId}.png`, label: cleanId }

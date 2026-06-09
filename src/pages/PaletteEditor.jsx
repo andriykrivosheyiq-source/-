@@ -1610,8 +1610,9 @@ export default function PaletteEditor({ onUpdateOrder }) {
       const lsState = location.state || {}
       const checkedMockups = mockupItems.filter(item => item.checked && item.id.startsWith('mockup-'))
       const orderSizeStr = checkedMockups.map(i => i.itemSize).filter(Boolean).join(', ')
-      const productNames = checkedMockups.map(i => i.label).filter(Boolean).join(', ') || (lsState.mockupProducts || []).map(p => p.nameUk || p.name).filter(Boolean).join(', ')
-      const caption = [cleanId, productNames, orderSizeStr, modalForm.embSize].filter(Boolean).join(' ')
+      const productNames = checkedMockups.map(i => (i.label || '').replace(/^Мокап №\d+ — /, '').trim()).filter(Boolean).join(', ') || (lsState.mockupProducts || []).map(p => p.nameUk || p.name).filter(Boolean).join(', ')
+      const orderEmbSizeStr = checkedMockups.map(i => i.embSize).filter(Boolean).join(', ') || modalForm.embSize
+      const caption = [cleanId, productNames, orderSizeStr, orderEmbSizeStr].filter(Boolean).join(' ')
       const order = {
         id: `#${cleanId}`,
         name: cleanId,
@@ -1619,7 +1620,7 @@ export default function PaletteEditor({ onUpdateOrder }) {
         productName: productNames,
         comment: modalForm.comment,
         orderSize: orderSizeStr,
-        embroiderySize: modalForm.embSize,
+        embroiderySize: orderEmbSizeStr,
         transferDate: now.toISOString(),
         transferDateStr: now.toLocaleString('uk-UA', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Kiev' }).replace(',', ''),
       }
