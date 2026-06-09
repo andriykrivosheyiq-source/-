@@ -149,13 +149,13 @@ export default function PaletteEditor({ onUpdateOrder }) {
           if (!t.thumbnail) return
           const label = t.label || `Мокап ${i + 1}`
           const safe = label.replace(/\s+/g, '_')
-          items.push({ id: `mockup-${i}`, label, filename: `${cleanId}_${safe}.jpg`, thumbnail: t.thumbnail, dataUrl: t.thumbnail, checked: true })
+          items.push({ id: `mockup-${i}`, label, filename: `${cleanId}_${safe}.jpg`, thumbnail: t.thumbnail, dataUrl: t.thumbnail, checked: true, itemSize: lsState.orderSize || 'XL', colorLabel: label })
         })
       } else if (lsState.mockupProducts?.length) {
         const thumbs = await generateMockupThumbs(lsState.mockupProducts, lsState.mockupOverlay, lsState.mockupDesignUrl)
         thumbs.forEach((t, i) => {
           const safe = (t.label || `mockup_${i}`).replace(/\s+/g, '_')
-          items.push({ id: `mockup-${i}`, label: t.label, filename: `${cleanId}_${safe}.jpg`, thumbnail: t.dataUrl, dataUrl: t.dataUrl, checked: true })
+          items.push({ id: `mockup-${i}`, label: t.label, filename: `${cleanId}_${safe}.jpg`, thumbnail: t.dataUrl, dataUrl: t.dataUrl, checked: true, itemSize: lsState.orderSize || 'XL', colorLabel: t.label || '' })
         })
       }
       setMockupItems(items)
@@ -1608,21 +1608,29 @@ export default function PaletteEditor({ onUpdateOrder }) {
       const now = new Date()
       const cleanId = modalForm.orderNum || String(now.getTime()).slice(-5)
       const lsState = location.state || {}
-      const caption = [cleanId, modalForm.size, modalForm.embSize].filter(Boolean).join(' ')
+      const checkedMockups = mockupItems.filter(item => item.checked && item.id.startsWith('mockup-'))
+      const orderSizeStr = [...new Set(checkedMockups.map(i => i.itemSize || 'XL'))].join(', ')
+      const productNames = checkedMockups.map(i => i.colorLabel || i.label).filter(Boolean).join(', ') || (lsState.mockupProducts || []).map(p => p.nameUk || p.name).filter(Boolean).join(', ')
+      const caption = [cleanId, productNames, orderSizeStr, modalForm.embSize].filter(Boolean).join(' ')
       const order = {
         id: `#${cleanId}`,
         name: cleanId,
         status: 'designer',
-        productName: (lsState.mockupProducts || []).map(p => p.nameUk || p.name).filter(Boolean).join(', '),
+        productName: productNames,
         comment: modalForm.comment,
-        orderSize: modalForm.size,
+        orderSize: orderSizeStr,
         embroiderySize: modalForm.embSize,
         transferDate: now.toISOString(),
         transferDateStr: now.toLocaleString('uk-UA', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Kiev' }).replace(',', ''),
       }
       const files = mockupItems
         .filter(item => item.checked)
-        .map(item => ({ dataUrl: item.dataUrl, label: caption, filename: item.filename }))
+        .map(item => {
+          if (!item.id.startsWith('mockup-')) return { dataUrl: item.dataUrl, label: caption, filename: item.filename }
+          const colorPart = (item.colorLabel || '').trim().replace(/[\s/\\]+/g, '_')
+          const sizePart = item.itemSize || 'XL'
+          return { dataUrl: item.dataUrl, label: caption, filename: [cleanId, colorPart, sizePart].filter(Boolean).join('_') + '.jpg' }
+        })
       await sendOrderToDesignerTelegram({ order, files })
       if (editingOrderId) {
         onUpdateOrder?.(editingOrderId, {
@@ -1807,23 +1815,24 @@ export default function PaletteEditor({ onUpdateOrder }) {
           <div style={{padding:'0 22px 22px',display:'flex',flexDirection:'column',gap:14}}>
             {/* Fields */}
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
-              {[
-                { label: 'Номер замовлення', key: 'orderNum', placeholder: 'Номер' },
-                { label: 'Розмір', key: 'size', placeholder: 'XL' },
-                { label: 'Розмір вишивки', key: 'embSize', placeholder: '23 см' },
-              ].map(({ label, key, placeholder }) => (
-                <div key={key} style={key === 'orderNum' ? {gridColumn:'1/-1'} : {}}>
-                  <label style={{fontSize:11,color:'#6b7280',display:'block',marginBottom:4}}>{label}</label>
-                  <input
-                    value={modalForm[key]}
-                    onChange={e => setModalForm(f => ({...f, [key]: e.target.value}))}
-                    placeholder={placeholder}
-                    style={{width:'100%',boxSizing:'border-box',border:'1.5px solid #e5e7eb',borderRadius:9,padding:'7px 10px',fontSize:13,fontFamily:'inherit',outline:'none',transition:'border-color .15s'}}
-                    onFocus={e => e.target.style.borderColor='#6366f1'}
-                    onBlur={e => e.target.style.borderColor='#e5e7eb'}
-                  />
+              <div style={{gridColumn:'1/-1'}}>
+                <label style={{fontSize:11,color:'#6b7280',display:'block',marginBottom:4}}>Номер замовлення</label>
+                <input value={modalForm.orderNum} onChange={e => setModalForm(f => ({...f, orderNum: e.target.value}))} placeholder="Номер"
+                  style={{width:'100%',boxSizing:'border-box',border:'1.5px solid #e5e7eb',borderRadius:9,padding:'7px 10px',fontSize:13,fontFamily:'inherit',outline:'none',transition:'border-color .15s'}}
+                  onFocus={e => e.target.style.borderColor='#6366f1'} onBlur={e => e.target.style.borderColor='#e5e7eb'} />
+              </div>
+              <div>
+                <label style={{fontSize:11,color:'#6b7280',display:'block',marginBottom:4}}>Розмір (з мокапів)</label>
+                <div style={{width:'100%',boxSizing:'border-box',border:'1.5px solid #e5e7eb',borderRadius:9,padding:'7px 10px',fontSize:13,background:'#f9fafb',color:'#374151',minHeight:34}}>
+                  {[...new Set(mockupItems.filter(i => i.checked && i.id.startsWith('mockup-')).map(i => i.itemSize || 'XL'))].join(', ') || '—'}
                 </div>
-              ))}
+              </div>
+              <div>
+                <label style={{fontSize:11,color:'#6b7280',display:'block',marginBottom:4}}>Розмір вишивки</label>
+                <input value={modalForm.embSize} onChange={e => setModalForm(f => ({...f, embSize: e.target.value}))} placeholder="23 см"
+                  style={{width:'100%',boxSizing:'border-box',border:'1.5px solid #e5e7eb',borderRadius:9,padding:'7px 10px',fontSize:13,fontFamily:'inherit',outline:'none',transition:'border-color .15s'}}
+                  onFocus={e => e.target.style.borderColor='#6366f1'} onBlur={e => e.target.style.borderColor='#e5e7eb'} />
+              </div>
             </div>
 
             <div>
@@ -1873,8 +1882,23 @@ export default function PaletteEditor({ onUpdateOrder }) {
                       <div style={{width:'100%',height:100,background:'#f3f4f6',borderRadius:7,overflow:'hidden',display:'flex',alignItems:'center',justifyContent:'center',marginBottom:7}}>
                         {item.thumbnail && <img src={item.thumbnail} alt="" style={{width:'100%',height:'100%',objectFit:'contain'}}/>}
                       </div>
-                      <p style={{margin:0,fontSize:11,fontWeight:600,color:'#111',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{item.label}</p>
-                      <p style={{margin:'2px 0 0',fontSize:9,color:'#9ca3af',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{item.filename}</p>
+                      <p style={{margin:0,fontSize:11,fontWeight:600,color:'#111',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',marginBottom:item.id.startsWith('mockup-')?5:0}}>{item.label}</p>
+                      {item.id.startsWith('mockup-') ? (
+                        <div onClick={e => e.stopPropagation()}>
+                          <div style={{display:'flex',gap:2,flexWrap:'wrap',marginBottom:4}}>
+                            {['XS','S','M','L','XL'].map(sz => (
+                              <button key={sz} type="button"
+                                onClick={() => setMockupItems(prev => prev.map((it,i) => i===idx ? {...it,itemSize:sz} : it))}
+                                style={{padding:'1px 5px',fontSize:9,fontWeight:700,borderRadius:4,border:`1.5px solid ${item.itemSize===sz?'#6366f1':'#d1d5db'}`,background:item.itemSize===sz?'#6366f1':'#fff',color:item.itemSize===sz?'#fff':'#6b7280',cursor:'pointer'}}
+                              >{sz}</button>
+                            ))}
+                          </div>
+                          <input value={item.colorLabel || ''} onChange={e => setMockupItems(prev => prev.map((it,i) => i===idx ? {...it,colorLabel:e.target.value} : it))}
+                            placeholder="Синій худі" style={{width:'100%',boxSizing:'border-box',border:'1px solid #e5e7eb',borderRadius:5,padding:'3px 6px',fontSize:10,fontFamily:'inherit',outline:'none'}} />
+                        </div>
+                      ) : (
+                        <p style={{margin:'2px 0 0',fontSize:9,color:'#9ca3af',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{item.filename}</p>
+                      )}
                     </div>
                   ))}
                 </div>
