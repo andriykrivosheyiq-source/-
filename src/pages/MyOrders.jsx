@@ -253,7 +253,7 @@ function TransferToDesignerModal({ order, extras, onConfirm, onClose }) {
     }
     if (order.mockupThumbs?.length > 0) {
       order.mockupThumbs.forEach((m, i) => {
-        result.push({ id: `mockup-${i}`, label: `Мокап №${i + 1} — ${m.label}`, thumbnail: m.thumbnail, checked: true, itemSize: order.orderSize || 'XL', colorLabel: (order.id || '').replace(/^#/, '') })
+        result.push({ id: `mockup-${i}`, label: `Мокап №${i + 1} — ${m.label}`, thumbnail: m.thumbnail, checked: true, itemSize: '', embSize: '', colorLabel: (order.id || '').replace(/^#/, '') })
       })
     } else {
       const productIds = extras?.designSnapshot?.selectedProducts || (order.productId ? [order.productId] : [])
@@ -261,7 +261,7 @@ function TransferToDesignerModal({ order, extras, onConfirm, onClose }) {
         const product = allProducts.find(p => p.id === pid)
         if (product) {
           const thumbnail = (i === 0 && order.mockupThumb) ? order.mockupThumb : product.image
-          result.push({ id: `mockup-${i}`, label: `Мокап №${i + 1} — ${product.nameUk}`, thumbnail, checked: true, itemSize: order.orderSize || 'XL', colorLabel: (order.id || '').replace(/^#/, '') })
+          result.push({ id: `mockup-${i}`, label: `Мокап №${i + 1} — ${product.nameUk}`, thumbnail, checked: true, itemSize: '', embSize: '', colorLabel: (order.id || '').replace(/^#/, '') })
         }
       })
     }
@@ -269,7 +269,7 @@ function TransferToDesignerModal({ order, extras, onConfirm, onClose }) {
   })
 
   const checkedMockups = files.filter(f => f.checked && f.id.startsWith('mockup-'))
-  const orderSizeStr = checkedMockups.map(f => f.itemSize || 'XL').join(', ')
+  const orderSizeStr = checkedMockups.map(f => f.itemSize).filter(Boolean).join(', ')
 
   const handleConfirm = () => {
     onConfirm({
@@ -305,9 +305,8 @@ function TransferToDesignerModal({ order, extras, onConfirm, onClose }) {
               </div>
               <div>
                 <label className="text-xs text-gray-500 block mb-1">Тип одягу та колір</label>
-                <div className="border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-800 bg-gray-50 flex items-center gap-2">
-                  {order.colors?.[0] && <span className="w-4 h-4 rounded-full flex-shrink-0 border border-gray-200" style={{ backgroundColor: order.colors[0] }} />}
-                  {order.productName || '—'}
+                <div className="border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-800 bg-gray-50 min-h-[38px]">
+                  {files.filter(f => f.checked && f.id.startsWith('mockup-')).map(f => f.label.replace(/^Мокап №\d+ — /, '')).join(', ') || '—'}
                 </div>
               </div>
               <div>
@@ -352,6 +351,12 @@ function TransferToDesignerModal({ order, extras, onConfirm, onClose }) {
                             >{sz}</button>
                           ))}
                         </div>
+                        <input
+                          value={item.embSize || ''}
+                          onChange={e => setFiles(prev => prev.map((f, i) => i === idx ? { ...f, embSize: e.target.value } : f))}
+                          placeholder="Вишивка (напр. 27см)"
+                          className="w-full border border-gray-200 rounded-lg px-2 py-1 text-[11px] focus:outline-none focus:ring-1 focus:ring-indigo-300"
+                        />
                         <input
                           value={item.colorLabel || ''}
                           onChange={e => setFiles(prev => prev.map((f, i) => i === idx ? { ...f, colorLabel: e.target.value } : f))}
@@ -729,8 +734,10 @@ export default function MyOrders({ savedOrders = [], ordersLoading = false, orde
           ? `${cleanId}.png`
           : (() => {
               const colorPart = (f.colorLabel || cleanId).trim().replace(/[\s/\\]+/g, '_')
-              const sizePart = f.itemSize || 'XL'
-              return [colorPart, sizePart].filter(Boolean).join('_') + '.png'
+              const productPart = (f.label || '').replace(/^Мокап №\d+ — /, '').trim().replace(/[\s/\\,]+/g, '_').replace(/_{2,}/g, '_')
+              const embPart = (f.embSize || '').trim().replace(/\s+/g, '')
+              const sizePart = f.itemSize || ''
+              return [colorPart, productPart, embPart, sizePart].filter(Boolean).join('_') + '.png'
             })()
         return { dataUrl, label: filename.replace(/\.\w+$/, ''), filename }
       }))

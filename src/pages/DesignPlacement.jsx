@@ -1432,7 +1432,8 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
         filename: `${fileName || 'mockup'}_Мокап_№${i + 1}.png`,
         size: formatFileSize(Math.round(mockupUrl.length * 0.75)),
         checked: true,
-        itemSize: sendOrderSize || 'XL',
+        itemSize: '',
+        embSize: '',
         colorLabel: (fileName || '').replace(/^#/, '') || '',
       })
     }
@@ -1891,8 +1892,10 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
               return { ...item, dataUrl: transparentDesignUrl || item.dataUrl, filename: `${cleanId}.png`, label: cleanId }
             }
             const colorPart = (item.colorLabel || cleanId).trim().replace(/[\s/\\]+/g, '_')
-            const sizePart = item.itemSize || 'XL'
-            const parts = [colorPart, sizePart].filter(Boolean)
+            const productPart = (item.label || '').replace(/^Мокап №\d+ — /, '').trim().replace(/[\s/\\,]+/g, '_').replace(/_{2,}/g, '_')
+            const embPart = (item.embSize || '').trim().replace(/\s+/g, '')
+            const sizePart = item.itemSize || ''
+            const parts = [colorPart, productPart, embPart, sizePart].filter(Boolean)
             return { ...item, filename: `${parts.join('_')}.png`, label: parts.join('_') }
           })
           await sendOrderToDesignerTelegram({ order, files: designerFiles })
@@ -2427,7 +2430,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
                   <div>
                     <label className="text-xs text-gray-500 block mb-1">Розмір (з мокапів)</label>
                     <div className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-800 bg-gray-50 min-h-[38px]">
-                      {sendItems.filter(i => i.checked && i.id.startsWith('mockup-')).map(i => i.itemSize || 'XL').join(', ') || '—'}
+                      {sendItems.filter(i => i.checked && i.id.startsWith('mockup-')).map(i => i.itemSize).filter(Boolean).join(', ') || '—'}
                     </div>
                   </div>
                   <div>
@@ -2472,6 +2475,12 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
                                 >{sz}</button>
                               ))}
                             </div>
+                            <input
+                              value={item.embSize || ''}
+                              onChange={e => setSendItems(prev => prev.map((it, i) => i === idx ? { ...it, embSize: e.target.value } : it))}
+                              placeholder="Вишивка (напр. 27см)"
+                              className="w-full border border-gray-200 rounded-lg px-2 py-1 text-[11px] focus:outline-none focus:ring-1 focus:ring-indigo-300"
+                            />
                             <input
                               value={item.colorLabel || ''}
                               onChange={e => setSendItems(prev => prev.map((it, i) => i === idx ? { ...it, colorLabel: e.target.value } : it))}
