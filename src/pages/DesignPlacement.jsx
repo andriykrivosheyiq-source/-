@@ -151,6 +151,61 @@ function removeWhiteBg(img, threshold = 220, noDilation = false) {
   return canvas
 }
 
+// ─── Per-mockup colour overrides ─────────────────────────────────────────────
+
+function hexToRgb(hex) {
+  return [parseInt(hex.slice(1,3),16), parseInt(hex.slice(3,5),16), parseInt(hex.slice(5,7),16)]
+}
+function rgbToHex(r,g,b) {
+  return '#' + [r,g,b].map(v => v.toString(16).padStart(2,'0')).join('')
+}
+
+async function extractDesignColors(imageUrl, maxColors = 24) {
+  const img = await loadImgEl(imageUrl)
+  const W = img.naturalWidth || img.width, H = img.naturalHeight || img.height
+  const canvas = document.createElement('canvas')
+  canvas.width = W; canvas.height = H
+  const ctx = canvas.getContext('2d')
+  ctx.drawImage(img, 0, 0)
+  const data = ctx.getImageData(0, 0, W, H).data
+  const counts = new Map()
+  for (let i = 0; i < data.length; i += 4) {
+    if (data[i+3] < 128) continue
+    const r = Math.min(255, Math.round(data[i]/8)*8)
+    const g = Math.min(255, Math.round(data[i+1]/8)*8)
+    const b = Math.min(255, Math.round(data[i+2]/8)*8)
+    const k = rgbToHex(r, g, b)
+    counts.set(k, (counts.get(k) || 0) + 1)
+  }
+  return [...counts.entries()].sort((a,b) => b[1]-a[1]).slice(0, maxColors).map(([c]) => c)
+}
+
+async function applyMockupColorMap(imageUrl, colorMap) {
+  if (!imageUrl || !colorMap) return imageUrl
+  const entries = Object.entries(colorMap).filter(([from, to]) => from !== to)
+  if (!entries.length) return imageUrl
+  const img = await loadImgEl(imageUrl)
+  const W = img.naturalWidth || img.width, H = img.naturalHeight || img.height
+  const canvas = document.createElement('canvas')
+  canvas.width = W; canvas.height = H
+  const ctx = canvas.getContext('2d')
+  ctx.drawImage(img, 0, 0)
+  const iData = ctx.getImageData(0, 0, W, H)
+  const d = iData.data
+  const pairs = entries.map(([from, to]) => ({ f: hexToRgb(from), t: hexToRgb(to) }))
+  const TOL = 60
+  for (let i = 0; i < d.length; i += 4) {
+    if (d[i+3] < 10) continue
+    for (const { f, t } of pairs) {
+      if (Math.abs(d[i]-f[0]) + Math.abs(d[i+1]-f[1]) + Math.abs(d[i+2]-f[2]) < TOL) {
+        d[i] = t[0]; d[i+1] = t[1]; d[i+2] = t[2]; break
+      }
+    }
+  }
+  ctx.putImageData(iData, 0, 0)
+  return canvas.toDataURL('image/png')
+}
+
 function drawDLetters(ctx, letters, W, H, style = 'D') {
   for (const letter of letters) {
     const lx = letter.x / 100 * W
@@ -996,6 +1051,97 @@ function ChangeProductModal({ current, onSelect, onClose }) {
   )
 }
 
+// ─── MockupColorModal ─────────────────────────────────────────────────────────
+
+function MockupColorModal({ designUrl, colorOverrides, onSave, onClose }) {
+  const [colors, setColors] = useState([])
+  const [overrides, setOverrides] = useState(() => ({ ...colorOverrides }))
+  const [previewUrl, setPreviewUrl] = useState(designUrl)
+  const [loadingColors, setLoadingColors] = useState(true)
+
+  useEffect(() => {
+    let cancelled = false
+    extractDesignColors(designUrl).then(c => { if (!cancelled) { setColors(c); setLoadingColors(false) } }).catch(() => { if (!cancelled) setLoadingColors(false) })
+    return () => { cancelled = true }
+  }, [designUrl])
+
+  useEffect(() => {
+    let cancelled = false
+    applyMockupColorMap(designUrl, overrides).then(url => { if (!cancelled) setPreviewUrl(url) }).catch(() => {})
+    return () => { cancelled = true }
+  }, [designUrl, overrides])
+
+  const hasChanges = Object.entries(overrides).some(([f, t]) => f !== t)
+
+  return (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[60] flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xs max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-5 pt-5 pb-3 border-b border-gray-100">
+          <h3 className="text-base font-bold text-gray-900">Кольори дизайну</h3>
+          <button onClick={onClose} className="w-7 h-7 flex items-center justify-center text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+        <div className="px-5 pb-5 pt-4 space-y-4">
+          {/* Live preview */}
+          <div className="w-full h-36 rounded-xl bg-gray-100 flex items-center justify-center overflow-hidden border border-gray-200">
+            <img src={previewUrl} alt="" className="max-h-full max-w-full object-contain" />
+          </div>
+          {/* Color list */}
+          {loadingColors ? (
+            <div className="flex items-center justify-center py-4 gap-2 text-sm text-gray-400">
+              <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" className="opacity-25"/><path d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" fill="currentColor"/></svg>
+              Аналіз кольорів...
+            </div>
+          ) : colors.length === 0 ? (
+            <p className="text-sm text-gray-400 text-center py-2">Кольори не знайдено</p>
+          ) : (
+            <div className="space-y-2">
+              {colors.map(color => {
+                const current = overrides[color] || color
+                const changed = current !== color
+                return (
+                  <div key={color} className={`flex items-center gap-2.5 p-2 rounded-xl transition-colors ${changed ? 'bg-indigo-50' : 'hover:bg-gray-50'}`}>
+                    <div className="w-7 h-7 rounded-lg border border-gray-200 flex-shrink-0 shadow-sm" style={{ background: color }} title="Оригінал" />
+                    {changed && <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#6366f1" strokeWidth="2.5" className="flex-shrink-0"><path d="M5 12h14M13 6l6 6-6 6"/></svg>}
+                    <span className="text-[10px] text-gray-400 font-mono flex-1">{color}</span>
+                    <input
+                      type="color"
+                      value={current}
+                      onChange={e => setOverrides(prev => ({ ...prev, [color]: e.target.value }))}
+                      className="w-8 h-8 rounded-lg cursor-pointer border border-gray-200 p-0.5 flex-shrink-0"
+                    />
+                    {changed && (
+                      <button
+                        onClick={() => setOverrides(prev => { const n = {...prev}; delete n[color]; return n })}
+                        className="w-5 h-5 flex items-center justify-center text-gray-300 hover:text-red-400 rounded transition-colors flex-shrink-0"
+                        title="Скинути"
+                      >
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                      </button>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          )}
+          <div className="flex gap-2 pt-1">
+            <button
+              onClick={() => setOverrides({})}
+              disabled={!hasChanges}
+              className="flex-1 border border-gray-200 text-gray-600 hover:bg-gray-50 rounded-xl py-2.5 text-sm transition-colors disabled:opacity-40"
+            >Скинути все</button>
+            <button
+              onClick={() => onSave(overrides)}
+              className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl py-2.5 text-sm font-semibold transition-colors"
+            >Зберегти</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── DesignPlacement ──────────────────────────────────────────────────────────
 
 export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onUpdateOrderFull, onUpdateOrder, onRenameOrder }) {
@@ -1036,6 +1182,9 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
   const [showAddMockupModal, setShowAddMockupModal] = useState(false)
   const [changingMockupIndex, setChangingMockupIndex] = useState(null)
   const [downloadingMockupIndex, setDownloadingMockupIndex] = useState(null)
+  const [mockupColorOverrides, setMockupColorOverrides] = useState({})
+  const [editingColorIndex, setEditingColorIndex] = useState(null)
+  const [mockupDesignPreviews, setMockupDesignPreviews] = useState({})
   const [showSendModal, setShowSendModal] = useState(false)
   const [sendItems, setSendItems] = useState([])
   const [preparingSend, setPreparingSend] = useState(false)
@@ -1101,6 +1250,23 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
       ctx.clearRect(0, 0, canvas.width, canvas.height)
     }
   }, [currentDesignImage])
+
+  // Regenerate per-mockup colour previews whenever overrides or base design changes
+  useEffect(() => {
+    if (!mockupDesignUrl) { setMockupDesignPreviews({}); return }
+    let cancelled = false
+    ;(async () => {
+      const next = {}
+      for (let i = 0; i < allMockupProducts.length; i++) {
+        const ov = mockupColorOverrides[i]
+        if (ov && Object.entries(ov).some(([f, t]) => f !== t)) {
+          try { next[i] = await applyMockupColorMap(mockupDesignUrl, ov) } catch {}
+        }
+      }
+      if (!cancelled) setMockupDesignPreviews(next)
+    })()
+    return () => { cancelled = true }
+  }, [mockupColorOverrides, mockupDesignUrl, allMockupProducts.length]) // eslint-disable-line
 
   // Initialize drawing canvas when tool is activated — bake design (or existing edits) into canvas
   useEffect(() => {
@@ -1319,6 +1485,11 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
         }
         setMockupDesignUrl(designUrl)
       }
+      // Apply per-mockup colour overrides
+      const dlOv = mockupColorOverrides[index] || {}
+      const effectiveDesignUrl = (designUrl && Object.entries(dlOv).some(([f,t]) => f !== t))
+        ? await applyMockupColorMap(designUrl, dlOv)
+        : designUrl
       const SIZE = 1200
       const canvas = document.createElement('canvas')
       canvas.width = SIZE; canvas.height = SIZE
@@ -1331,8 +1502,8 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
       if (pA2 >= 1) { pW2 = SIZE; pH2 = SIZE / pA2; pX2 = 0; pY2 = (SIZE - pH2) / 2 }
       else           { pH2 = SIZE; pW2 = SIZE * pA2; pX2 = (SIZE - pW2) / 2; pY2 = 0 }
       ctx.drawImage(productImg, pX2, pY2, pW2, pH2)
-      if (designUrl) {
-        const designImg = await loadImgEl(designUrl)
+      if (effectiveDesignUrl) {
+        const designImg = await loadImgEl(effectiveDesignUrl)
         const dW = mockupOverlay.size / 100 * SIZE
         const aspect = (designImg.naturalHeight || designImg.height) / (designImg.naturalWidth || designImg.width)
         const dH = dW * aspect
@@ -1412,8 +1583,11 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
       else          { pH = SIZE; pW = SIZE * pA; pX = (SIZE - pW) / 2; pY = 0 }
       ctx.drawImage(productImg, pX, pY, pW, pH)
       if (overlayUrl) {
-        // overlayUrl = mockupDesignUrl (already bg-removed) or EST transparent export — skip double removal
-        const dImg = await loadImgEl(overlayUrl)
+        const sendOv = mockupColorOverrides[i] || {}
+        const effectiveSendUrl = Object.entries(sendOv).some(([f,t]) => f !== t)
+          ? await applyMockupColorMap(overlayUrl, sendOv)
+          : overlayUrl
+        const dImg = await loadImgEl(effectiveSendUrl)
         const srcW = dImg.naturalWidth || dImg.width
         const srcH = dImg.naturalHeight || dImg.height
         const dW = mockupOverlay.size / 100 * SIZE
@@ -1563,12 +1737,14 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
       const dSrc = mockupDesignUrl || fullImage
       // mockupDesignUrl is already bg-removed; only apply removeWhiteBg on raw fullImage fallback
       const dSrcNeedsClean = !mockupDesignUrl
-      let overlayDesign = null
+      let baseOverlayDataUrl = null
       if (dSrc) {
         const dImg = await loadImgEl(dSrc)
-        overlayDesign = dSrcNeedsClean ? removeWhiteBg(dImg) : dImg
+        baseOverlayDataUrl = dSrcNeedsClean
+          ? removeWhiteBg(dImg).toDataURL('image/png')
+          : dSrc
       }
-      for (const product of allMockupProducts) {
+      for (const [productIdx, product] of allMockupProducts.entries()) {
         if (!product?.image) continue
         const mCanvas = document.createElement('canvas')
         mCanvas.width = SIZE; mCanvas.height = SIZE
@@ -1577,12 +1753,17 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
         mCtx.imageSmoothingQuality = 'high'
         const pImg = await loadImgEl(product.image)
         mCtx.drawImage(pImg, 0, 0, SIZE, SIZE)
-        if (overlayDesign) {
-          const srcW = overlayDesign.naturalWidth || overlayDesign.width
-          const srcH = overlayDesign.naturalHeight || overlayDesign.height
+        if (baseOverlayDataUrl) {
+          const thumbOv = mockupColorOverrides[productIdx] || {}
+          const effectiveThumbUrl = Object.entries(thumbOv).some(([f,t]) => f !== t)
+            ? await applyMockupColorMap(baseOverlayDataUrl, thumbOv)
+            : baseOverlayDataUrl
+          const overlayImg = await loadImgEl(effectiveThumbUrl)
+          const srcW = overlayImg.naturalWidth || overlayImg.width
+          const srcH = overlayImg.naturalHeight || overlayImg.height
           const dW = mockupOverlay.size / 100 * SIZE
           const dH = dW * srcH / srcW
-          mCtx.drawImage(overlayDesign, 0, 0, srcW, srcH,
+          mCtx.drawImage(overlayImg, 0, 0, srcW, srcH,
             mockupOverlay.x / 100 * SIZE - dW / 2,
             mockupOverlay.y / 100 * SIZE - dH / 2,
             dW, dH)
@@ -1784,12 +1965,14 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
       const dSrc = mockupDesignUrl || fullImage
       // mockupDesignUrl is already bg-removed; only apply removeWhiteBg on raw fullImage fallback
       const dSrcNeedsClean = !mockupDesignUrl
-      let overlayDesign = null
+      let baseOverlayDataUrl = null
       if (dSrc) {
         const dImg = await loadImgEl(dSrc)
-        overlayDesign = dSrcNeedsClean ? removeWhiteBg(dImg) : dImg
+        baseOverlayDataUrl = dSrcNeedsClean
+          ? removeWhiteBg(dImg).toDataURL('image/png')
+          : dSrc
       }
-      for (const product of allMockupProducts) {
+      for (const [productIdx, product] of allMockupProducts.entries()) {
         if (!product?.image) continue
         const mCanvas = document.createElement('canvas')
         mCanvas.width = SIZE; mCanvas.height = SIZE
@@ -1798,12 +1981,17 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
         mCtx.imageSmoothingQuality = 'high'
         const pImg = await loadImgEl(product.image)
         mCtx.drawImage(pImg, 0, 0, SIZE, SIZE)
-        if (overlayDesign) {
-          const srcW = overlayDesign.naturalWidth || overlayDesign.width
-          const srcH = overlayDesign.naturalHeight || overlayDesign.height
+        if (baseOverlayDataUrl) {
+          const thumbOv = mockupColorOverrides[productIdx] || {}
+          const effectiveThumbUrl = Object.entries(thumbOv).some(([f,t]) => f !== t)
+            ? await applyMockupColorMap(baseOverlayDataUrl, thumbOv)
+            : baseOverlayDataUrl
+          const overlayImg = await loadImgEl(effectiveThumbUrl)
+          const srcW = overlayImg.naturalWidth || overlayImg.width
+          const srcH = overlayImg.naturalHeight || overlayImg.height
           const dW = mockupOverlay.size / 100 * SIZE
           const dH = dW * srcH / srcW
-          mCtx.drawImage(overlayDesign, 0, 0, srcW, srcH,
+          mCtx.drawImage(overlayImg, 0, 0, srcW, srcH,
             mockupOverlay.x / 100 * SIZE - dW / 2,
             mockupOverlay.y / 100 * SIZE - dH / 2,
             dW, dH)
@@ -2170,7 +2358,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
                       className="absolute pointer-events-none"
                       style={{ left: `${mockupOverlay.x}%`, top: `${mockupOverlay.y}%`, width: `${mockupOverlay.size}%`, transform: 'translate(-50%, -50%)' }}
                     >
-                      <img src={mockupDesignUrl} alt="design overlay" className="w-full" />
+                      <img src={mockupDesignPreviews[index] || mockupDesignUrl} alt="design overlay" className="w-full" />
                     </div>
                   )}
                   {preparingMockup && (
@@ -2200,7 +2388,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
                       </div>
                     )}
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 flex-wrap">
                     <button
                       onClick={() => setChangingMockupIndex(index)}
                       className="flex items-center justify-center gap-1.5 border border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-indigo-600 rounded-xl px-3 py-2 text-sm font-medium transition-colors"
@@ -2209,6 +2397,20 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
                       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                       Змінити
                     </button>
+                    {mockupDesignUrl && (
+                      <button
+                        onClick={() => setEditingColorIndex(index)}
+                        className={`flex items-center justify-center gap-1.5 border rounded-xl px-3 py-2 text-sm font-medium transition-colors ${
+                          mockupDesignPreviews[index]
+                            ? 'border-indigo-400 bg-indigo-50 text-indigo-600'
+                            : 'border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-indigo-600'
+                        }`}
+                        title="Редагувати кольори дизайну для цього мокапу"
+                      >
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg>
+                        Кольори
+                      </button>
+                    )}
                     <button
                       onClick={() => handleDownloadMockupForProduct(product, index)}
                       disabled={downloadingMockupIndex === index}
@@ -2385,6 +2587,18 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
             setChangingMockupIndex(null)
           }}
           onClose={() => setChangingMockupIndex(null)}
+        />
+      )}
+
+      {editingColorIndex !== null && mockupDesignUrl && (
+        <MockupColorModal
+          designUrl={mockupDesignUrl}
+          colorOverrides={mockupColorOverrides[editingColorIndex] || {}}
+          onSave={(overrides) => {
+            setMockupColorOverrides(prev => ({ ...prev, [editingColorIndex]: overrides }))
+            setEditingColorIndex(null)
+          }}
+          onClose={() => setEditingColorIndex(null)}
         />
       )}
 
