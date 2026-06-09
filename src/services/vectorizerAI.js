@@ -2,7 +2,7 @@
  * Vectorizer.ai via Cloudflare Worker proxy (avoids browser CORS).
  * Worker handles Basic auth server-side — no credentials in the browser bundle.
  */
-const PROXY_URL = 'https://sitniks-proxy.andriy-krivosheyiq.workers.dev/vectorize'
+const PROXY_URL = 'https://sitniks-proxy.stvory.workers.dev/vectorize'
 
 export function isVectorizerAIConfigured() {
   return true
