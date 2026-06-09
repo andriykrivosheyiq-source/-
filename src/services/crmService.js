@@ -67,7 +67,23 @@ export async function sendOrderToDesignerTelegram({ order, files }) {
   })
 }
 
-/** Upload files to Cloudinary then send their URLs as a text message to a Sitniks chat. */
+async function shortenUrl(cloudinaryUrl) {
+  try {
+    const base = apiUrl()
+    const res = await fetch(`${base}/shorten`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: cloudinaryUrl }),
+    })
+    if (!res.ok) return cloudinaryUrl
+    const data = await res.json()
+    return data.shortUrl || cloudinaryUrl
+  } catch {
+    return cloudinaryUrl
+  }
+}
+
+/** Upload files to Cloudinary, shorten URLs, then send as a text message to a Sitniks chat. */
 export async function sendToClientCRM({ chatId, files, note, isRevision = false }) {
   const base = apiUrl()
 
@@ -76,6 +92,7 @@ export async function sendToClientCRM({ chatId, files, note, isRevision = false 
       let url
       try {
         url = await uploadImageToCloudinary(file.dataUrl, file.filename)
+        url = await shortenUrl(url)
       } catch (e) {
         throw new Error(`Cloudinary: ${e.message}`)
       }

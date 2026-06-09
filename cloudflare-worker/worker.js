@@ -1,5 +1,5 @@
 /**
- * Cloudflare Worker — проксі для Sitniks CRM Open API + Telegram сповіщення
+ * Cloudflare Worker — проксі для Sitniks CRM Open API + Telegram сповіщення + URL shortener
  *
  * Розгортання:
  *   1. workers.cloudflare.com → Create Worker → замінити код на цей
@@ -7,7 +7,14 @@
  *        SITNIKS_API_KEY     = Bvx5NlipuqUYJ1p8YrcxuzX7JAvnQOiVAPKPnxOjHzn
  *        TELEGRAM_BOT_TOKEN  = <токен від @BotFather>
  *        TELEGRAM_CHAT_ID    = <chat_id групи, наприклад -5013412966>
- *   3. Save and Deploy
+ *   3. KV namespace (для URL shortener):
+ *        Storage → KV → Create namespace "URLS"
+ *        Worker Settings → Variables → KV Namespace Bindings → Add: URLS → <namespace id>
+ *   4. Save and Deploy
+ *
+ * URL shortener:
+ *   POST /shorten  { url: "https://..." }  → { shortUrl: "https://<worker>/s/abc1234" }
+ *   GET  /s/:id                            → 302 redirect to original URL
  */
 
 const SITNIKS_BASE = 'https://crm.sitniks.com/open-api'
@@ -93,6 +100,26 @@ async function handleTelegramSendOrder(request, env) {
   return jsonResp({ ok: true })
 }
 
+async function handleShorten(request, env) {
+  if (!env.URLS) return jsonResp({ error: 'KV_NOT_CONFIGURED' }, 500)
+  let data
+  try { data = await request.json() }
+  catch { return jsonResp({ error: 'Invalid JSON' }, 400) }
+  const { url } = data
+  if (!url || !url.startsWith('http')) return jsonResp({ error: 'valid url required' }, 400)
+  const id = Math.random().toString(36).slice(2, 9) // 7-char base36
+  await env.URLS.put(id, url, { expirationTtl: 60 * 60 * 24 * 60 }) // 60 days
+  const host = new URL(request.url).host
+  return jsonResp({ shortUrl: `https://${host}/s/${id}`, id })
+}
+
+async function handleRedirect(id, env) {
+  if (!env.URLS) return new Response('Not found', { status: 404, headers: CORS_HEADERS })
+  const url = await env.URLS.get(id)
+  if (!url) return new Response('Посилання застаріло або не існує', { status: 404, headers: CORS_HEADERS })
+  return Response.redirect(url, 302)
+}
+
 async function handleVectorize(request, env) {
   if (!env.VECTORIZER_AI_ID || !env.VECTORIZER_AI_SECRET) {
     return new Response(JSON.stringify({ error: 'VECTORIZER_NOT_CONFIGURED' }), {
@@ -123,6 +150,16 @@ export default {
     }
 
     const url = new URL(request.url)
+
+    // URL shortener — create short link
+    if (url.pathname === '/shorten' && request.method === 'POST') {
+      return handleShorten(request, env)
+    }
+
+    // URL shortener — redirect
+    if (url.pathname.startsWith('/s/') && request.method === 'GET') {
+      return handleRedirect(url.pathname.slice(3), env)
+    }
 
     // Vectorizer.ai proxy (avoids browser CORS block)
     if (url.pathname === '/vectorize' && request.method === 'POST') {
