@@ -412,6 +412,16 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
   useImperativeHandle(ref, () => ({
     exportToCanvas:    () => renderEstToCanvas(letters, estEl, estText, showEstText, imageUrl, illus, letterStyle, ttoLetters, bgColor),
     exportTransparent: () => renderEstTransparent(letters, estEl, estText, showEstText, imageUrl, illus, letterStyle, ttoLetters),
+    exportTransparentWithOverrides: (ov = {}) => {
+      const ovLetters = letters.map(l => ({
+        ...l,
+        color:     ov.letterColor !== undefined ? ov.letterColor : l.color,
+        fillColor: ov.fillColor   !== undefined ? ov.fillColor   : l.fillColor,
+      }))
+      const ovTto = ttoLetters.map(l => ({ ...l, color: ov.letterColor !== undefined ? ov.letterColor : l.color }))
+      const ovEst = { ...estEl, color: ov.estColor !== undefined ? ov.estColor : estEl.color }
+      return renderEstTransparent(ovLetters, ovEst, estText, showEstText, imageUrl, illus, letterStyle, ovTto)
+    },
     getState:          () => ({ letters, letterStyle, bgColor, ttoLetters, estEl, illus }),
   }), [letters, estEl, estText, showEstText, imageUrl, illus, letterStyle, ttoLetters, bgColor])
 
@@ -1064,34 +1074,111 @@ function getLuminance(hex) {
   return (0.299 * r + 0.587 * g + 0.114 * b) / 255
 }
 
-function MockupColorModal({ designUrl, colorOverrides, onSave, onClose }) {
-  const [colors, setColors] = useState([])
+function MockupColorModal({ designUrl, colorOverrides, onSave, onClose, isEst, estPosterState, generatePreview }) {
   const [overrides, setOverrides] = useState(() => ({ ...colorOverrides }))
   const [previewUrl, setPreviewUrl] = useState(designUrl)
-  const [loadingColors, setLoadingColors] = useState(true)
+  const [previewLoading, setPreviewLoading] = useState(false)
+  const [pixelColors, setPixelColors] = useState([])
+  const [loadingColors, setLoadingColors] = useState(!isEst)
 
+  // For EST designs: derive editable colour entries directly from poster state
+  const estEntries = (() => {
+    if (!isEst || !estPosterState) return []
+    const { letters, letterStyle, estEl } = estPosterState
+    const entries = []
+    if (letters?.[0]) {
+      entries.push({ key: 'letterColor', label: 'Колір букв Д', defaultColor: letters[0].color || '#000000' })
+      if (letterStyle === 'D_TWO_COLOR') {
+        entries.push({ key: 'fillColor', label: 'Заповнення Д', defaultColor: letters[0].fillColor || '#ffffff' })
+      }
+    }
+    if (estEl) {
+      entries.push({ key: 'estColor', label: 'Колір EST тексту', defaultColor: estEl.color || '#000000' })
+    }
+    return entries
+  })()
+
+  // Non-EST: extract letter colours by luminance
   useEffect(() => {
+    if (isEst) return
     let cancelled = false
+    setLoadingColors(true)
     extractDesignColors(designUrl, 30).then(allColors => {
       if (cancelled) return
-      // Keep only very dark (outlines) and very light (fills) — these are letter colours
       const letterColors = allColors.filter(c => {
         const lum = getLuminance(c)
         return lum < 0.15 || lum > 0.82
       }).slice(0, 6)
-      setColors(letterColors)
+      setPixelColors(letterColors)
       setLoadingColors(false)
     }).catch(() => { if (!cancelled) setLoadingColors(false) })
     return () => { cancelled = true }
-  }, [designUrl])
+  }, [designUrl, isEst])
 
+  // Preview: EST → re-render via generatePreview; non-EST → pixel replacement
   useEffect(() => {
     let cancelled = false
-    applyMockupColorMap(designUrl, overrides).then(url => { if (!cancelled) setPreviewUrl(url) }).catch(() => {})
+    if (isEst && generatePreview) {
+      setPreviewLoading(true)
+      generatePreview(overrides)
+        .then(url => { if (!cancelled) { setPreviewUrl(url); setPreviewLoading(false) } })
+        .catch(() => { if (!cancelled) setPreviewLoading(false) })
+    } else {
+      applyMockupColorMap(designUrl, overrides)
+        .then(url => { if (!cancelled) setPreviewUrl(url) })
+        .catch(() => {})
+    }
     return () => { cancelled = true }
-  }, [designUrl, overrides])
+  }, [designUrl, overrides, isEst, generatePreview])
 
-  const hasChanges = Object.entries(overrides).some(([f, t]) => f !== t)
+  const hasChanges = isEst
+    ? estEntries.some(e => overrides[e.key] !== undefined && overrides[e.key] !== e.defaultColor)
+    : Object.entries(overrides).some(([f, t]) => f !== t)
+
+  const renderColorEntry = ({ key, label, defaultColor }) => {
+    const current = overrides[key] !== undefined ? overrides[key] : defaultColor
+    const changed = current !== defaultColor
+    return (
+      <div key={key} className={`rounded-xl p-3 transition-colors ${changed ? 'bg-indigo-50' : 'bg-gray-50'}`}>
+        <div className="flex items-center gap-2 mb-2.5">
+          <span className="text-xs font-medium text-gray-600 flex-1">{label}</span>
+          <div className="w-7 h-7 rounded-lg border border-gray-300 flex-shrink-0 shadow-sm" style={{ background: defaultColor }} title="Оригінал" />
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2" className="flex-shrink-0"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+          <div className="w-7 h-7 rounded-lg border border-gray-300 flex-shrink-0 shadow-sm" style={{ background: current }} />
+          <input
+            type="color"
+            value={current}
+            onChange={e => setOverrides(prev => ({ ...prev, [key]: e.target.value }))}
+            className="w-7 h-7 rounded cursor-pointer border border-gray-200 p-0 flex-shrink-0"
+          />
+          {changed && (
+            <button
+              onClick={() => setOverrides(prev => { const n = {...prev}; delete n[key]; return n })}
+              className="w-5 h-5 flex items-center justify-center text-gray-300 hover:text-red-400 rounded transition-colors flex-shrink-0"
+              title="Скинути"
+            >
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          )}
+        </div>
+        <div className="flex gap-1.5 flex-wrap">
+          {LETTER_COLOR_PRESETS.map(preset => (
+            <button
+              key={preset}
+              onClick={() => setOverrides(prev => ({ ...prev, [key]: preset }))}
+              title={preset}
+              className={`w-6 h-6 rounded-full transition-all flex-shrink-0 ${current === preset ? 'ring-2 ring-indigo-500 ring-offset-1 scale-110' : 'hover:scale-110'}`}
+              style={{
+                background: preset,
+                border: preset === '#ffffff' ? '1.5px solid #e5e7eb' : '1.5px solid transparent',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.15)',
+              }}
+            />
+          ))}
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[60] flex items-center justify-center p-4" onClick={onClose}>
@@ -1104,67 +1191,33 @@ function MockupColorModal({ designUrl, colorOverrides, onSave, onClose }) {
         </div>
         <div className="px-5 pb-5 pt-4 space-y-4">
           {/* Live preview */}
-          <div className="w-full h-36 rounded-xl bg-gray-100 flex items-center justify-center overflow-hidden border border-gray-200">
+          <div className="w-full h-36 rounded-xl bg-gray-100 flex items-center justify-center overflow-hidden border border-gray-200 relative">
             <img src={previewUrl} alt="" className="max-h-full max-w-full object-contain" />
+            {previewLoading && (
+              <div className="absolute inset-0 flex items-center justify-center bg-white/60">
+                <svg className="animate-spin w-5 h-5 text-indigo-500" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" className="opacity-25"/><path d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" fill="currentColor"/></svg>
+              </div>
+            )}
           </div>
-          {/* Color entries */}
-          {loadingColors ? (
+
+          {/* Colour entries */}
+          {isEst ? (
+            <div className="space-y-4">
+              {estEntries.map(renderColorEntry)}
+            </div>
+          ) : loadingColors ? (
             <div className="flex items-center justify-center py-4 gap-2 text-sm text-gray-400">
               <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" className="opacity-25"/><path d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" fill="currentColor"/></svg>
               Аналіз кольорів...
             </div>
-          ) : colors.length === 0 ? (
+          ) : pixelColors.length === 0 ? (
             <p className="text-sm text-gray-400 text-center py-2">Кольори літер не знайдено</p>
           ) : (
             <div className="space-y-4">
-              {colors.map(color => {
-                const current = overrides[color] || color
-                const changed = current !== color
-                return (
-                  <div key={color} className={`rounded-xl p-3 transition-colors ${changed ? 'bg-indigo-50' : 'bg-gray-50'}`}>
-                    {/* Header row: original → current + picker + reset */}
-                    <div className="flex items-center gap-2 mb-2.5">
-                      <div className="w-7 h-7 rounded-lg border border-gray-300 flex-shrink-0 shadow-sm" style={{ background: color }} title="Оригінал" />
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2" className="flex-shrink-0"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
-                      <div className="w-7 h-7 rounded-lg border border-gray-300 flex-shrink-0 shadow-sm" style={{ background: current }} />
-                      <span className="text-[10px] text-gray-400 font-mono flex-1 truncate">{color}</span>
-                      <input
-                        type="color"
-                        value={current}
-                        onChange={e => setOverrides(prev => ({ ...prev, [color]: e.target.value }))}
-                        className="w-7 h-7 rounded cursor-pointer border border-gray-200 p-0 flex-shrink-0"
-                      />
-                      {changed && (
-                        <button
-                          onClick={() => setOverrides(prev => { const n = {...prev}; delete n[color]; return n })}
-                          className="w-5 h-5 flex items-center justify-center text-gray-300 hover:text-red-400 rounded transition-colors flex-shrink-0"
-                          title="Скинути"
-                        >
-                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                        </button>
-                      )}
-                    </div>
-                    {/* Preset swatches */}
-                    <div className="flex gap-1.5 flex-wrap">
-                      {LETTER_COLOR_PRESETS.map(preset => (
-                        <button
-                          key={preset}
-                          onClick={() => setOverrides(prev => ({ ...prev, [color]: preset }))}
-                          title={preset}
-                          className={`w-6 h-6 rounded-full transition-all flex-shrink-0 ${current === preset ? 'ring-2 ring-indigo-500 ring-offset-1 scale-110' : 'hover:scale-110'}`}
-                          style={{
-                            background: preset,
-                            border: preset === '#ffffff' ? '1.5px solid #e5e7eb' : '1.5px solid transparent',
-                            boxShadow: '0 1px 3px rgba(0,0,0,0.15)',
-                          }}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                )
-              })}
+              {pixelColors.map(color => renderColorEntry({ key: color, label: color, defaultColor: color }))}
             </div>
           )}
+
           <div className="flex gap-2 pt-1">
             <button
               onClick={() => setOverrides({})}
@@ -1299,14 +1352,20 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
       const next = {}
       for (let i = 0; i < allMockupProducts.length; i++) {
         const ov = mockupColorOverrides[i]
-        if (ov && Object.entries(ov).some(([f, t]) => f !== t)) {
-          try { next[i] = await applyMockupColorMap(mockupDesignUrl, ov) } catch {}
-        }
+        if (!ov || Object.keys(ov).length === 0) continue
+        try {
+          if (isEst && estPosterRef.current && ('letterColor' in ov || 'fillColor' in ov || 'estColor' in ov)) {
+            const canvas = await estPosterRef.current.exportTransparentWithOverrides(ov)
+            next[i] = canvas.toDataURL('image/png')
+          } else if (Object.entries(ov).some(([f, t]) => f !== t)) {
+            next[i] = await applyMockupColorMap(mockupDesignUrl, ov)
+          }
+        } catch {}
       }
       if (!cancelled) setMockupDesignPreviews(next)
     })()
     return () => { cancelled = true }
-  }, [mockupColorOverrides, mockupDesignUrl, allMockupProducts.length]) // eslint-disable-line
+  }, [mockupColorOverrides, mockupDesignUrl, allMockupProducts.length, isEst]) // eslint-disable-line
 
   // Initialize drawing canvas when tool is activated — bake design (or existing edits) into canvas
   useEffect(() => {
@@ -1527,9 +1586,15 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
       }
       // Apply per-mockup colour overrides
       const dlOv = mockupColorOverrides[index] || {}
-      const effectiveDesignUrl = (designUrl && Object.entries(dlOv).some(([f,t]) => f !== t))
-        ? await applyMockupColorMap(designUrl, dlOv)
-        : designUrl
+      let effectiveDesignUrl = designUrl
+      if (Object.keys(dlOv).length > 0) {
+        if (isEst && estPosterRef.current && ('letterColor' in dlOv || 'fillColor' in dlOv || 'estColor' in dlOv)) {
+          const ovCanvas = await estPosterRef.current.exportTransparentWithOverrides(dlOv)
+          effectiveDesignUrl = ovCanvas.toDataURL('image/png')
+        } else if (designUrl && Object.entries(dlOv).some(([f,t]) => f !== t)) {
+          effectiveDesignUrl = await applyMockupColorMap(designUrl, dlOv)
+        }
+      }
       const SIZE = 1200
       const canvas = document.createElement('canvas')
       canvas.width = SIZE; canvas.height = SIZE
@@ -1624,9 +1689,15 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
       ctx.drawImage(productImg, pX, pY, pW, pH)
       if (overlayUrl) {
         const sendOv = mockupColorOverrides[i] || {}
-        const effectiveSendUrl = Object.entries(sendOv).some(([f,t]) => f !== t)
-          ? await applyMockupColorMap(overlayUrl, sendOv)
-          : overlayUrl
+        let effectiveSendUrl = overlayUrl
+        if (Object.keys(sendOv).length > 0) {
+          if (isEst && estPosterRef.current && ('letterColor' in sendOv || 'fillColor' in sendOv || 'estColor' in sendOv)) {
+            const ovCanvas = await estPosterRef.current.exportTransparentWithOverrides(sendOv)
+            effectiveSendUrl = ovCanvas.toDataURL('image/png')
+          } else if (Object.entries(sendOv).some(([f,t]) => f !== t)) {
+            effectiveSendUrl = await applyMockupColorMap(overlayUrl, sendOv)
+          }
+        }
         const dImg = await loadImgEl(effectiveSendUrl)
         const srcW = dImg.naturalWidth || dImg.width
         const srcH = dImg.naturalHeight || dImg.height
@@ -1795,9 +1866,15 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
         mCtx.drawImage(pImg, 0, 0, SIZE, SIZE)
         if (baseOverlayDataUrl) {
           const thumbOv = mockupColorOverrides[productIdx] || {}
-          const effectiveThumbUrl = Object.entries(thumbOv).some(([f,t]) => f !== t)
-            ? await applyMockupColorMap(baseOverlayDataUrl, thumbOv)
-            : baseOverlayDataUrl
+          let effectiveThumbUrl = baseOverlayDataUrl
+          if (Object.keys(thumbOv).length > 0) {
+            if (isEst && estPosterRef.current && ('letterColor' in thumbOv || 'fillColor' in thumbOv || 'estColor' in thumbOv)) {
+              const ovCanvas = await estPosterRef.current.exportTransparentWithOverrides(thumbOv)
+              effectiveThumbUrl = ovCanvas.toDataURL('image/png')
+            } else if (Object.entries(thumbOv).some(([f,t]) => f !== t)) {
+              effectiveThumbUrl = await applyMockupColorMap(baseOverlayDataUrl, thumbOv)
+            }
+          }
           const overlayImg = await loadImgEl(effectiveThumbUrl)
           const srcW = overlayImg.naturalWidth || overlayImg.width
           const srcH = overlayImg.naturalHeight || overlayImg.height
@@ -2023,9 +2100,15 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
         mCtx.drawImage(pImg, 0, 0, SIZE, SIZE)
         if (baseOverlayDataUrl) {
           const thumbOv = mockupColorOverrides[productIdx] || {}
-          const effectiveThumbUrl = Object.entries(thumbOv).some(([f,t]) => f !== t)
-            ? await applyMockupColorMap(baseOverlayDataUrl, thumbOv)
-            : baseOverlayDataUrl
+          let effectiveThumbUrl = baseOverlayDataUrl
+          if (Object.keys(thumbOv).length > 0) {
+            if (isEst && estPosterRef.current && ('letterColor' in thumbOv || 'fillColor' in thumbOv || 'estColor' in thumbOv)) {
+              const ovCanvas = await estPosterRef.current.exportTransparentWithOverrides(thumbOv)
+              effectiveThumbUrl = ovCanvas.toDataURL('image/png')
+            } else if (Object.entries(thumbOv).some(([f,t]) => f !== t)) {
+              effectiveThumbUrl = await applyMockupColorMap(baseOverlayDataUrl, thumbOv)
+            }
+          }
           const overlayImg = await loadImgEl(effectiveThumbUrl)
           const srcW = overlayImg.naturalWidth || overlayImg.width
           const srcH = overlayImg.naturalHeight || overlayImg.height
@@ -2634,6 +2717,12 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
         <MockupColorModal
           designUrl={mockupDesignUrl}
           colorOverrides={mockupColorOverrides[editingColorIndex] || {}}
+          isEst={isEst}
+          estPosterState={isEst ? estPosterRef.current?.getState() : null}
+          generatePreview={isEst && estPosterRef.current ? async (ov) => {
+            const canvas = await estPosterRef.current.exportTransparentWithOverrides(ov)
+            return canvas.toDataURL('image/png')
+          } : null}
           onSave={(overrides) => {
             setMockupColorOverrides(prev => ({ ...prev, [editingColorIndex]: overrides }))
             setEditingColorIndex(null)
