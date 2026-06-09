@@ -795,18 +795,41 @@ export default function PaletteEditor() {
     // --- auto group ---
     function autoGroup() {
       if (!svgRoot) return
+
+      // Walk up DOM to find inherited fill/stroke when element has none directly.
+      function inheritedColor(el, prop) {
+        let node = el.parentElement
+        while (node && node !== svgRoot) {
+          const v = node.getAttribute(prop)
+          if (v && v !== 'inherit') return v
+          const st = node.getAttribute('style') || ''
+          const m = st.match(new RegExp(prop + '\\s*:\\s*([^;]+)', 'i'))
+          if (m && m[1].trim() !== 'inherit') return m[1].trim()
+          node = node.parentElement
+        }
+        return null
+      }
+
       const allEls = Array.from(svgRoot.querySelectorAll('*'))
+      const LEAF_TAGS = new Set(['path','rect','circle','ellipse','polygon','polyline','line'])
       const items = []
       for (const el of allEls) {
-        if (el.tagName?.toLowerCase() === 'defs') continue
+        const tn = el.tagName?.toLowerCase()
+        if (tn === 'defs' || tn === 'symbol' || tn === 'marker') continue
         const fill = el.getAttribute('fill'), stroke = el.getAttribute('stroke')
         const style = el.getAttribute('style') || ''
         let styleFill=null,styleStroke=null
         if (style) { const mF=style.match(/fill\s*:\s*([^;]+)/i);const mS=style.match(/stroke\s*:\s*([^;]+)/i); if(mF)styleFill=mF[1].trim();if(mS)styleStroke=mS[1].trim() }
-        const finalFill = fill || styleFill || null, finalStroke = stroke || styleStroke || null
+        let finalFill = fill || styleFill || null
+        let finalStroke = stroke || styleStroke || null
+        // For leaf shapes with no direct fill, check inherited fill from parent <g>
+        if (!finalFill && LEAF_TAGS.has(tn)) {
+          const inherited = inheritedColor(el, 'fill')
+          if (inherited && inherited !== 'none') finalFill = inherited
+        }
         const isRef = s => s && /^url\(/i.test(s)
-        if (finalFill && !isRef(finalFill)) items.push({el,prop:'fill',raw:finalFill})
-        if (finalStroke && !isRef(finalStroke)) items.push({el,prop:'stroke',raw:finalStroke})
+        if (finalFill && finalFill !== 'none' && !isRef(finalFill)) items.push({el,prop:'fill',raw:finalFill})
+        if (finalStroke && finalStroke !== 'none' && !isRef(finalStroke)) items.push({el,prop:'stroke',raw:finalStroke})
       }
       const map = new Map()
       for (const it of items) {
