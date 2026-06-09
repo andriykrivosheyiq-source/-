@@ -69,7 +69,7 @@ const CSS = `
 .pe-preview-wrap{flex:1;padding:16px;overflow:hidden;display:flex;position:relative}
 .pe-preview-columns{display:flex;gap:12px;width:100%;align-items:flex-start;justify-content:center}
 .pe-preview-column{box-sizing:border-box;display:flex;flex-direction:column;align-items:center;background:#fff;border-radius:14px;padding:12px;border:1px solid #f0f0f0;height:calc(100vh - 116px);overflow:auto;box-shadow:0 1px 4px rgba(0,0,0,0.04)}
-.pe-preview-column#editedColumn{flex:1 1 0;max-width:58%;min-width:300px;overflow:hidden;cursor:zoom-in}
+.pe-preview-column#editedColumn{flex:1 1 0;max-width:58%;min-width:300px;overflow:hidden;cursor:grab}
 .pe-preview-column#originalColumn{flex:1 1 0;max-width:42%;min-width:260px}
 .pe-preview-column .title{font-size:11px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;text-align:center;width:100%}
 #svgPreview,#originalPreview{width:100%;height:auto;display:block;background:#fff;border-radius:8px;box-sizing:border-box}
@@ -679,6 +679,42 @@ export default function PaletteEditor() {
         }
         applyTransform()
       }, { passive: false })
+
+      let dragState = null
+      let dragMoved = false
+
+      editedCol.addEventListener('mousedown', (e) => {
+        if (e.button !== 0 || !svgRoot) return
+        dragState = { startX: e.clientX, startY: e.clientY, startTx: zoomState.tx, startTy: zoomState.ty }
+        dragMoved = false
+        editedCol.style.cursor = 'grabbing'
+      })
+
+      editedCol.addEventListener('mousemove', (e) => {
+        if (!dragState) return
+        const dx = e.clientX - dragState.startX
+        const dy = e.clientY - dragState.startY
+        if (Math.abs(dx) > 3 || Math.abs(dy) > 3) dragMoved = true
+        zoomState = { s: zoomState.s, tx: dragState.startTx + dx, ty: dragState.startTy + dy }
+        applyTransform()
+      })
+
+      const endDrag = () => {
+        if (!dragState) return
+        dragState = null
+        editedCol.style.cursor = ''
+      }
+
+      editedCol.addEventListener('mouseup', endDrag)
+      editedCol.addEventListener('mouseleave', endDrag)
+
+      editedCol.addEventListener('click', (e) => {
+        if (dragMoved) {
+          e.stopPropagation()
+          e.preventDefault()
+          dragMoved = false
+        }
+      }, true)
     }
 
     if (threshRangeEl) threshRangeEl.addEventListener('input', () => { if (threshValEl) threshValEl.textContent = threshRangeEl.value })
