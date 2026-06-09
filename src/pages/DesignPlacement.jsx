@@ -1053,6 +1053,17 @@ function ChangeProductModal({ current, onSelect, onClose }) {
 
 // ─── MockupColorModal ─────────────────────────────────────────────────────────
 
+const LETTER_COLOR_PRESETS = [
+  '#000000', '#ffffff', '#1e3a5f', '#c0392b', '#2d5a27',
+  '#d97706', '#7c3aed', '#9ca3af', '#8b5e3c', '#1e40af',
+  '#be185d', '#0f766e', '#b45309', '#4338ca',
+]
+
+function getLuminance(hex) {
+  const [r, g, b] = hexToRgb(hex)
+  return (0.299 * r + 0.587 * g + 0.114 * b) / 255
+}
+
 function MockupColorModal({ designUrl, colorOverrides, onSave, onClose }) {
   const [colors, setColors] = useState([])
   const [overrides, setOverrides] = useState(() => ({ ...colorOverrides }))
@@ -1061,7 +1072,16 @@ function MockupColorModal({ designUrl, colorOverrides, onSave, onClose }) {
 
   useEffect(() => {
     let cancelled = false
-    extractDesignColors(designUrl).then(c => { if (!cancelled) { setColors(c); setLoadingColors(false) } }).catch(() => { if (!cancelled) setLoadingColors(false) })
+    extractDesignColors(designUrl, 30).then(allColors => {
+      if (cancelled) return
+      // Keep only very dark (outlines) and very light (fills) — these are letter colours
+      const letterColors = allColors.filter(c => {
+        const lum = getLuminance(c)
+        return lum < 0.15 || lum > 0.82
+      }).slice(0, 6)
+      setColors(letterColors)
+      setLoadingColors(false)
+    }).catch(() => { if (!cancelled) setLoadingColors(false) })
     return () => { cancelled = true }
   }, [designUrl])
 
@@ -1077,7 +1097,7 @@ function MockupColorModal({ designUrl, colorOverrides, onSave, onClose }) {
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[60] flex items-center justify-center p-4" onClick={onClose}>
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xs max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between px-5 pt-5 pb-3 border-b border-gray-100">
-          <h3 className="text-base font-bold text-gray-900">Кольори дизайну</h3>
+          <h3 className="text-base font-bold text-gray-900">Кольори літер</h3>
           <button onClick={onClose} className="w-7 h-7 flex items-center justify-center text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
           </button>
@@ -1087,39 +1107,59 @@ function MockupColorModal({ designUrl, colorOverrides, onSave, onClose }) {
           <div className="w-full h-36 rounded-xl bg-gray-100 flex items-center justify-center overflow-hidden border border-gray-200">
             <img src={previewUrl} alt="" className="max-h-full max-w-full object-contain" />
           </div>
-          {/* Color list */}
+          {/* Color entries */}
           {loadingColors ? (
             <div className="flex items-center justify-center py-4 gap-2 text-sm text-gray-400">
               <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" className="opacity-25"/><path d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" fill="currentColor"/></svg>
               Аналіз кольорів...
             </div>
           ) : colors.length === 0 ? (
-            <p className="text-sm text-gray-400 text-center py-2">Кольори не знайдено</p>
+            <p className="text-sm text-gray-400 text-center py-2">Кольори літер не знайдено</p>
           ) : (
-            <div className="space-y-2">
+            <div className="space-y-4">
               {colors.map(color => {
                 const current = overrides[color] || color
                 const changed = current !== color
                 return (
-                  <div key={color} className={`flex items-center gap-2.5 p-2 rounded-xl transition-colors ${changed ? 'bg-indigo-50' : 'hover:bg-gray-50'}`}>
-                    <div className="w-7 h-7 rounded-lg border border-gray-200 flex-shrink-0 shadow-sm" style={{ background: color }} title="Оригінал" />
-                    {changed && <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#6366f1" strokeWidth="2.5" className="flex-shrink-0"><path d="M5 12h14M13 6l6 6-6 6"/></svg>}
-                    <span className="text-[10px] text-gray-400 font-mono flex-1">{color}</span>
-                    <input
-                      type="color"
-                      value={current}
-                      onChange={e => setOverrides(prev => ({ ...prev, [color]: e.target.value }))}
-                      className="w-8 h-8 rounded-lg cursor-pointer border border-gray-200 p-0.5 flex-shrink-0"
-                    />
-                    {changed && (
-                      <button
-                        onClick={() => setOverrides(prev => { const n = {...prev}; delete n[color]; return n })}
-                        className="w-5 h-5 flex items-center justify-center text-gray-300 hover:text-red-400 rounded transition-colors flex-shrink-0"
-                        title="Скинути"
-                      >
-                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                      </button>
-                    )}
+                  <div key={color} className={`rounded-xl p-3 transition-colors ${changed ? 'bg-indigo-50' : 'bg-gray-50'}`}>
+                    {/* Header row: original → current + picker + reset */}
+                    <div className="flex items-center gap-2 mb-2.5">
+                      <div className="w-7 h-7 rounded-lg border border-gray-300 flex-shrink-0 shadow-sm" style={{ background: color }} title="Оригінал" />
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2" className="flex-shrink-0"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+                      <div className="w-7 h-7 rounded-lg border border-gray-300 flex-shrink-0 shadow-sm" style={{ background: current }} />
+                      <span className="text-[10px] text-gray-400 font-mono flex-1 truncate">{color}</span>
+                      <input
+                        type="color"
+                        value={current}
+                        onChange={e => setOverrides(prev => ({ ...prev, [color]: e.target.value }))}
+                        className="w-7 h-7 rounded cursor-pointer border border-gray-200 p-0 flex-shrink-0"
+                      />
+                      {changed && (
+                        <button
+                          onClick={() => setOverrides(prev => { const n = {...prev}; delete n[color]; return n })}
+                          className="w-5 h-5 flex items-center justify-center text-gray-300 hover:text-red-400 rounded transition-colors flex-shrink-0"
+                          title="Скинути"
+                        >
+                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                        </button>
+                      )}
+                    </div>
+                    {/* Preset swatches */}
+                    <div className="flex gap-1.5 flex-wrap">
+                      {LETTER_COLOR_PRESETS.map(preset => (
+                        <button
+                          key={preset}
+                          onClick={() => setOverrides(prev => ({ ...prev, [color]: preset }))}
+                          title={preset}
+                          className={`w-6 h-6 rounded-full transition-all flex-shrink-0 ${current === preset ? 'ring-2 ring-indigo-500 ring-offset-1 scale-110' : 'hover:scale-110'}`}
+                          style={{
+                            background: preset,
+                            border: preset === '#ffffff' ? '1.5px solid #e5e7eb' : '1.5px solid transparent',
+                            boxShadow: '0 1px 3px rgba(0,0,0,0.15)',
+                          }}
+                        />
+                      ))}
+                    </div>
                   </div>
                 )
               })}
