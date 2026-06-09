@@ -1432,6 +1432,8 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
         filename: `${fileName || 'mockup'}_Мокап_№${i + 1}.png`,
         size: formatFileSize(Math.round(mockupUrl.length * 0.75)),
         checked: true,
+        itemSize: sendOrderSize || 'XL',
+        colorLabel: product.nameUk || '',
       })
     }
     return items
@@ -1814,10 +1816,11 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
     const catMap = { 'hoodie-basic': 'hoodie', 'hoodie-fleece': 'hoodie', 'hoodie-premium': 'hoodie', 'tshirt-basic': 'tshirt', 'tshirt-oversized': 'oversized', 'sweatshirt': 'sweatshirt', 'cap': 'cap', 'shopper': 'totebag' }
     const transferDateStr = now.toLocaleString('uk-UA', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Kiev' }).replace(',', '')
     // Only include products whose mockup was checked by the user
-    const allProductNames = sendItems
-      .filter(i => i.checked && i.id.startsWith('mockup-'))
+    const checkedMockupsSend = sendItems.filter(i => i.checked && i.id.startsWith('mockup-'))
+    const allProductNames = checkedMockupsSend
       .map(i => allMockupProducts[parseInt(i.id.replace('mockup-', ''))]?.nameUk)
       .filter(Boolean)
+    const orderSizeStr = [...new Set(checkedMockupsSend.map(i => i.itemSize || 'XL'))].join(', ')
     const order = {
       id: orderNum,
       name: fileName || `Дизайн від ${dateStr}`,
@@ -1835,7 +1838,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
       transferDate: now.toISOString(),
       transferDateStr,
       comment: designerComment,
-      orderSize: sendOrderSize,
+      orderSize: orderSizeStr || sendOrderSize,
       embroiderySize: sendEmbroiderySize,
     }
     const designSnapshot = {
@@ -1881,13 +1884,17 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
             }
           } catch {}
           const cleanId = (fileName || order.id).replace(/^#/, '')
-          const caption = [cleanId, allProductNames.join(' + '), sendOrderSize, sendEmbroiderySize].filter(Boolean).join(' ')
-          const designerFiles = checkedFiles.map(item => ({
-            ...item,
-            dataUrl: item.id === 'design' && transparentDesignUrl ? transparentDesignUrl : item.dataUrl,
-            filename: item.id === 'design' ? `${cleanId}.png` : item.filename,
-            label: caption,
-          }))
+          const tgSizes = [...new Set(checkedFiles.filter(f => f.id.startsWith('mockup-')).map(f => f.itemSize || 'XL'))].join(', ')
+          const caption = [cleanId, allProductNames.join(' + '), tgSizes || sendOrderSize, sendEmbroiderySize].filter(Boolean).join(' ')
+          const designerFiles = checkedFiles.map(item => {
+            if (item.id === 'design') {
+              return { ...item, dataUrl: transparentDesignUrl || item.dataUrl, filename: `${cleanId}.png`, label: caption }
+            }
+            const colorPart = (item.colorLabel || '').trim().replace(/[\s/\\]+/g, '_')
+            const sizePart = item.itemSize || 'XL'
+            const parts = [cleanId, colorPart, sizePart].filter(Boolean)
+            return { ...item, filename: `${parts.join('_')}.png`, label: caption }
+          })
           await sendOrderToDesignerTelegram({ order, files: designerFiles })
           setDesignerSendToast('ok')
         } catch {
@@ -2418,8 +2425,10 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
                     </div>
                   </div>
                   <div>
-                    <label className="text-xs text-gray-500 block mb-1">Розмір</label>
-                    <input value={sendOrderSize} onChange={e => setSendOrderSize(e.target.value)} className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300" placeholder="XL" />
+                    <label className="text-xs text-gray-500 block mb-1">Розмір (з мокапів)</label>
+                    <div className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-800 bg-gray-50 min-h-[38px]">
+                      {[...new Set(sendItems.filter(i => i.checked && i.id.startsWith('mockup-')).map(i => i.itemSize || 'XL'))].join(', ') || '—'}
+                    </div>
                   </div>
                   <div>
                     <label className="text-xs text-gray-500 block mb-1">Розмір вишивки</label>
@@ -2440,7 +2449,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
                 ) : (
                   <div className="flex gap-3 overflow-x-auto pb-2">
                     {sendItems.map((item, idx) => (
-                      <div key={item.id} className={`flex-shrink-0 w-44 border-2 rounded-xl p-3 cursor-pointer transition-all ${item.checked ? 'border-indigo-500 bg-indigo-50/40' : 'border-gray-200 bg-white'}`} onClick={() => setSendItems(prev => prev.map((it, i) => i === idx ? { ...it, checked: !it.checked } : it))}>
+                      <div key={item.id} className={`flex-shrink-0 w-48 border-2 rounded-xl p-3 cursor-pointer transition-all ${item.checked ? 'border-indigo-500 bg-indigo-50/40' : 'border-gray-200 bg-white'}`} onClick={() => setSendItems(prev => prev.map((it, i) => i === idx ? { ...it, checked: !it.checked } : it))}>
                         <div className="flex items-center justify-between mb-2">
                           <div className={`w-5 h-5 rounded flex items-center justify-center border-2 transition-colors ${item.checked ? 'bg-indigo-600 border-indigo-600' : 'border-gray-300 bg-white'}`}>
                             {item.checked && <svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M2 6l3 3 5-5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
@@ -2452,8 +2461,26 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
                         <div className="w-full h-28 bg-white rounded-lg overflow-hidden border border-gray-100 flex items-center justify-center mb-2">
                           <img src={item.thumbnail} alt="" className="w-full h-full object-contain" />
                         </div>
-                        <p className="text-xs font-semibold text-gray-800 truncate">{item.label.replace('.png','')}</p>
-                        <p className="text-[10px] text-gray-400 mt-0.5 truncate">{item.filename}</p>
+                        <p className="text-xs font-semibold text-gray-800 truncate mb-1">{item.label.replace('.png','')}</p>
+                        {item.id.startsWith('mockup-') && (
+                          <div onClick={e => e.stopPropagation()} className="space-y-1.5">
+                            <div className="flex gap-0.5 flex-wrap">
+                              {['XS','S','M','L','XL'].map(sz => (
+                                <button key={sz} type="button"
+                                  onClick={() => setSendItems(prev => prev.map((it, i) => i === idx ? { ...it, itemSize: sz } : it))}
+                                  className={`px-1.5 py-0.5 text-[10px] font-bold rounded border transition-colors ${item.itemSize === sz ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-gray-300 text-gray-500 hover:border-indigo-400'}`}
+                                >{sz}</button>
+                              ))}
+                            </div>
+                            <input
+                              value={item.colorLabel || ''}
+                              onChange={e => setSendItems(prev => prev.map((it, i) => i === idx ? { ...it, colorLabel: e.target.value } : it))}
+                              placeholder="Назва (напр. Синій худі)"
+                              className="w-full border border-gray-200 rounded-lg px-2 py-1 text-[11px] focus:outline-none focus:ring-1 focus:ring-indigo-300"
+                            />
+                          </div>
+                        )}
+                        {!item.id.startsWith('mockup-') && <p className="text-[10px] text-gray-400 mt-0.5 truncate">{item.filename}</p>}
                       </div>
                     ))}
                   </div>
