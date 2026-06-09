@@ -998,7 +998,7 @@ function ChangeProductModal({ current, onSelect, onClose }) {
 
 // ─── DesignPlacement ──────────────────────────────────────────────────────────
 
-export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onUpdateOrderFull, onRenameOrder }) {
+export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onUpdateOrderFull, onUpdateOrder, onRenameOrder }) {
   const navigate = useNavigate()
   const estPosterRef = useRef(null)
   const autoSaveRef = useRef(false)
@@ -2308,15 +2308,20 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
             </button>
             {currentDesignImage && (
               <button
-                onClick={() => navigate('/palette-editor', { state: {
-                  designImage: mockupDesignUrl || currentDesignImage,
-                  mockupDesignUrl: mockupDesignUrl || null,
-                  fileName: fileName || '',
-                  orderSize: sendOrderSize || '',
-                  embroiderySize: sendEmbroiderySize || '',
-                  mockupProducts: allMockupProducts.map(p => ({ id: p.id, nameUk: p.nameUk, image: p.image, category: p.category })),
-                  mockupOverlay,
-                } })}
+                onClick={() => {
+                  const editingId = designData?.editingOrderId
+                  if (editingId) onUpdateOrder?.(editingId, { status: 'palette' })
+                  navigate('/palette-editor', { state: {
+                    designImage: mockupDesignUrl || currentDesignImage,
+                    mockupDesignUrl: mockupDesignUrl || null,
+                    fileName: fileName || '',
+                    orderSize: sendOrderSize || '',
+                    embroiderySize: sendEmbroiderySize || '',
+                    editingOrderId: editingId || null,
+                    mockupProducts: allMockupProducts.map(p => ({ id: p.id, nameUk: p.nameUk, image: p.image, category: p.category })),
+                    mockupOverlay,
+                  } })
+                }}
                 className="w-full flex items-center justify-center gap-2 border border-violet-300 text-violet-700 hover:bg-violet-50 rounded-xl py-2.5 text-sm font-semibold transition-colors"
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

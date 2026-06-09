@@ -106,7 +106,7 @@ const CSS = `
 .pe-panel::-webkit-scrollbar-thumb,.pe-preview-column::-webkit-scrollbar-thumb,.side-codes::-webkit-scrollbar-thumb{background:rgba(99,102,241,0.2);border-radius:4px}
 `
 
-export default function PaletteEditor() {
+export default function PaletteEditor({ onUpdateOrder }) {
   const location = useLocation()
   const containerRef = useRef(null)
   const autoImageRef = useRef(location.state?.designImage || null)
@@ -114,6 +114,7 @@ export default function PaletteEditor() {
   const groupsRef = useRef([])
 
   const ls = location.state || {}
+  const editingOrderId = ls.editingOrderId || null
   const [showModal, setShowModal] = useState(false)
   const [modalForm, setModalForm] = useState({
     orderNum: ls.fileName || '',
@@ -142,7 +143,15 @@ export default function PaletteEditor() {
         const dataUrl = generatePaletteImage(gs)
         if (dataUrl) items.push({ id: 'palette', label: 'Палітра ниток', filename: `${cleanId}_palette.png`, thumbnail: dataUrl, dataUrl, checked: true })
       }
-      if (lsState.mockupProducts?.length) {
+      if (lsState.mockupThumbs?.length) {
+        // Pre-generated mockup thumbnails (from kanban drag-to-palette)
+        lsState.mockupThumbs.forEach((t, i) => {
+          if (!t.thumbnail) return
+          const label = t.label || `Мокап ${i + 1}`
+          const safe = label.replace(/\s+/g, '_')
+          items.push({ id: `mockup-${i}`, label, filename: `${cleanId}_${safe}.jpg`, thumbnail: t.thumbnail, dataUrl: t.thumbnail, checked: true })
+        })
+      } else if (lsState.mockupProducts?.length) {
         const thumbs = await generateMockupThumbs(lsState.mockupProducts, lsState.mockupOverlay, lsState.mockupDesignUrl)
         thumbs.forEach((t, i) => {
           const safe = (t.label || `mockup_${i}`).replace(/\s+/g, '_')
@@ -1615,6 +1624,16 @@ export default function PaletteEditor() {
         .filter(item => item.checked)
         .map(item => ({ dataUrl: item.dataUrl, label: caption, filename: item.filename }))
       await sendOrderToDesignerTelegram({ order, files })
+      if (editingOrderId) {
+        onUpdateOrder?.(editingOrderId, {
+          status: 'designer',
+          transferDate: order.transferDate,
+          transferDateStr: order.transferDateStr,
+          orderSize: order.orderSize,
+          embroiderySize: order.embroiderySize,
+          comment: order.comment,
+        })
+      }
       setSendStatus('ok')
       setTimeout(() => { setShowModal(false); setSendStatus(null) }, 2500)
     } catch (err) {

@@ -600,6 +600,7 @@ export default function MyOrders({ savedOrders = [], ordersLoading = false, orde
   const [sortBy, setSortBy] = useState('newest')
   const [selectedOrder, setSelectedOrder] = useState(null)
   const [transferPending, setTransferPending] = useState(null)
+  const [palettePending, setPalettePending] = useState(null)
   const [tgToast, setTgToast] = useState(null) // null | 'sending' | 'ok' | 'error'
 
   const allOrders = savedOrders.map(o => ({ ...o, _saved: true }))
@@ -623,6 +624,12 @@ export default function MyOrders({ savedOrders = [], ordersLoading = false, orde
     if (newStatus === 'designer') {
       const order = allOrders.find(o => o.id === id) || { id }
       setTransferPending({ order, extras: orderExtras[id] || {} })
+      if (selectedOrder?.id === id) setSelectedOrder(null)
+      return
+    }
+    if (newStatus === 'palette') {
+      const order = allOrders.find(o => o.id === id) || { id }
+      setPalettePending({ order, extras: orderExtras[id] || {} })
       if (selectedOrder?.id === id) setSelectedOrder(null)
       return
     }
@@ -842,6 +849,55 @@ export default function MyOrders({ savedOrders = [], ordersLoading = false, orde
           onConfirm={handleConfirmTransfer}
           onClose={() => setTransferPending(null)}
         />
+      )}
+
+      {/* Palette confirmation modal */}
+      {palettePending && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setPalettePending(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6" onClick={e => e.stopPropagation()}>
+            <div className="w-12 h-12 bg-orange-100 rounded-xl flex items-center justify-center mx-auto mb-4">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#f97316" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="13.5" cy="6.5" r="2"/><circle cx="6.5" cy="12.5" r="2"/><circle cx="17.5" cy="14.5" r="2"/>
+                <path d="M2 20h20"/>
+              </svg>
+            </div>
+            <h2 className="text-lg font-bold text-gray-900 text-center mb-2">Перейти в Палітру SVG?</h2>
+            <p className="text-sm text-gray-500 text-center mb-6">
+              Замовлення буде переміщено до статусу «Палітра». Бажаєте відкрити редактор палітри для цього дизайну?
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  onUpdateOrder?.(palettePending.order.id, { status: 'palette' })
+                  setPalettePending(null)
+                }}
+                className="flex-1 border border-gray-200 text-gray-700 hover:bg-gray-50 rounded-xl py-2.5 text-sm font-semibold transition-colors"
+              >
+                Ні, тільки змінити статус
+              </button>
+              <button
+                onClick={() => {
+                  const { order, extras } = palettePending
+                  onUpdateOrder?.(order.id, { status: 'palette' })
+                  navigate('/palette-editor', {
+                    state: {
+                      designImage: extras?.transparentImage || extras?.fullImage || order.image,
+                      mockupDesignUrl: extras?.transparentImage || null,
+                      fileName: (order.name || order.id || '').replace(/^#/, ''),
+                      editingOrderId: order.id,
+                      mockupThumbs: order.mockupThumbs || [],
+                      mockupOverlay: extras?.designSnapshot?.mockupOverlay || { x: 50, y: 35, size: 32 },
+                    }
+                  })
+                  setPalettePending(null)
+                }}
+                className="flex-1 bg-orange-500 hover:bg-orange-600 text-white rounded-xl py-2.5 text-sm font-semibold transition-colors"
+              >
+                Так, відкрити
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {tgToast && (
