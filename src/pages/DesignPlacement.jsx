@@ -2422,7 +2422,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
                       {preparingSend ? '…' : (() => {
                         const names = sendItems
                           .filter(i => i.checked && i.id.startsWith('mockup-'))
-                          .map(i => allMockupProducts[parseInt(i.id.replace('mockup-', ''))]?.nameUk)
+                          .map(i => (i.label || '').replace(/^Мокап №\d+ — /, '').trim())
                           .filter(Boolean)
                         return names.length ? names.join(', ') : '—'
                       })()}
@@ -2436,7 +2436,9 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
                   </div>
                   <div>
                     <label className="text-xs text-gray-500 block mb-1">Розмір вишивки</label>
-                    <input value={sendEmbroiderySize} onChange={e => setSendEmbroiderySize(e.target.value)} className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300" placeholder="23 см" />
+                    <div className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-800 bg-gray-50 min-h-[38px]">
+                      {sendItems.filter(i => i.checked && i.id.startsWith('mockup-')).map(i => i.embSize).filter(Boolean).join(', ') || '—'}
+                    </div>
                   </div>
                 </div>
               </div>

@@ -316,7 +316,9 @@ function TransferToDesignerModal({ order, extras, onConfirm, onClose }) {
               </div>
               <div>
                 <label className="text-xs text-gray-500 block mb-1">Розмір вишивки</label>
-                <input value={embroiderySize} onChange={e => setEmbroiderySize(e.target.value)} className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300" placeholder="23 см" />
+                <div className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-800 bg-gray-50 min-h-[38px]">
+                  {checkedMockups.map(f => f.embSize).filter(Boolean).join(', ') || '—'}
+                </div>
               </div>
             </div>
           </div>

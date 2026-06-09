@@ -1833,9 +1833,9 @@ export default function PaletteEditor({ onUpdateOrder }) {
               </div>
               <div>
                 <label style={{fontSize:11,color:'#6b7280',display:'block',marginBottom:4}}>Розмір вишивки</label>
-                <input value={modalForm.embSize} onChange={e => setModalForm(f => ({...f, embSize: e.target.value}))} placeholder="23 см"
-                  style={{width:'100%',boxSizing:'border-box',border:'1.5px solid #e5e7eb',borderRadius:9,padding:'7px 10px',fontSize:13,fontFamily:'inherit',outline:'none',transition:'border-color .15s'}}
-                  onFocus={e => e.target.style.borderColor='#6366f1'} onBlur={e => e.target.style.borderColor='#e5e7eb'} />
+                <div style={{width:'100%',boxSizing:'border-box',border:'1.5px solid #e5e7eb',borderRadius:9,padding:'7px 10px',fontSize:13,fontFamily:'inherit',background:'#f9fafb',color:'#374151',minHeight:36}}>
+                  {mockupItems.filter(i => i.checked && i.id.startsWith('mockup-')).map(i => i.embSize).filter(Boolean).join(', ') || '—'}
+                </div>
               </div>
             </div>
 
