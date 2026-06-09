@@ -1511,7 +1511,6 @@ export default function PaletteEditor() {
         const c = document.createElement('canvas')
         c.width = exportW; c.height = exportH
         const ctx = c.getContext('2d')
-        ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, exportW, exportH)
         ctx.drawImage(img, 0, 0, exportW, exportH)
         URL.revokeObjectURL(url)
         resolve(c.toDataURL('image/png'))
