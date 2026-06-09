@@ -16,6 +16,19 @@ const D_PATH_INNER =
   'M289 135L350 183L388 456L343 515L142 542L140 537L133 484L159 480L160 476L125 219L124 217L102 220L98 219L90 163L115 158Z ' +
   'M262 198L191 207L227 470L298 461L317 436L288 221L285 215Z'
 
+// A letter (360×460 coordinate space)
+const A_PATH =
+  'M 100 0 L 260 0 L 360 460 L 290 460 L 220 290 L 140 290 L 70 460 L 0 460 Z ' +
+  'M 180 25 L 105 270 L 255 270 Z'
+
+const A_PATH_INNER = 'M 180 25 L 105 270 L 255 270 Z'
+
+// Y letter (360×460 coordinate space)
+const Y_PATH =
+  'M 0 0 L 75 0 L 195 215 L 245 215 L 285 0 L 360 0 L 245 230 L 245 460 L 115 460 L 115 230 L 0 0 Z'
+
+const Y_PATH_INNER = 'M 75 0 L 195 215 L 245 215 L 285 0 Z'
+
 const PRESET_COLORS = ['#000000', '#1e3a5f', '#c0392b', '#2d5a27', '#d97706', '#7c3aed', '#9ca3af', '#8b5e3c', '#ffffff', '#f5eed6']
 
 const DESIGNERS = [
@@ -151,7 +164,8 @@ function removeWhiteBg(img, threshold = 220, noDilation = false) {
   return canvas
 }
 
-function drawDLetters(ctx, letters, W, H, style = 'D') {
+function drawLetters(ctx, letters, W, H, style = 'D') {
+  const isTwoColor = style.includes('TWO_COLOR')
   for (const letter of letters) {
     const lx = letter.x / 100 * W
     const ly = letter.y / 100 * H
@@ -163,19 +177,45 @@ function drawDLetters(ctx, letters, W, H, style = 'D') {
     ctx.rotate(letter.rotation * Math.PI / 180)
     ctx.translate(-lw / 2, -lh / 2)
     ctx.scale(sc, sc)
-    ctx.translate(-60, -110)
-    if (style === 'D_TWO_COLOR') {
-      ctx.fillStyle = letter.color
-      ctx.fill(new Path2D(D_PATH), 'evenodd')
-      ctx.fillStyle = letter.fillColor || '#ffffff'
-      ctx.fill(new Path2D(D_PATH_INNER), 'evenodd')
+    if (letter.type === 'A') {
+      if (isTwoColor) {
+        ctx.fillStyle = letter.color
+        ctx.fill(new Path2D(A_PATH), 'evenodd')
+        ctx.fillStyle = letter.fillColor || '#ffffff'
+        ctx.fill(new Path2D(A_PATH_INNER), 'evenodd')
+      } else {
+        ctx.fillStyle = letter.color
+        ctx.fill(new Path2D(A_PATH), 'evenodd')
+      }
+    } else if (letter.type === 'Y') {
+      if (isTwoColor) {
+        ctx.fillStyle = letter.color
+        ctx.fill(new Path2D(Y_PATH), 'evenodd')
+        ctx.fillStyle = letter.fillColor || '#ffffff'
+        ctx.fill(new Path2D(Y_PATH_INNER), 'evenodd')
+      } else {
+        ctx.fillStyle = letter.color
+        ctx.fill(new Path2D(Y_PATH), 'evenodd')
+      }
     } else {
-      ctx.fillStyle = letter.color
-      ctx.fill(new Path2D(D_PATH), 'evenodd')
+      // type D (default)
+      ctx.translate(-60, -110)
+      if (isTwoColor) {
+        ctx.fillStyle = letter.color
+        ctx.fill(new Path2D(D_PATH), 'evenodd')
+        ctx.fillStyle = letter.fillColor || '#ffffff'
+        ctx.fill(new Path2D(D_PATH_INNER), 'evenodd')
+      } else {
+        ctx.fillStyle = letter.color
+        ctx.fill(new Path2D(D_PATH), 'evenodd')
+      }
     }
     ctx.restore()
   }
 }
+
+// Keep old name as alias for backward compat
+const drawDLetters = drawLetters
 
 function drawRR(ctx, x, y, w, h, r) {
   ctx.beginPath()
@@ -231,8 +271,28 @@ function drawEstText(ctx, estEl, estText, W, H) {
   ctx.fillText((estText || 'EST.2025').toUpperCase(), estEl.x / 100 * W, estEl.y / 100 * H)
 }
 
+function drawDadText(ctx, dadTextEl, dadText, W, H) {
+  const fontPx = dadTextEl.fontSize * W / 100
+  ctx.font = `900 italic ${fontPx}px Impact, Arial, sans-serif`
+  ctx.fillStyle = dadTextEl.color
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  try { ctx.letterSpacing = '2px' } catch { /* older browsers */ }
+  ctx.fillText((dadText || 'DADDY').toUpperCase(), dadTextEl.x / 100 * W, dadTextEl.y / 100 * H)
+}
+
+function drawChildNameText(ctx, childNameEl, childName, W, H) {
+  const fontPx = childNameEl.fontSize * W / 100
+  ctx.font = `900 italic ${fontPx}px Impact, Arial, sans-serif`
+  ctx.fillStyle = childNameEl.color
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  try { ctx.letterSpacing = '4px' } catch { /* older browsers */ }
+  ctx.fillText((childName || '').toUpperCase(), childNameEl.x / 100 * W, childNameEl.y / 100 * H)
+}
+
 // Full composite with white background (for regular download)
-async function renderEstToCanvas(letters, estEl, estText, showEstText, imageUrl, illus, letterStyle, ttoLetters, bgColor = '#f0f0f0') {
+async function renderEstToCanvas(letters, estEl, estText, showEstText, imageUrl, illus, letterStyle, ttoLetters, bgColor = '#f0f0f0', dadText, dadTextEl, showChildName, childName, childNameEl) {
   const W = 1600, H = 900
   const canvas = document.createElement('canvas')
   canvas.width = W; canvas.height = H
@@ -256,13 +316,15 @@ async function renderEstToCanvas(letters, estEl, estText, showEstText, imageUrl,
   }
 
   if (letterStyle === 'TTO') drawTTOLetters(ctx, ttoLetters, W, H)
-  else drawDLetters(ctx, letters, W, H, letterStyle)
+  else if (letterStyle !== 'DADDY') drawLetters(ctx, letters, W, H, letterStyle)
+  if (letterStyle === 'DADDY' && dadTextEl && dadText) drawDadText(ctx, dadTextEl, dadText, W, H)
+  if (showChildName && childNameEl && childName) drawChildNameText(ctx, childNameEl, childName, W, H)
   if (showEstText) drawEstText(ctx, estEl, estText, W, H)
   return canvas
 }
 
 // Transparent composite for mockup (no white fill, illustration bg removed)
-async function renderEstTransparent(letters, estEl, estText, showEstText, imageUrl, illus, letterStyle, ttoLetters) {
+async function renderEstTransparent(letters, estEl, estText, showEstText, imageUrl, illus, letterStyle, ttoLetters, dadText, dadTextEl, showChildName, childName, childNameEl) {
   const W = 1600, H = 900
   const canvas = document.createElement('canvas')
   canvas.width = W; canvas.height = H
@@ -284,7 +346,9 @@ async function renderEstTransparent(letters, estEl, estText, showEstText, imageU
   }
 
   if (letterStyle === 'TTO') drawTTOLetters(ctx, ttoLetters, W, H)
-  else drawDLetters(ctx, letters, W, H, letterStyle)
+  else if (letterStyle !== 'DADDY') drawLetters(ctx, letters, W, H, letterStyle)
+  if (letterStyle === 'DADDY' && dadTextEl && dadText) drawDadText(ctx, dadTextEl, dadText, W, H)
+  if (showChildName && childNameEl && childName) drawChildNameText(ctx, childNameEl, childName, W, H)
   if (showEstText) drawEstText(ctx, estEl, estText, W, H)
 
   // Crop to tight bounding box of non-transparent pixels so the overlay fills the product correctly
@@ -322,8 +386,8 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
   const wasSelectedRef = useRef(false)
 
   const [letters, setLetters] = useState(initialState?.letters || [
-    { id: 'left',  x: 20, y: 20, size: 22, rotation: -4,  color: '#000000', fillColor: '#ffffff' },
-    { id: 'right', x: 63, y: 20, size: 22, rotation: 19,  color: '#000000', fillColor: '#ffffff' },
+    { id: 'left',  type: 'D', x: 20, y: 20, size: 22, rotation: -4,  color: '#000000', fillColor: '#ffffff' },
+    { id: 'right', type: 'D', x: 63, y: 20, size: 22, rotation: 19,  color: '#000000', fillColor: '#ffffff' },
   ])
   const [letterStyle, setLetterStyle] = useState(initialState?.letterStyle || 'D')
   const [showGrid, setShowGrid] = useState(false)
@@ -334,6 +398,11 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
   ])
   const [estEl, setEstEl] = useState(initialState?.estEl || { x: 50, y: 88, color: '#000000', fontSize: 6 })
   const [illus, setIllus] = useState(initialState?.illus || { x: 50, y: 45, size: 52, cropBottom: 0 })
+  const [childName, setChildName] = useState(initialState?.childName || '')
+  const [showChildName, setShowChildName] = useState(initialState?.showChildName ?? false)
+  const [childNameEl, setChildNameEl] = useState(initialState?.childNameEl || { x: 50, y: 8, color: '#000000', fontSize: 8 })
+  const [dadText, setDadText] = useState(initialState?.dadText || 'DADDY')
+  const [dadTextEl, setDadTextEl] = useState(initialState?.dadTextEl || { x: 50, y: 30, color: '#000000', fontSize: 20 })
   const [cleanedUrl, setCleanedUrl] = useState(null)
   const [selected, setSelected] = useState(null)
   const [bgColor, setBgColor] = useState(initialState?.bgColor || '#f0f0f0')
@@ -355,10 +424,10 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
   }, [imageUrl])
 
   useImperativeHandle(ref, () => ({
-    exportToCanvas:    () => renderEstToCanvas(letters, estEl, estText, showEstText, imageUrl, illus, letterStyle, ttoLetters, bgColor),
-    exportTransparent: () => renderEstTransparent(letters, estEl, estText, showEstText, imageUrl, illus, letterStyle, ttoLetters),
-    getState:          () => ({ letters, letterStyle, bgColor, ttoLetters, estEl, illus }),
-  }), [letters, estEl, estText, showEstText, imageUrl, illus, letterStyle, ttoLetters, bgColor])
+    exportToCanvas:    () => renderEstToCanvas(letters, estEl, estText, showEstText, imageUrl, illus, letterStyle, ttoLetters, bgColor, dadText, dadTextEl, showChildName, childName, childNameEl),
+    exportTransparent: () => renderEstTransparent(letters, estEl, estText, showEstText, imageUrl, illus, letterStyle, ttoLetters, dadText, dadTextEl, showChildName, childName, childNameEl),
+    getState:          () => ({ letters, letterStyle, bgColor, ttoLetters, estEl, illus, childName, showChildName, childNameEl, dadText, dadTextEl }),
+  }), [letters, estEl, estText, showEstText, imageUrl, illus, letterStyle, ttoLetters, bgColor, dadText, dadTextEl, showChildName, childName, childNameEl])
 
   // Notify parent when letter positions/style change so mockup stays in sync
   const estMountedRef = useRef(false)
@@ -381,6 +450,12 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
       if (dr.id === 'est') {
         if (dr.type === 'move')   setEstEl(prev => ({ ...prev, x: dr.ox + dx, y: dr.oy + dy }))
         if (dr.type === 'resize') setEstEl(prev => ({ ...prev, fontSize: Math.max(1, Math.min(30, dr.os + (dx + dy) * 0.12)) }))
+      } else if (dr.id === 'dadText') {
+        if (dr.type === 'move')   setDadTextEl(prev => ({ ...prev, x: dr.ox + dx, y: dr.oy + dy }))
+        if (dr.type === 'resize') setDadTextEl(prev => ({ ...prev, fontSize: Math.max(4, Math.min(50, dr.os + (dx + dy) * 0.12)) }))
+      } else if (dr.id === 'childName') {
+        if (dr.type === 'move')   setChildNameEl(prev => ({ ...prev, x: dr.ox + dx, y: dr.oy + dy }))
+        if (dr.type === 'resize') setChildNameEl(prev => ({ ...prev, fontSize: Math.max(2, Math.min(25, dr.os + (dx + dy) * 0.12)) }))
       } else if (dr.id === 'illus') {
         if (dr.type === 'move')    setIllus(prev => ({ ...prev, x: dr.ox + dx, y: dr.oy + dy }))
         if (dr.type === 'resize')  setIllus(prev => ({ ...prev, size: Math.max(10, Math.min(100, dr.os + (dx + dy) * 0.5)) }))
@@ -424,6 +499,10 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
     const clientY = e.touches ? e.touches[0].clientY : e.clientY
     if (id === 'est') {
       dragRef.current = { id, type, sx: clientX, sy: clientY, ox: estEl.x, oy: estEl.y, os: estEl.fontSize, cw: rect.width, ch: rect.height }
+    } else if (id === 'dadText') {
+      dragRef.current = { id, type, sx: clientX, sy: clientY, ox: dadTextEl.x, oy: dadTextEl.y, os: dadTextEl.fontSize, cw: rect.width, ch: rect.height }
+    } else if (id === 'childName') {
+      dragRef.current = { id, type, sx: clientX, sy: clientY, ox: childNameEl.x, oy: childNameEl.y, os: childNameEl.fontSize, cw: rect.width, ch: rect.height }
     } else if (id === 'illus') {
       const imgH = illusImgRef.current?.getBoundingClientRect().height || 100
       const os = type === 'cropBottom' ? illus.cropBottom : illus.size
@@ -443,10 +522,14 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
   const selectedTTOLetter = ttoLetters.find(l => l.id === selected)
   const isEstSelected = selected === 'est'
   const isIllusSelected = selected === 'illus'
-  const currentColor = isEstSelected ? estEl.color : (selectedLetter || selectedTTOLetter)?.color
+  const isDadTextSelected = selected === 'dadText'
+  const isChildNameSelected = selected === 'childName'
+  const currentColor = isEstSelected ? estEl.color : isDadTextSelected ? dadTextEl.color : isChildNameSelected ? childNameEl.color : (selectedLetter || selectedTTOLetter)?.color
   const currentFillColor = selectedLetter?.fillColor || '#ffffff'
   const setColor = (color) => {
     if (isEstSelected) setEstEl(prev => ({ ...prev, color }))
+    else if (isDadTextSelected) setDadTextEl(prev => ({ ...prev, color }))
+    else if (isChildNameSelected) setChildNameEl(prev => ({ ...prev, color }))
     else if (selectedLetter) setLetters(prev => prev.map(l => l.id === selected ? { ...l, color } : l))
     else if (selectedTTOLetter) setTtoLetters(prev => prev.map(l => l.id === selected ? { ...l, color } : l))
   }
