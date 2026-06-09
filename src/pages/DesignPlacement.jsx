@@ -433,7 +433,7 @@ async function renderEstTransparent(letters, estEl, estText, showEstText, imageU
 
 // ─── EstPosterView ────────────────────────────────────────────────────────────
 
-const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estText, showEstText, initialState, onStateChange }, ref) {
+const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estText, showEstText, onSetShowEstText, initialState, onStateChange }, ref) {
   const containerRef = useRef(null)
   const illusImgRef = useRef(null)
   const dragRef = useRef(null)
@@ -656,34 +656,41 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg>
           </button>
-        <div style={{ display: 'flex', background: 'rgba(255,255,255,0.92)', borderRadius: '10px', padding: '3px', gap: '2px', boxShadow: '0 1px 6px rgba(0,0,0,0.18)' }}>
-          <button
-            onMouseDown={e => e.stopPropagation()}
-            onClick={e => { e.stopPropagation(); setLetterStyle('D'); setSelected(null) }}
-            style={{ padding: '3px 10px', borderRadius: '7px', fontSize: '11px', fontWeight: 700, border: 'none', cursor: 'pointer', background: letterStyle === 'D' ? '#4f46e5' : 'transparent', color: letterStyle === 'D' ? '#fff' : '#6b7280' }}
-          >D D</button>
-          <button
-            onMouseDown={e => e.stopPropagation()}
-            onClick={e => { e.stopPropagation(); setLetterStyle('D_TWO_COLOR'); setSelected(null) }}
-            title="D з обводкою та заповненням"
-            style={{ padding: '3px 8px', borderRadius: '7px', fontSize: '11px', fontWeight: 700, border: 'none', cursor: 'pointer', background: letterStyle === 'D_TWO_COLOR' ? '#4f46e5' : 'transparent', color: letterStyle === 'D_TWO_COLOR' ? '#fff' : '#6b7280', display: 'flex', alignItems: 'center', gap: '3px' }}
-          >
-            <svg viewBox="60 110 360 460" width="9" height="12" style={{ display: 'block', flexShrink: 0 }}>
-              <path d={D_PATH} fill="currentColor" fillRule="evenodd" />
-              <path d={D_PATH_INNER} fill={letterStyle === 'D_TWO_COLOR' ? 'rgba(255,255,255,0.5)' : 'rgba(79,70,229,0.25)'} fillRule="evenodd" />
-            </svg>
-            D
-          </button>
-          <button
-            onMouseDown={e => e.stopPropagation()}
-            onClick={e => { e.stopPropagation(); setLetterStyle('TTO'); setSelected(null); setTtoLetters(prev => [
-              { id: 'tLeft',  x: 5,  y: 25, size: 20, rotation: 0, color: prev[0]?.color || '#000000' },
-              { id: 'tRight', x: 54, y: 25, size: 20, rotation: 0, color: prev[1]?.color || '#000000' },
-              { id: 'o',      x: 76, y: 25, size: 22, rotation: 0, color: prev[2]?.color || '#000000' },
-            ]) }}
-            style={{ padding: '3px 10px', borderRadius: '7px', fontSize: '11px', fontWeight: 700, border: 'none', cursor: 'pointer', background: letterStyle === 'TTO' ? '#4f46e5' : 'transparent', color: letterStyle === 'TTO' ? '#fff' : '#6b7280' }}
-          >T T O</button>
-        </div>
+        {(() => {
+          const switchStyle = (newStyle, makeLetters, alsoShowEst) => {
+            const prev0 = letters[0] || {}
+            const prevColor = prev0.color || '#000000'; const prevFill = prev0.fillColor || '#ffffff'
+            setLetterStyle(newStyle)
+            if (makeLetters) setLetters(makeLetters(prevColor, prevFill))
+            if (alsoShowEst) onSetShowEstText?.(true)
+            setSelected(null)
+          }
+          const bs = (active) => ({ padding: '2px 7px', borderRadius: '6px', fontSize: '10px', fontWeight: 700, border: 'none', cursor: 'pointer', background: active ? '#4f46e5' : 'transparent', color: active ? '#fff' : '#6b7280', whiteSpace: 'nowrap' })
+          const tcIcon = (active) => <svg key="tc" viewBox="60 110 360 460" width="8" height="10" style={{ display:'inline-block', verticalAlign:'middle', marginRight:'2px' }}><path d={D_PATH} fill="currentColor" fillRule="evenodd"/><path d={D_PATH_INNER} fill={active ? 'rgba(255,255,255,0.5)' : 'rgba(79,70,229,0.25)'} fillRule="evenodd"/></svg>
+          const mkD = (c,f) => [{ id:'left', type:'D', x:20, y:20, size:22, rotation:-4, color:c, fillColor:f }, { id:'right', type:'D', x:63, y:20, size:22, rotation:19, color:c, fillColor:f }]
+          const mkDAD = (c,f) => [{ id:'dLeft', type:'D', x:2, y:12, size:27, rotation:-4, color:c, fillColor:f }, { id:'aCenter', type:'A', x:36, y:8, size:28, rotation:0, color:c, fillColor:f }, { id:'dRight', type:'D', x:71, y:12, size:27, rotation:4, color:c, fillColor:f }]
+          const mkSPLIT = (c,f) => [{ id:'sD1', type:'D', x:1, y:15, size:22, rotation:-4, color:c, fillColor:f }, { id:'sA', type:'A', x:22, y:12, size:22, rotation:-2, color:c, fillColor:f }, { id:'sD2', type:'D', x:56, y:12, size:22, rotation:2, color:c, fillColor:f }, { id:'sY', type:'Y', x:77, y:15, size:22, rotation:4, color:c, fillColor:f }]
+          return (
+            <div style={{ display:'flex', flexDirection:'column', background:'rgba(255,255,255,0.92)', borderRadius:'10px', padding:'3px', gap:'2px', boxShadow:'0 1px 6px rgba(0,0,0,0.18)' }}>
+              <div style={{ display:'flex', gap:'2px' }}>
+                <button onMouseDown={e=>e.stopPropagation()} onClick={e=>{e.stopPropagation();switchStyle('D',mkD)}} style={bs(letterStyle==='D')}>D D</button>
+                <button onMouseDown={e=>e.stopPropagation()} onClick={e=>{e.stopPropagation();switchStyle('D_TWO_COLOR',mkD)}} style={{...bs(letterStyle==='D_TWO_COLOR'),display:'flex',alignItems:'center'}}>{tcIcon(letterStyle==='D_TWO_COLOR')}<span>D D</span></button>
+              </div>
+              <div style={{ display:'flex', gap:'2px' }}>
+                <button onMouseDown={e=>e.stopPropagation()} onClick={e=>{e.stopPropagation();switchStyle('DAD',mkDAD)}} style={bs(letterStyle==='DAD')}>D A D</button>
+                <button onMouseDown={e=>e.stopPropagation()} onClick={e=>{e.stopPropagation();switchStyle('DAD_TWO_COLOR',mkDAD)}} style={{...bs(letterStyle==='DAD_TWO_COLOR'),display:'flex',alignItems:'center'}}>{tcIcon(letterStyle==='DAD_TWO_COLOR')}<span>D A D</span></button>
+              </div>
+              <div style={{ display:'flex', gap:'2px' }}>
+                <button onMouseDown={e=>e.stopPropagation()} onClick={e=>{e.stopPropagation();switchStyle('DADDY_SPLIT',mkSPLIT,true)}} style={bs(letterStyle==='DADDY_SPLIT')}>DA DY</button>
+                <button onMouseDown={e=>e.stopPropagation()} onClick={e=>{e.stopPropagation();switchStyle('DADDY_SPLIT_TWO_COLOR',mkSPLIT,true)}} style={{...bs(letterStyle==='DADDY_SPLIT_TWO_COLOR'),display:'flex',alignItems:'center'}}>{tcIcon(letterStyle==='DADDY_SPLIT_TWO_COLOR')}<span>DA DY</span></button>
+              </div>
+              <div style={{ display:'flex', gap:'2px' }}>
+                <button onMouseDown={e=>e.stopPropagation()} onClick={e=>{e.stopPropagation();setLetterStyle('DADDY');setSelected(null)}} style={{...bs(letterStyle==='DADDY'),fontFamily:'"Impact","Arial Black",sans-serif',fontStyle:'italic'}}>DADDY</button>
+                <button onMouseDown={e=>e.stopPropagation()} onClick={e=>{e.stopPropagation();setLetterStyle('TTO');setSelected(null);setTtoLetters(prev=>[{id:'tLeft',x:5,y:25,size:20,rotation:0,color:prev[0]?.color||'#000000'},{id:'tRight',x:54,y:25,size:20,rotation:0,color:prev[1]?.color||'#000000'},{id:'o',x:76,y:25,size:22,rotation:0,color:prev[2]?.color||'#000000'}])}} style={bs(letterStyle==='TTO')}>T T O</button>
+              </div>
+            </div>
+          )
+        })()}
         </div>
 
         {!imageUrl && (
@@ -732,8 +739,9 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
           )}
         </div>}
 
-        {(letterStyle === 'D' || letterStyle === 'D_TWO_COLOR') && letters.map(letter => {
+        {letterStyle !== 'TTO' && letterStyle !== 'DADDY' && letters.map(letter => {
           const isSelected = selected === letter.id
+          const isTwoColor = letterStyle.includes('TWO_COLOR')
           return (
             <div key={letter.id} onMouseDown={e => startDrag(letter.id, 'move', e)} onTouchStart={e => startDrag(letter.id, 'move', e)} onClick={e => handleClick(letter.id, e)} style={{ position: 'absolute', left: `${letter.x}%`, top: `${letter.y}%`, width: `${letter.size}%`, transform: `rotate(${letter.rotation}deg)`, transformOrigin: 'center center', cursor: isSelected ? 'grab' : 'pointer', zIndex: isSelected ? 20 : 10 }}>
               {isSelected && <div style={{ position: 'absolute', inset: '-5px', border: '2px dashed #4f46e5', borderRadius: '6px', pointerEvents: 'none' }} />}
@@ -747,16 +755,25 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
                   </div>
                 </>
               )}
-              <svg viewBox="60 110 360 460" style={{ width: '100%', height: 'auto', display: 'block' }}>
-                {letterStyle === 'D_TWO_COLOR' ? (
-                  <>
-                    <path d={D_PATH} fill={letter.color} fillRule="evenodd" />
-                    <path d={D_PATH_INNER} fill={letter.fillColor || '#ffffff'} fillRule="evenodd" />
-                  </>
-                ) : (
-                  <path d={D_PATH} fill={letter.color} fillRule="evenodd" />
-                )}
-              </svg>
+              {letter.type === 'A' ? (
+                <svg viewBox="0 0 360 460" style={{ width: '100%', height: 'auto', display: 'block' }}>
+                  {isTwoColor ? (
+                    <><path d={A_PATH} fill={letter.color} fillRule="evenodd"/><path d={A_PATH_INNER} fill={letter.fillColor || '#ffffff'} fillRule="evenodd"/></>
+                  ) : <path d={A_PATH} fill={letter.color} fillRule="evenodd"/>}
+                </svg>
+              ) : letter.type === 'Y' ? (
+                <svg viewBox="0 0 360 460" style={{ width: '100%', height: 'auto', display: 'block' }}>
+                  {isTwoColor ? (
+                    <><path d={Y_PATH} fill={letter.color} fillRule="evenodd"/><path d={Y_PATH_INNER} fill={letter.fillColor || '#ffffff'} fillRule="evenodd"/></>
+                  ) : <path d={Y_PATH} fill={letter.color} fillRule="evenodd"/>}
+                </svg>
+              ) : (
+                <svg viewBox="60 110 360 460" style={{ width: '100%', height: 'auto', display: 'block' }}>
+                  {isTwoColor ? (
+                    <><path d={D_PATH} fill={letter.color} fillRule="evenodd"/><path d={D_PATH_INNER} fill={letter.fillColor || '#ffffff'} fillRule="evenodd"/></>
+                  ) : <path d={D_PATH} fill={letter.color} fillRule="evenodd"/>}
+                </svg>
+              )}
               {isSelected && (
                 <div onMouseDown={e => startDrag(letter.id, 'resize', e)} onTouchStart={e => startDrag(letter.id, 'resize', e)} onClick={e => e.stopPropagation()} style={{ position: 'absolute', bottom: '-10px', right: '-10px', width: '20px', height: '20px', background: '#4f46e5', border: '2px solid #fff', borderRadius: '4px', cursor: 'nwse-resize', zIndex: 30, boxShadow: '0 1px 4px rgba(0,0,0,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <svg width="8" height="8" viewBox="0 0 8 8" fill="none"><path d="M1 7L7 1M4 7L7 4" stroke="white" strokeWidth="1.5" strokeLinecap="round" /></svg>
@@ -765,6 +782,40 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
             </div>
           )
         })}
+
+        {letterStyle === 'DADDY' && (
+          <div
+            onMouseDown={e => startDrag('dadText', 'move', e)}
+            onTouchStart={e => startDrag('dadText', 'move', e)}
+            onClick={e => handleClick('dadText', e)}
+            style={{ position: 'absolute', left: `${dadTextEl.x}%`, top: `${dadTextEl.y}%`, transform: 'translate(-50%, -50%)', fontFamily: '"Impact", "Arial Black", sans-serif', fontWeight: 900, fontStyle: 'italic', fontSize: `${dadTextEl.fontSize}cqw`, letterSpacing: '2px', color: dadTextEl.color, cursor: isDadTextSelected ? 'grab' : 'pointer', zIndex: isDadTextSelected ? 20 : 10, whiteSpace: 'nowrap' }}
+          >
+            {isDadTextSelected && <div style={{ position: 'absolute', inset: '-5px', border: '2px dashed #4f46e5', borderRadius: '6px', pointerEvents: 'none' }} />}
+            {(dadText || 'DADDY').toUpperCase()}
+            {isDadTextSelected && (
+              <div onMouseDown={e => startDrag('dadText', 'resize', e)} onTouchStart={e => startDrag('dadText', 'resize', e)} onClick={e => e.stopPropagation()} style={{ position: 'absolute', bottom: '-10px', right: '-10px', width: '20px', height: '20px', background: '#4f46e5', border: '2px solid #fff', borderRadius: '4px', cursor: 'nwse-resize', zIndex: 30, boxShadow: '0 1px 4px rgba(0,0,0,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <svg width="8" height="8" viewBox="0 0 8 8" fill="none"><path d="M1 7L7 1M4 7L7 4" stroke="white" strokeWidth="1.5" strokeLinecap="round" /></svg>
+              </div>
+            )}
+          </div>
+        )}
+
+        {showChildName && childName && (
+          <div
+            onMouseDown={e => startDrag('childName', 'move', e)}
+            onTouchStart={e => startDrag('childName', 'move', e)}
+            onClick={e => handleClick('childName', e)}
+            style={{ position: 'absolute', left: `${childNameEl.x}%`, top: `${childNameEl.y}%`, transform: 'translate(-50%, -50%)', fontFamily: '"Impact", "Arial Black", sans-serif', fontWeight: 900, fontStyle: 'italic', fontSize: `${childNameEl.fontSize}cqw`, letterSpacing: '4px', color: childNameEl.color, cursor: isChildNameSelected ? 'grab' : 'pointer', zIndex: isChildNameSelected ? 20 : 10, whiteSpace: 'nowrap' }}
+          >
+            {isChildNameSelected && <div style={{ position: 'absolute', inset: '-5px', border: '2px dashed #4f46e5', borderRadius: '6px', pointerEvents: 'none' }} />}
+            {childName.toUpperCase()}
+            {isChildNameSelected && (
+              <div onMouseDown={e => startDrag('childName', 'resize', e)} onTouchStart={e => startDrag('childName', 'resize', e)} onClick={e => e.stopPropagation()} style={{ position: 'absolute', bottom: '-10px', right: '-10px', width: '20px', height: '20px', background: '#4f46e5', border: '2px solid #fff', borderRadius: '4px', cursor: 'nwse-resize', zIndex: 30, boxShadow: '0 1px 4px rgba(0,0,0,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <svg width="8" height="8" viewBox="0 0 8 8" fill="none"><path d="M1 7L7 1M4 7L7 4" stroke="white" strokeWidth="1.5" strokeLinecap="round" /></svg>
+              </div>
+            )}
+          </div>
+        )}
 
         {letterStyle === 'TTO' && ttoLetters.map(letter => {
           const isSelected = selected === letter.id
@@ -806,7 +857,7 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
         })}
       </div>
 
-      {selected && (selectedLetter || selectedTTOLetter || isEstSelected || isIllusSelected) && (
+      {selected && (selectedLetter || selectedTTOLetter || isEstSelected || isIllusSelected || isDadTextSelected || isChildNameSelected) && (
         <div style={{ padding: '10px 16px', display: 'flex', alignItems: 'center', gap: '8px', borderTop: '1px solid #f3f4f6', background: '#fafafa', borderRadius: '0 0 12px 12px', flexWrap: 'wrap' }}>
           {isIllusSelected ? (
             <>
@@ -815,7 +866,7 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
               {illus.cropBottom > 0 && <span style={{ fontSize: '11px', color: '#4f46e5', fontWeight: 600 }}>обрізано знизу {Math.round(illus.cropBottom)}%</span>}
               <span style={{ fontSize: '11px', color: '#9ca3af', marginLeft: 'auto', whiteSpace: 'nowrap' }}>Тягни · ↑ обрізання · кут → розмір</span>
             </>
-          ) : letterStyle === 'D_TWO_COLOR' && selectedLetter ? (
+          ) : letterStyle.includes('TWO_COLOR') && selectedLetter ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', width: '100%' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
                 <span style={{ fontSize: '11px', color: '#6b7280', fontWeight: 600, minWidth: '70px' }}>Обводка:</span>
@@ -834,16 +885,54 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
             </div>
           ) : (
             <>
-              <span style={{ fontSize: '12px', color: '#6b7280', fontWeight: 500 }}>{isEstSelected ? 'EST текст' : selected === 'left' ? 'Ліва D' : selected === 'right' ? 'Права D' : selected === 'tLeft' ? 'Ліва T' : selected === 'tRight' ? 'Права T' : 'Буква O'}:</span>
+              <span style={{ fontSize: '12px', color: '#6b7280', fontWeight: 500 }}>{isEstSelected ? 'EST текст' : isDadTextSelected ? 'DADDY текст' : isChildNameSelected ? "Ім'я дитини" : selectedLetter ? `Буква ${(selectedLetter.type||'D').toUpperCase()}` : selected === 'tLeft' ? 'Ліва T' : selected === 'tRight' ? 'Права T' : 'Буква O'}:</span>
               {PRESET_COLORS.map(color => (
                 <button key={color} onClick={() => setColor(color)} style={{ width: '22px', height: '22px', borderRadius: '50%', background: color, border: currentColor === color ? '3px solid #4f46e5' : '2px solid #d1d5db', cursor: 'pointer', padding: 0, flexShrink: 0 }} />
               ))}
               <input type="color" value={currentColor || '#000000'} onChange={e => setColor(e.target.value)} style={{ width: '28px', height: '28px', padding: 0, border: '2px solid #d1d5db', cursor: 'pointer', borderRadius: '50%', background: 'none' }} title="Власний колір" />
-              <span style={{ fontSize: '11px', color: '#9ca3af', marginLeft: 'auto', whiteSpace: 'nowrap' }}>{isEstSelected ? 'Тягни • кут → розмір' : 'Тягни • ○ поворот • кут → розмір'}</span>
+              <span style={{ fontSize: '11px', color: '#9ca3af', marginLeft: 'auto', whiteSpace: 'nowrap' }}>{isEstSelected || isDadTextSelected || isChildNameSelected ? 'Тягни • кут → розмір' : 'Тягни • ○ поворот • кут → розмір'}</span>
             </>
           )}
         </div>
       )}
+
+      {/* Child name + DADDY text controls */}
+      <div style={{ padding: '8px 12px', borderTop: '1px solid #f3f4f6', background: '#fafafa', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span style={{ fontSize: '11px', color: '#6b7280', fontWeight: 500, minWidth: '80px', flexShrink: 0 }}>Ім'я дитини:</span>
+          <input
+            type="text"
+            value={childName}
+            onChange={e => setChildName(e.target.value)}
+            placeholder="LIANN'S"
+            disabled={!showChildName}
+            style={{ flex: 1, border: '1px solid #e5e7eb', borderRadius: '8px', padding: '4px 10px', fontSize: '12px', outline: 'none', textTransform: 'uppercase', opacity: showChildName ? 1 : 0.4 }}
+          />
+          <button
+            onMouseDown={e => e.stopPropagation()}
+            onClick={e => { e.stopPropagation(); setShowChildName(v => !v) }}
+            title={showChildName ? "Сховати ім'я дитини" : "Показати ім'я дитини"}
+            style={{ flexShrink: 0, padding: '4px', borderRadius: '8px', border: showChildName ? '1px solid #c7d2fe' : '1px solid #e5e7eb', background: showChildName ? '#eef2ff' : '#f9fafb', color: showChildName ? '#4f46e5' : '#9ca3af', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          >
+            {showChildName
+              ? <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              : <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+            }
+          </button>
+        </div>
+        {letterStyle === 'DADDY' && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '11px', color: '#6b7280', fontWeight: 500, minWidth: '80px', flexShrink: 0 }}>DADDY текст:</span>
+            <input
+              type="text"
+              value={dadText}
+              onChange={e => setDadText(e.target.value)}
+              placeholder="DADDY"
+              style={{ flex: 1, border: '1px solid #e5e7eb', borderRadius: '8px', padding: '4px 10px', fontSize: '12px', outline: 'none', textTransform: 'uppercase', fontFamily: '"Impact","Arial Black",sans-serif', fontStyle: 'italic' }}
+            />
+          </div>
+        )}
+      </div>
     </div>
   )
 })
@@ -2360,7 +2449,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
                 style={{ background: isEst ? undefined : (designBgColor || '#f0f0f0'), maxHeight: isEst ? 'none' : '75vh', overflow: isEst ? 'visible' : ((drawingTool && drawZoom > 1) ? 'auto' : 'hidden') }}
               >
                 {isEst ? (
-                  <EstPosterView ref={estPosterRef} imageUrl={currentDesignImage} estText={estText} showEstText={showEstText} initialState={designData?.estPosterState} onStateChange={() => setEstVersion(v => v + 1)} />
+                  <EstPosterView ref={estPosterRef} imageUrl={currentDesignImage} estText={estText} showEstText={showEstText} onSetShowEstText={setShowEstText} initialState={designData?.estPosterState} onStateChange={() => setEstVersion(v => v + 1)} />
                 ) : currentDesignImage ? (
                   <div style={{ width: (drawingTool && drawZoom > 1) ? `${drawZoom * 100}%` : '100%', minWidth: '100%' }}>
                   <div style={{ position: 'relative', width: (drawingTool && drawZoom > 1) ? '100%' : 'fit-content', margin: '0 auto' }}>
@@ -2406,27 +2495,29 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
             {regenError && <div className="mt-3 px-4 py-2 bg-red-50 border border-red-200 rounded-xl text-sm text-red-600">{regenError}</div>}
 
             {isEst && !regenerating && (
-              <div className="mt-4 flex items-center gap-3">
-                <label className="text-sm font-medium text-gray-700 whitespace-nowrap">EST текст:</label>
-                <input
-                  type="text"
-                  value={estText}
-                  onChange={e => setEstText(e.target.value)}
-                  placeholder="EST.2025"
-                  disabled={!showEstText}
-                  className="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 disabled:opacity-40 disabled:cursor-not-allowed"
-                  style={{ textTransform: 'uppercase' }}
-                />
-                <button
-                  onClick={() => setShowEstText(v => !v)}
-                  title={showEstText ? 'Сховати EST текст' : 'Показати EST текст'}
-                  className={`flex-shrink-0 p-2 rounded-xl border transition-colors ${showEstText ? 'border-indigo-200 bg-indigo-50 text-indigo-600 hover:bg-indigo-100' : 'border-gray-200 bg-gray-50 text-gray-400 hover:bg-gray-100'}`}
-                >
-                  {showEstText
-                    ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-                    : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
-                  }
-                </button>
+              <div className="mt-4 space-y-2">
+                <div className="flex items-center gap-3">
+                  <label className="text-sm font-medium text-gray-700 whitespace-nowrap">EST текст:</label>
+                  <input
+                    type="text"
+                    value={estText}
+                    onChange={e => setEstText(e.target.value)}
+                    placeholder="EST.2025"
+                    disabled={!showEstText}
+                    className="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 disabled:opacity-40 disabled:cursor-not-allowed"
+                    style={{ textTransform: 'uppercase' }}
+                  />
+                  <button
+                    onClick={() => setShowEstText(v => !v)}
+                    title={showEstText ? 'Сховати EST текст' : 'Показати EST текст'}
+                    className={`flex-shrink-0 p-2 rounded-xl border transition-colors ${showEstText ? 'border-indigo-200 bg-indigo-50 text-indigo-600 hover:bg-indigo-100' : 'border-gray-200 bg-gray-50 text-gray-400 hover:bg-gray-100'}`}
+                  >
+                    {showEstText
+                      ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                      : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                    }
+                  </button>
+                </div>
               </div>
             )}
 
