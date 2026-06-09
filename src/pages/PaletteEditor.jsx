@@ -69,7 +69,7 @@ const CSS = `
 .pe-preview-wrap{flex:1;padding:16px;overflow:hidden;display:flex;position:relative}
 .pe-preview-columns{display:flex;gap:12px;width:100%;align-items:flex-start;justify-content:center}
 .pe-preview-column{box-sizing:border-box;display:flex;flex-direction:column;align-items:center;background:#fff;border-radius:14px;padding:12px;border:1px solid #f0f0f0;height:calc(100vh - 116px);overflow:auto;box-shadow:0 1px 4px rgba(0,0,0,0.04)}
-.pe-preview-column#editedColumn{flex:1 1 0;max-width:58%;min-width:300px}
+.pe-preview-column#editedColumn{flex:1 1 0;max-width:58%;min-width:300px;overflow:hidden;cursor:zoom-in}
 .pe-preview-column#originalColumn{flex:1 1 0;max-width:42%;min-width:260px}
 .pe-preview-column .title{font-size:11px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;text-align:center;width:100%}
 #svgPreview,#originalPreview{width:100%;height:auto;display:block;background:#fff;border-radius:8px;box-sizing:border-box}
@@ -385,9 +385,22 @@ export default function PaletteEditor() {
     const addCustomColorBtn = $('addCustomColorBtn')
     const addCustomDup = $('addCustomColorBtnDuplicate')
 
+    let zoomState = { s: 1, tx: 0, ty: 0 }
+
+    function applyTransform() {
+      const { s, tx, ty } = zoomState
+      try {
+        if (svgRoot) svgRoot.style.transform = `translate(${tx}px,${ty}px) scale(${s})`
+        if (originalSvgRoot) originalSvgRoot.style.transform = `scale(${s})`
+      } catch(e){}
+      const pct = Math.round(s * 100)
+      if (scaleRangeEl) scaleRangeEl.value = Math.min(200, Math.max(10, pct))
+      if (scaleValEl) scaleValEl.textContent = pct + '%'
+    }
+
     function applyScale(pct) {
-      const s = Math.max(0.01, (parseFloat(pct)||100) / 100)
-      try { if (svgRoot) svgRoot.style.transform = `scale(${s})`; if (originalSvgRoot) originalSvgRoot.style.transform = `scale(${s})` } catch(e){}
+      zoomState = { s: Math.max(0.01, (parseFloat(pct)||100) / 100), tx: 0, ty: 0 }
+      applyTransform()
     }
 
     // Pre-process a raster image blob before vectorization:
@@ -647,6 +660,27 @@ export default function PaletteEditor() {
         applyScale(pct)
       })
     }
+
+    const editedCol = $('editedColumn')
+    if (editedCol) {
+      editedCol.addEventListener('wheel', (e) => {
+        if (!svgRoot) return
+        e.preventDefault()
+        const rect = editedCol.getBoundingClientRect()
+        const mx = e.clientX - rect.left
+        const my = e.clientY - rect.top + editedCol.scrollTop
+        const factor = e.deltaY < 0 ? 1.12 : 1 / 1.12
+        const newS = Math.max(0.1, Math.min(8, zoomState.s * factor))
+        const ratio = newS / zoomState.s
+        zoomState = {
+          s: newS,
+          tx: mx - (mx - zoomState.tx) * ratio,
+          ty: my - (my - zoomState.ty) * ratio,
+        }
+        applyTransform()
+      }, { passive: false })
+    }
+
     if (threshRangeEl) threshRangeEl.addEventListener('input', () => { if (threshValEl) threshValEl.textContent = threshRangeEl.value })
 
     const autoGroupBtn = $('autoGroupBtn')
