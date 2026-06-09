@@ -879,13 +879,20 @@ export default function MyOrders({ savedOrders = [], ordersLoading = false, orde
                 onClick={() => {
                   const { order, extras } = palettePending
                   onUpdateOrder?.(order.id, { status: 'palette' })
+                  // Resolve full product objects from designSnapshot for high-quality regeneration
+                  const productIds = extras?.designSnapshot?.selectedProducts || []
+                  const mockupProducts = productIds
+                    .map(pid => allProducts.find(p => p.id === pid))
+                    .filter(Boolean)
+                    .map(p => ({ id: p.id, nameUk: p.nameUk, image: p.image, category: p.category }))
                   navigate('/palette-editor', {
                     state: {
                       designImage: extras?.transparentImage || extras?.fullImage || order.image,
                       mockupDesignUrl: extras?.transparentImage || null,
                       fileName: (order.name || order.id || '').replace(/^#/, ''),
                       editingOrderId: order.id,
-                      mockupThumbs: order.mockupThumbs || [],
+                      mockupProducts: mockupProducts.length > 0 ? mockupProducts : null,
+                      mockupThumbs: mockupProducts.length === 0 ? (order.mockupThumbs || []) : [],
                       mockupOverlay: extras?.designSnapshot?.mockupOverlay || { x: 50, y: 35, size: 32 },
                     }
                   })
