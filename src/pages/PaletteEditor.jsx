@@ -1,8 +1,9 @@
-import React, { useRef, useEffect } from 'react'
+import React, { useRef, useEffect, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import { THREAD_PALETTE } from '../data/threadPalette'
 import { preprocessBlob, vectorizeBlob } from '../services/vectorizer'
 import { vectorizeWithAI, isVectorizerAIConfigured } from '../services/vectorizerAI'
+import { sendOrderToDesignerTelegram } from '../services/crmService'
 
 const CSS = `
 .pe-container{display:flex;gap:0;height:100%;align-items:stretch;font-family:Inter,"Segoe UI",Arial,Helvetica,sans-serif;color:#111;background:#f8f9fb;box-sizing:border-box;overflow:hidden}
@@ -98,6 +99,8 @@ const CSS = `
 .detected-editor input[type=color]{width:42px;height:28px;padding:0;border-radius:6px;border:1.5px solid #e5e7eb}
 .detected-editor .hex-in{width:110px;padding:7px 10px;border:1.5px solid #e5e7eb;border-radius:8px;font-family:monospace;font-size:12px}
 
+@keyframes pe-spin { to { transform: rotate(360deg) } }
+
 /* ── Scrollbars ── */
 .pe-panel::-webkit-scrollbar,.pe-preview-column::-webkit-scrollbar,.side-codes::-webkit-scrollbar,.palette::-webkit-scrollbar{width:4px;height:4px}
 .pe-panel::-webkit-scrollbar-thumb,.pe-preview-column::-webkit-scrollbar-thumb,.side-codes::-webkit-scrollbar-thumb{background:rgba(99,102,241,0.2);border-radius:4px}
@@ -107,6 +110,18 @@ export default function PaletteEditor() {
   const location = useLocation()
   const containerRef = useRef(null)
   const autoImageRef = useRef(location.state?.designImage || null)
+  const svgRootRef = useRef(null)
+  const groupsRef = useRef([])
+
+  const ls = location.state || {}
+  const [showModal, setShowModal] = useState(false)
+  const [modalForm, setModalForm] = useState({
+    orderNum: ls.fileName || '',
+    size: ls.orderSize || 'XL',
+    embSize: ls.embroiderySize || '',
+    comment: '',
+  })
+  const [sendStatus, setSendStatus] = useState(null)
 
   useEffect(() => {
     const C = containerRef.current
@@ -567,10 +582,12 @@ export default function PaletteEditor() {
       originalSvgRoot = originalClone.tagName?.toLowerCase() === 'svg' ? originalClone : originalPreviewEl.querySelector('svg')
       if (svgRoot) { svgRoot.style.width = '100%'; svgRoot.style.height = 'auto' }
       if (originalSvgRoot) { originalSvgRoot.style.width = '100%'; originalSvgRoot.style.height = 'auto' }
+      svgRootRef.current = svgRoot
       applyScale(parseFloat(scaleRangeEl.value) || 100)
       if (exportBtn) exportBtn.disabled = false
       if (revertBtn) revertBtn.disabled = false
       groups = []; allGroups = []
+      groupsRef.current = []
       removeLabelsFromGroups()
       selectedDetectedHex = null; currentElementEditor = null; previewState = null
       updateDetectedColorsUI()
@@ -915,6 +932,7 @@ export default function PaletteEditor() {
       const remaining = allGroups.filter(g=>(g.areaPct||0)<minArea).filter(g=>{for(const n of g.nodes)if(!mergedNodeSet.has(n))return true;return false})
       const resultGroups = large.concat(remaining); computeGeometry(resultGroups)
       groups = resultGroups.sort((a,b)=>(b.areaPct||0)-(a.areaPct||0))
+      groupsRef.current = groups
       removeLabelsFromGroups(); renderGroupsUI(); updateDetectedColorsUI()
     }
 
@@ -1050,6 +1068,7 @@ export default function PaletteEditor() {
       for (const [hex, entry] of paletteMap.entries()) paletteGroups.push({key:'palette_'+entry.palCode,nodes:entry.nodes.slice(),repColor:null,colorValue:entry.colorValue,palCode:entry.palCode,area:0,bbox:null,centroid:null,areaPct:0,lab:null})
       computeGeometry(paletteGroups)
       groups = paletteGroups.sort((a,b)=>(b.areaPct||0)-(a.areaPct||0))
+      groupsRef.current = groups
       removeLabelsFromGroups(); addLabelsToGroups({perNode:false}); renderGroupsUI(); updateDetectedColorsUI()
     }
 
@@ -1437,7 +1456,144 @@ export default function PaletteEditor() {
     }
   }, [])
 
+  async function exportSvgToDataUrl() {
+    const root = svgRootRef.current
+    if (!root) return null
+    return new Promise((resolve) => {
+      const clone = root.cloneNode(true)
+      clone.style.transform = ''
+      try { clone.removeAttribute('transform') } catch {}
+      let svgW = 800, svgH = 600
+      try { const vb = root.viewBox?.baseVal; if (vb?.width && vb?.height) { svgW = vb.width; svgH = vb.height } } catch {}
+      if (!clone.getAttribute('xmlns')) clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg')
+      clone.setAttribute('width', svgW); clone.setAttribute('height', svgH)
+      const blob = new Blob([new XMLSerializer().serializeToString(clone)], { type: 'image/svg+xml;charset=utf-8' })
+      const url = URL.createObjectURL(blob)
+      const img = new Image()
+      img.onload = () => {
+        const c = document.createElement('canvas')
+        c.width = svgW; c.height = svgH
+        const ctx = c.getContext('2d')
+        ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, svgW, svgH)
+        ctx.drawImage(img, 0, 0)
+        URL.revokeObjectURL(url)
+        resolve(c.toDataURL('image/png'))
+      }
+      img.onerror = () => { URL.revokeObjectURL(url); resolve(null) }
+      img.src = url
+    })
+  }
+
+  function generatePaletteImage(groups) {
+    if (!groups || groups.length === 0) return null
+    const COLS = 4, SW = 100, SH = 56, PAD = 12, CODE_H = 26, TITLE_H = 38
+    const rows = Math.ceil(groups.length / COLS)
+    const W = COLS * (SW + PAD) + PAD
+    const H = TITLE_H + rows * (SH + CODE_H + PAD) + PAD
+    const c = document.createElement('canvas')
+    c.width = W; c.height = H
+    const ctx = c.getContext('2d')
+    ctx.fillStyle = '#f8f9fb'; ctx.fillRect(0, 0, W, H)
+    ctx.fillStyle = '#111827'; ctx.font = 'bold 14px -apple-system,Inter,Arial,sans-serif'
+    ctx.fillText('Палітра ниток вишивки', PAD, 26)
+    groups.forEach((g, i) => {
+      const col = i % COLS, row = Math.floor(i / COLS)
+      const x = PAD + col * (SW + PAD), y = TITLE_H + row * (SH + CODE_H + PAD)
+      ctx.fillStyle = g.colorValue || '#cccccc'
+      ctx.fillRect(x, y, SW, SH)
+      ctx.strokeStyle = 'rgba(0,0,0,0.12)'; ctx.lineWidth = 1
+      ctx.strokeRect(x, y, SW, SH)
+      const code = g.palCode || g.colorValue || '?'
+      ctx.fillStyle = '#111827'; ctx.font = 'bold 12px monospace'
+      const cw = ctx.measureText(code).width
+      ctx.fillText(code, x + (SW - cw) / 2, y + SH + 15)
+      const cnt = g.count || (g.nodes && g.nodes.length) || 0
+      if (cnt) {
+        ctx.fillStyle = '#9ca3af'; ctx.font = '9px monospace'
+        const cs = `${cnt} ел.`, csw = ctx.measureText(cs).width
+        ctx.fillText(cs, x + (SW - csw) / 2, y + SH + 25)
+      }
+    })
+    return c.toDataURL('image/png')
+  }
+
+  async function generateMockupThumbs(mockupProducts, mockupOverlay, designUrl) {
+    const SIZE = 320, thumbs = []
+    if (!mockupProducts || mockupProducts.length === 0) return thumbs
+    let overlayEl = null
+    if (designUrl) {
+      try {
+        overlayEl = await new Promise((res, rej) => {
+          const img = new Image(); img.crossOrigin = 'anonymous'
+          img.onload = () => res(img); img.onerror = rej
+          img.src = designUrl
+        })
+      } catch {}
+    }
+    const ov = mockupOverlay || { x: 50, y: 35, size: 32 }
+    for (const product of mockupProducts) {
+      if (!product?.image) continue
+      try {
+        const pImg = await new Promise((res, rej) => {
+          const img = new Image(); img.crossOrigin = 'anonymous'
+          img.onload = () => res(img); img.onerror = rej
+          img.src = product.image
+        })
+        const c = document.createElement('canvas'); c.width = SIZE; c.height = SIZE
+        const ctx = c.getContext('2d')
+        ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high'
+        ctx.drawImage(pImg, 0, 0, SIZE, SIZE)
+        if (overlayEl) {
+          const srcW = overlayEl.naturalWidth || overlayEl.width
+          const srcH = overlayEl.naturalHeight || overlayEl.height
+          const dW = ov.size / 100 * SIZE
+          const dH = dW * srcH / srcW
+          ctx.drawImage(overlayEl, 0, 0, srcW, srcH,
+            ov.x / 100 * SIZE - dW / 2, ov.y / 100 * SIZE - dH / 2, dW, dH)
+        }
+        thumbs.push({ label: product.nameUk || product.name || product.id, dataUrl: c.toDataURL('image/jpeg', 0.82) })
+      } catch {}
+    }
+    return thumbs
+  }
+
+  const handleSendToDesigner = async () => {
+    setSendStatus('sending')
+    try {
+      const now = new Date()
+      const cleanId = modalForm.orderNum || String(now.getTime()).slice(-5)
+      const caption = [cleanId, modalForm.size, modalForm.embSize].filter(Boolean).join(' ')
+      const designDataUrl = await exportSvgToDataUrl()
+      const paletteDataUrl = groupsRef.current.length > 0 ? generatePaletteImage(groupsRef.current) : null
+      const lsState = location.state || {}
+      const mockupThumbs = await generateMockupThumbs(lsState.mockupProducts, lsState.mockupOverlay, lsState.mockupDesignUrl)
+      const order = {
+        id: `#${cleanId}`,
+        name: cleanId,
+        status: 'designer',
+        comment: modalForm.comment,
+        orderSize: modalForm.size,
+        embroiderySize: modalForm.embSize,
+        transferDate: now.toISOString(),
+        transferDateStr: now.toLocaleString('uk-UA', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Kiev' }).replace(',', ''),
+      }
+      const files = []
+      if (designDataUrl) files.push({ dataUrl: designDataUrl, label: caption, filename: `${cleanId}.png` })
+      if (paletteDataUrl) files.push({ dataUrl: paletteDataUrl, label: `${caption} палітра`, filename: `${cleanId}_palette.png` })
+      for (const t of mockupThumbs) {
+        files.push({ dataUrl: t.dataUrl, label: `${caption} ${t.label}`, filename: `${cleanId}_${(t.label || 'mockup').replace(/\s+/g, '_')}.jpg` })
+      }
+      await sendOrderToDesignerTelegram({ order, files })
+      setSendStatus('ok')
+      setTimeout(() => { setShowModal(false); setSendStatus(null) }, 2500)
+    } catch (err) {
+      console.error('[PaletteEditor] Send to designer failed:', err)
+      setSendStatus('error')
+    }
+  }
+
   return (
+    <>
     <div ref={containerRef} className="pe-container">
       <style>{CSS}</style>
 
@@ -1536,10 +1692,18 @@ export default function PaletteEditor() {
 
         </div>
 
-        <div className="pe-sidebar-footer">
+        <div className="pe-sidebar-footer" style={{display:'flex',flexDirection:'column',gap:8}}>
           <button id="addCustomColorBtn" className="pe-btn full" style={{width:'100%',justifyContent:'center'}}>
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
             Додати колір
+          </button>
+          <button
+            onClick={() => setShowModal(true)}
+            className="pe-btn primary full"
+            style={{width:'100%',justifyContent:'center'}}
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+            Передати дизайнеру
           </button>
         </div>
       </div>
@@ -1574,5 +1738,111 @@ export default function PaletteEditor() {
         </div>
       </div>
     </div>
+
+    {showModal && (
+      <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.5)',zIndex:9900,display:'flex',alignItems:'center',justifyContent:'center',padding:16}}
+           onClick={() => { if (sendStatus !== 'sending') { setShowModal(false); setSendStatus(null) } }}>
+        <div style={{background:'#fff',borderRadius:20,boxShadow:'0 20px 60px rgba(0,0,0,0.2)',width:'100%',maxWidth:500,maxHeight:'90vh',overflowY:'auto'}}
+             onClick={e => e.stopPropagation()}>
+          {/* Header */}
+          <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',padding:'22px 22px 14px'}}>
+            <div>
+              <h2 style={{margin:0,fontSize:17,fontWeight:700,color:'#111827'}}>Передати дизайнеру</h2>
+              <p style={{margin:'4px 0 0',fontSize:12,color:'#9ca3af'}}>Заповніть деталі та надішліть файли</p>
+            </div>
+            <button onClick={() => { if (sendStatus !== 'sending') { setShowModal(false); setSendStatus(null) } }}
+                    style={{width:30,height:30,border:'none',background:'#f3f4f6',cursor:'pointer',color:'#6b7280',borderRadius:8,display:'flex',alignItems:'center',justifyContent:'center',fontSize:16,flexShrink:0}}>×</button>
+          </div>
+
+          <div style={{padding:'0 22px 22px',display:'flex',flexDirection:'column',gap:14}}>
+            {/* Fields */}
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
+              {[
+                { label: 'Номер замовлення', key: 'orderNum', placeholder: 'Номер' },
+                { label: 'Розмір', key: 'size', placeholder: 'XL' },
+                { label: 'Розмір вишивки', key: 'embSize', placeholder: '23 см' },
+              ].map(({ label, key, placeholder }) => (
+                <div key={key} style={key === 'orderNum' ? {gridColumn:'1/-1'} : {}}>
+                  <label style={{fontSize:11,color:'#6b7280',display:'block',marginBottom:4}}>{label}</label>
+                  <input
+                    value={modalForm[key]}
+                    onChange={e => setModalForm(f => ({...f, [key]: e.target.value}))}
+                    placeholder={placeholder}
+                    style={{width:'100%',boxSizing:'border-box',border:'1.5px solid #e5e7eb',borderRadius:9,padding:'7px 10px',fontSize:13,fontFamily:'inherit',outline:'none',transition:'border-color .15s'}}
+                    onFocus={e => e.target.style.borderColor='#6366f1'}
+                    onBlur={e => e.target.style.borderColor='#e5e7eb'}
+                  />
+                </div>
+              ))}
+            </div>
+
+            <div>
+              <label style={{fontSize:11,color:'#6b7280',display:'block',marginBottom:4}}>Коментар (необов'язково)</label>
+              <textarea
+                value={modalForm.comment}
+                onChange={e => setModalForm(f => ({...f, comment: e.target.value.slice(0, 200)}))}
+                placeholder="Коментар для дизайнера..."
+                rows={3}
+                style={{width:'100%',boxSizing:'border-box',border:'1.5px solid #e5e7eb',borderRadius:9,padding:'7px 10px',fontSize:13,fontFamily:'inherit',resize:'vertical',outline:'none',transition:'border-color .15s'}}
+                onFocus={e => e.target.style.borderColor='#6366f1'}
+                onBlur={e => e.target.style.borderColor='#e5e7eb'}
+              />
+              <div style={{fontSize:11,color:'#9ca3af',textAlign:'right'}}>{modalForm.comment.length}/200</div>
+            </div>
+
+            {/* Files summary */}
+            <div style={{padding:'10px 13px',background:'#f8f9fb',borderRadius:10,fontSize:12,color:'#374151',border:'1px solid #f0f0f0'}}>
+              <div style={{fontWeight:600,marginBottom:5,color:'#111'}}>Надсилатиметься в Telegram:</div>
+              <ul style={{margin:0,padding:'0 0 0 15px',lineHeight:1.9,color:'#6b7280'}}>
+                <li>PNG редагованого дизайну</li>
+                <li>Зображення палітри ниток з кодами</li>
+                {(ls.mockupProducts || []).map((p, i) => (
+                  <li key={i}>Мокап: {p.nameUk || p.name || p.id}</li>
+                ))}
+              </ul>
+            </div>
+
+            {/* Status */}
+            {sendStatus === 'ok' && (
+              <div style={{padding:'10px 13px',background:'#f0fdf4',border:'1px solid #bbf7d0',borderRadius:10,color:'#16a34a',fontSize:13,fontWeight:500}}>
+                ✅ Успішно надіслано дизайнеру!
+              </div>
+            )}
+            {sendStatus === 'error' && (
+              <div style={{padding:'10px 13px',background:'#fef2f2',border:'1px solid #fecaca',borderRadius:10,color:'#dc2626',fontSize:13,fontWeight:500}}>
+                ❌ Помилка надсилання. Перевірте з'єднання та спробуйте ще раз.
+              </div>
+            )}
+
+            {/* Buttons */}
+            <div style={{display:'flex',gap:9}}>
+              <button
+                onClick={() => { setShowModal(false); setSendStatus(null) }}
+                disabled={sendStatus === 'sending'}
+                style={{flex:1,border:'1.5px solid #e5e7eb',background:'#fff',borderRadius:10,padding:'10px',fontSize:13,fontWeight:600,cursor:'pointer',color:'#374151',opacity:sendStatus==='sending'?.5:1}}
+              >Скасувати</button>
+              <button
+                onClick={handleSendToDesigner}
+                disabled={sendStatus === 'sending'}
+                style={{flex:2,display:'flex',alignItems:'center',justifyContent:'center',gap:7,background:'#6366f1',border:'none',borderRadius:10,padding:'10px',fontSize:13,fontWeight:600,cursor:'pointer',color:'#fff',opacity:sendStatus==='sending'?.7:1}}
+              >
+                {sendStatus === 'sending' ? (
+                  <>
+                    <svg style={{animation:'pe-spin 1s linear infinite',width:15,height:15}} viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="white" strokeWidth="4" strokeOpacity="0.25"/><path d="M4 12a8 8 0 018-8" stroke="white" strokeWidth="4" strokeLinecap="round"/></svg>
+                    Надсилання...
+                  </>
+                ) : (
+                  <>
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                    Передати дизайнеру
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   )
 }
