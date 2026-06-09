@@ -1888,12 +1888,12 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
           const caption = [cleanId, allProductNames.join(' + '), tgSizes || sendOrderSize, sendEmbroiderySize].filter(Boolean).join(' ')
           const designerFiles = checkedFiles.map(item => {
             if (item.id === 'design') {
-              return { ...item, dataUrl: transparentDesignUrl || item.dataUrl, filename: `${cleanId}.png`, label: caption }
+              return { ...item, dataUrl: transparentDesignUrl || item.dataUrl, filename: `${cleanId}.png`, label: cleanId }
             }
             const colorPart = (item.colorLabel || '').trim().replace(/[\s/\\]+/g, '_')
             const sizePart = item.itemSize || 'XL'
             const parts = [cleanId, colorPart, sizePart].filter(Boolean)
-            return { ...item, filename: `${parts.join('_')}.png`, label: caption }
+            return { ...item, filename: `${parts.join('_')}.png`, label: parts.join('_') }
           })
           await sendOrderToDesignerTelegram({ order, files: designerFiles })
           setDesignerSendToast('ok')

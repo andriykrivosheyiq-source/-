@@ -732,7 +732,7 @@ export default function MyOrders({ savedOrders = [], ordersLoading = false, orde
               const sizePart = f.itemSize || 'XL'
               return [cleanId, colorPart, sizePart].filter(Boolean).join('_') + '.png'
             })()
-        return { dataUrl, label: caption, filename }
+        return { dataUrl, label: filename.replace(/\.\w+$/, ''), filename }
       }))
       sendOrderToDesignerTelegram({
         order: { ...order, productName: productNamesStr, orderSize: designerData.orderSize, embroiderySize: designerData.embroiderySize, comment: designerData.comment },

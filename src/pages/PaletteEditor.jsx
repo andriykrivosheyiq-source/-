@@ -1626,10 +1626,11 @@ export default function PaletteEditor({ onUpdateOrder }) {
       const files = mockupItems
         .filter(item => item.checked)
         .map(item => {
-          if (!item.id.startsWith('mockup-')) return { dataUrl: item.dataUrl, label: caption, filename: item.filename }
+          if (!item.id.startsWith('mockup-')) return { dataUrl: item.dataUrl, label: item.filename.replace(/\.\w+$/, ''), filename: item.filename }
           const colorPart = (item.colorLabel || '').trim().replace(/[\s/\\]+/g, '_')
           const sizePart = item.itemSize || 'XL'
-          return { dataUrl: item.dataUrl, label: caption, filename: [cleanId, colorPart, sizePart].filter(Boolean).join('_') + '.jpg' }
+          const filenameBase = [cleanId, colorPart, sizePart].filter(Boolean).join('_')
+          return { dataUrl: item.dataUrl, label: filenameBase, filename: filenameBase + '.jpg' }
         })
       await sendOrderToDesignerTelegram({ order, files })
       if (editingOrderId) {
