@@ -569,7 +569,19 @@ export default function PaletteEditor() {
       fetch(autoImageUrl)
         .then(r => r.blob())
         .then(blob => preprocessBlob(blob))
-        .then(blob => isVectorizerAIConfigured() ? vectorizeWithAI(blob).catch(() => vectorizeBlob(blob)) : vectorizeBlob(blob))
+        .then(blob => {
+          if (!isVectorizerAIConfigured()) {
+            console.log('[Vectorizer] vectorizer.ai not configured → using ImageTracer.js')
+            return vectorizeBlob(blob)
+          }
+          return vectorizeWithAI(blob).then(svg => {
+            console.log('[Vectorizer] ✅ vectorizer.ai succeeded')
+            return svg
+          }).catch(err => {
+            console.warn('[Vectorizer] vectorizer.ai failed, falling back to ImageTracer.js. Error:', err)
+            return vectorizeBlob(blob)
+          })
+        })
         .then(svg => {
           originalText = svg
           if (scaleRangeEl) { scaleRangeEl.value = '100'; if (scaleValEl) scaleValEl.textContent = '100%' }
