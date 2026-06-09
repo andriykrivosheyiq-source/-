@@ -269,7 +269,7 @@ function TransferToDesignerModal({ order, extras, onConfirm, onClose }) {
   })
 
   const checkedMockups = files.filter(f => f.checked && f.id.startsWith('mockup-'))
-  const orderSizeStr = [...new Set(checkedMockups.map(f => f.itemSize || 'XL'))].join(', ')
+  const orderSizeStr = checkedMockups.map(f => f.itemSize || 'XL').join(', ')
 
   const handleConfirm = () => {
     onConfirm({

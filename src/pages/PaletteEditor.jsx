@@ -1609,7 +1609,7 @@ export default function PaletteEditor({ onUpdateOrder }) {
       const cleanId = modalForm.orderNum || String(now.getTime()).slice(-5)
       const lsState = location.state || {}
       const checkedMockups = mockupItems.filter(item => item.checked && item.id.startsWith('mockup-'))
-      const orderSizeStr = [...new Set(checkedMockups.map(i => i.itemSize || 'XL'))].join(', ')
+      const orderSizeStr = checkedMockups.map(i => i.itemSize || 'XL').join(', ')
       const productNames = checkedMockups.map(i => i.colorLabel || i.label).filter(Boolean).join(', ') || (lsState.mockupProducts || []).map(p => p.nameUk || p.name).filter(Boolean).join(', ')
       const caption = [cleanId, productNames, orderSizeStr, modalForm.embSize].filter(Boolean).join(' ')
       const order = {
@@ -1825,7 +1825,7 @@ export default function PaletteEditor({ onUpdateOrder }) {
               <div>
                 <label style={{fontSize:11,color:'#6b7280',display:'block',marginBottom:4}}>Розмір (з мокапів)</label>
                 <div style={{width:'100%',boxSizing:'border-box',border:'1.5px solid #e5e7eb',borderRadius:9,padding:'7px 10px',fontSize:13,background:'#f9fafb',color:'#374151',minHeight:34}}>
-                  {[...new Set(mockupItems.filter(i => i.checked && i.id.startsWith('mockup-')).map(i => i.itemSize || 'XL'))].join(', ') || '—'}
+                  {mockupItems.filter(i => i.checked && i.id.startsWith('mockup-')).map(i => i.itemSize || 'XL').join(', ') || '—'}
                 </div>
               </div>
               <div>

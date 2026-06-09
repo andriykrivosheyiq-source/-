@@ -1820,7 +1820,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
     const allProductNames = checkedMockupsSend
       .map(i => allMockupProducts[parseInt(i.id.replace('mockup-', ''))]?.nameUk)
       .filter(Boolean)
-    const orderSizeStr = [...new Set(checkedMockupsSend.map(i => i.itemSize || 'XL'))].join(', ')
+    const orderSizeStr = checkedMockupsSend.map(i => i.itemSize || 'XL').join(', ')
     const order = {
       id: orderNum,
       name: fileName || `Дизайн від ${dateStr}`,
@@ -1884,7 +1884,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
             }
           } catch {}
           const cleanId = (fileName || order.id).replace(/^#/, '')
-          const tgSizes = [...new Set(checkedFiles.filter(f => f.id.startsWith('mockup-')).map(f => f.itemSize || 'XL'))].join(', ')
+          const tgSizes = checkedFiles.filter(f => f.id.startsWith('mockup-')).map(f => f.itemSize || 'XL').join(', ')
           const caption = [cleanId, allProductNames.join(' + '), tgSizes || sendOrderSize, sendEmbroiderySize].filter(Boolean).join(' ')
           const designerFiles = checkedFiles.map(item => {
             if (item.id === 'design') {
@@ -2427,7 +2427,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
                   <div>
                     <label className="text-xs text-gray-500 block mb-1">Розмір (з мокапів)</label>
                     <div className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-800 bg-gray-50 min-h-[38px]">
-                      {[...new Set(sendItems.filter(i => i.checked && i.id.startsWith('mockup-')).map(i => i.itemSize || 'XL'))].join(', ') || '—'}
+                      {sendItems.filter(i => i.checked && i.id.startsWith('mockup-')).map(i => i.itemSize || 'XL').join(', ') || '—'}
                     </div>
                   </div>
                   <div>
