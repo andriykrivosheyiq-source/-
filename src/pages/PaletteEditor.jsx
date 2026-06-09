@@ -2,6 +2,7 @@ import React, { useRef, useEffect } from 'react'
 import { useLocation } from 'react-router-dom'
 import { THREAD_PALETTE } from '../data/threadPalette'
 import { preprocessBlob, vectorizeBlob } from '../services/vectorizer'
+import { vectorizeWithAI, isVectorizerAIConfigured } from '../services/vectorizerAI'
 
 const CSS = `
 .pe-container{display:flex;gap:14px;padding:16px;height:100%;align-items:stretch;font-family:Inter,"Segoe UI",Arial,Helvetica,sans-serif;color:#111;background:#f5f6f7;box-sizing:border-box;overflow:hidden}
@@ -59,8 +60,8 @@ const CSS = `
 `
 
 export default function PaletteEditor() {
-  const containerRef = useRef(null)
   const location = useLocation()
+  const containerRef = useRef(null)
   const autoImageRef = useRef(location.state?.designImage || null)
 
   useEffect(() => {
@@ -557,6 +558,31 @@ export default function PaletteEditor() {
         r.onload = e => loadSvgText(e.target.result)
         r.readAsText(f, 'utf-8')
       })
+    }
+
+    // Auto-load design passed from DesignPlacement — preprocess → vectorize.
+    const autoImageUrl = autoImageRef.current
+    if (autoImageUrl) {
+      const statusEl = $('vectorizerStatus')
+      if (statusEl) { statusEl.style.display = 'block'; statusEl.textContent = '⏳ Векторизація...' }
+      if (loadBtn) loadBtn.disabled = true
+      fetch(autoImageUrl)
+        .then(r => r.blob())
+        .then(blob => preprocessBlob(blob))
+        .then(blob => isVectorizerAIConfigured() ? vectorizeWithAI(blob).catch(() => vectorizeBlob(blob)) : vectorizeBlob(blob))
+        .then(svg => {
+          originalText = svg
+          if (scaleRangeEl) { scaleRangeEl.value = '100'; if (scaleValEl) scaleValEl.textContent = '100%' }
+          parseAndShow(svg)
+        })
+        .catch(err => {
+          console.error('Vectorize failed:', err)
+          alert('Не вдалось векторизувати дизайн: ' + (err?.message || err))
+        })
+        .finally(() => {
+          if (statusEl) statusEl.style.display = 'none'
+          if (loadBtn) loadBtn.disabled = false
+        })
     }
     if (scaleRangeEl) {
       scaleRangeEl.addEventListener('input', () => {
@@ -1254,33 +1280,6 @@ export default function PaletteEditor() {
     if (scaleValEl && scaleRangeEl) scaleValEl.textContent = scaleRangeEl.value + '%'
     if (threshValEl && threshRangeEl) threshValEl.textContent = threshRangeEl.value
     applyScale(parseFloat(scaleRangeEl?.value) || 100)
-
-    // Auto-load design passed from DesignPlacement — preprocess → vectorize.
-    const autoImageUrl = autoImageRef.current
-    if (autoImageUrl) {
-      const statusEl = $('vectorizerStatus')
-      if (statusEl) { statusEl.style.display = 'block'; statusEl.textContent = '⏳ Векторизація...' }
-      if (loadBtn) loadBtn.disabled = true
-      if (removeBgChk) removeBgChk.checked = false
-
-      fetch(autoImageUrl)
-        .then(r => r.blob())
-        .then(blob => preprocessBlob(blob))
-        .then(blob => vectorizeBlob(blob))
-        .then(svg => {
-          originalText = svg
-          if (scaleRangeEl) { scaleRangeEl.value = '100'; if (scaleValEl) scaleValEl.textContent = '100%' }
-          parseAndShow(svg)
-        })
-        .catch(err => {
-          console.error('Vectorize failed:', err)
-          alert('Не вдалось векторизувати дизайн: ' + (err?.message || err))
-        })
-        .finally(() => {
-          if (statusEl) statusEl.style.display = 'none'
-          if (loadBtn) loadBtn.disabled = false
-        })
-    }
 
     return () => {
       if (document.body.contains(probe)) document.body.removeChild(probe)
