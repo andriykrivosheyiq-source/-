@@ -243,7 +243,6 @@ function OrderDetailModal({ order, extras, onClose, onStatusChange, onDelete, on
 // ─── TransferToDesignerModal ───────────────────────────────────────────────────
 
 function TransferToDesignerModal({ order, extras, onConfirm, onClose }) {
-  const [orderSize, setOrderSize] = useState(order.orderSize || '')
   const [embroiderySize, setEmbroiderySize] = useState(order.embroiderySize || '')
   const [comment, setComment] = useState(order.comment || '')
   const [files, setFiles] = useState(() => {
@@ -254,7 +253,7 @@ function TransferToDesignerModal({ order, extras, onConfirm, onClose }) {
     }
     if (order.mockupThumbs?.length > 0) {
       order.mockupThumbs.forEach((m, i) => {
-        result.push({ id: `mockup-${i}`, label: `Мокап №${i + 1} — ${m.label}`, thumbnail: m.thumbnail, checked: true })
+        result.push({ id: `mockup-${i}`, label: `Мокап №${i + 1} — ${m.label}`, thumbnail: m.thumbnail, checked: true, itemSize: '', embSize: '', colorLabel: (order.id || '').replace(/^#/, '') })
       })
     } else {
       const productIds = extras?.designSnapshot?.selectedProducts || (order.productId ? [order.productId] : [])
@@ -262,19 +261,23 @@ function TransferToDesignerModal({ order, extras, onConfirm, onClose }) {
         const product = allProducts.find(p => p.id === pid)
         if (product) {
           const thumbnail = (i === 0 && order.mockupThumb) ? order.mockupThumb : product.image
-          result.push({ id: `mockup-${i}`, label: `Мокап №${i + 1} — ${product.nameUk}`, thumbnail, checked: true })
+          result.push({ id: `mockup-${i}`, label: `Мокап №${i + 1} — ${product.nameUk}`, thumbnail, checked: true, itemSize: '', embSize: '', colorLabel: (order.id || '').replace(/^#/, '') })
         }
       })
     }
     return result
   })
 
+  const checkedMockups = files.filter(f => f.checked && f.id.startsWith('mockup-'))
+  const orderSizeStr = checkedMockups.map(f => f.itemSize).filter(Boolean).join(', ')
+
   const handleConfirm = () => {
+    const orderEmbSizeStr = checkedMockups.map(f => f.embSize).filter(Boolean).join(', ')
     onConfirm({
       transferDate: new Date().toISOString(),
       comment,
-      orderSize,
-      embroiderySize,
+      orderSize: orderSizeStr,
+      embroiderySize: orderEmbSizeStr || embroiderySize,
       checkedFiles: files.filter(f => f.checked),
     })
   }
@@ -303,18 +306,19 @@ function TransferToDesignerModal({ order, extras, onConfirm, onClose }) {
               </div>
               <div>
                 <label className="text-xs text-gray-500 block mb-1">Тип одягу та колір</label>
-                <div className="border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-800 bg-gray-50 flex items-center gap-2">
-                  {order.colors?.[0] && <span className="w-4 h-4 rounded-full flex-shrink-0 border border-gray-200" style={{ backgroundColor: order.colors[0] }} />}
-                  {order.productName || '—'}
+                <div className="border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-800 bg-gray-50 min-h-[38px]">
+                  {files.filter(f => f.checked && f.id.startsWith('mockup-')).map(f => f.label.replace(/^Мокап №\d+ — /, '')).join(', ') || '—'}
                 </div>
               </div>
               <div>
-                <label className="text-xs text-gray-500 block mb-1">Розмір</label>
-                <input value={orderSize} onChange={e => setOrderSize(e.target.value)} className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300" placeholder="XL" />
+                <label className="text-xs text-gray-500 block mb-1">Розмір (з мокапів)</label>
+                <div className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-800 bg-gray-50 min-h-[38px]">{orderSizeStr || '—'}</div>
               </div>
               <div>
                 <label className="text-xs text-gray-500 block mb-1">Розмір вишивки</label>
-                <input value={embroiderySize} onChange={e => setEmbroiderySize(e.target.value)} className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300" placeholder="23 см" />
+                <div className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-800 bg-gray-50 min-h-[38px]">
+                  {checkedMockups.map(f => f.embSize).filter(Boolean).join(', ') || '—'}
+                </div>
               </div>
             </div>
           </div>
@@ -328,7 +332,7 @@ function TransferToDesignerModal({ order, extras, onConfirm, onClose }) {
                 {files.map((item, idx) => (
                   <div
                     key={item.id}
-                    className={`flex-shrink-0 w-44 border-2 rounded-xl p-3 cursor-pointer transition-all ${item.checked ? 'border-indigo-500 bg-indigo-50/40' : 'border-gray-200 bg-white'}`}
+                    className={`flex-shrink-0 w-48 border-2 rounded-xl p-3 cursor-pointer transition-all ${item.checked ? 'border-indigo-500 bg-indigo-50/40' : 'border-gray-200 bg-white'}`}
                     onClick={() => setFiles(prev => prev.map((f, i) => i === idx ? { ...f, checked: !f.checked } : f))}
                   >
                     <div className="flex items-center justify-between mb-2">
@@ -339,7 +343,31 @@ function TransferToDesignerModal({ order, extras, onConfirm, onClose }) {
                     <div className="w-full h-28 bg-white rounded-lg overflow-hidden border border-gray-100 flex items-center justify-center mb-2">
                       <img src={item.thumbnail} alt="" className="w-full h-full object-contain" />
                     </div>
-                    <p className="text-xs font-semibold text-gray-800 truncate">{item.label}</p>
+                    <p className="text-xs font-semibold text-gray-800 truncate mb-2">{item.id.startsWith('mockup-') ? (item.colorLabel || item.label) : item.label}</p>
+                    {item.id.startsWith('mockup-') && (
+                      <div onClick={e => e.stopPropagation()} className="space-y-1.5">
+                        <div className="flex gap-0.5 flex-wrap">
+                          {['XS','S','M','L','XL'].map(sz => (
+                            <button key={sz} type="button"
+                              onClick={() => setFiles(prev => prev.map((f, i) => i === idx ? { ...f, itemSize: sz } : f))}
+                              className={`px-1.5 py-0.5 text-[10px] font-bold rounded border transition-colors ${item.itemSize === sz ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-gray-300 text-gray-500 hover:border-indigo-400'}`}
+                            >{sz}</button>
+                          ))}
+                        </div>
+                        <input
+                          value={item.embSize || ''}
+                          onChange={e => setFiles(prev => prev.map((f, i) => i === idx ? { ...f, embSize: e.target.value } : f))}
+                          placeholder="Вишивка (напр. 27см)"
+                          className="w-full border border-gray-200 rounded-lg px-2 py-1 text-[11px] focus:outline-none focus:ring-1 focus:ring-indigo-300"
+                        />
+                        <input
+                          value={item.colorLabel || ''}
+                          onChange={e => setFiles(prev => prev.map((f, i) => i === idx ? { ...f, colorLabel: e.target.value } : f))}
+                          placeholder="напр. 387437_1"
+                          className="w-full border border-gray-200 rounded-lg px-2 py-1 text-[11px] focus:outline-none focus:ring-1 focus:ring-indigo-300"
+                        />
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -600,6 +628,7 @@ export default function MyOrders({ savedOrders = [], ordersLoading = false, orde
   const [sortBy, setSortBy] = useState('newest')
   const [selectedOrder, setSelectedOrder] = useState(null)
   const [transferPending, setTransferPending] = useState(null)
+  const [palettePending, setPalettePending] = useState(null)
   const [tgToast, setTgToast] = useState(null) // null | 'sending' | 'ok' | 'error'
 
   const allOrders = savedOrders.map(o => ({ ...o, _saved: true }))
@@ -626,6 +655,12 @@ export default function MyOrders({ savedOrders = [], ordersLoading = false, orde
       if (selectedOrder?.id === id) setSelectedOrder(null)
       return
     }
+    if (newStatus === 'palette') {
+      const order = allOrders.find(o => o.id === id) || { id }
+      setPalettePending({ order, extras: orderExtras[id] || {} })
+      if (selectedOrder?.id === id) setSelectedOrder(null)
+      return
+    }
     onUpdateOrder?.(id, { status: newStatus })
     if (selectedOrder?.id === id) setSelectedOrder(prev => ({ ...prev, status: newStatus }))
   }
@@ -641,11 +676,11 @@ export default function MyOrders({ savedOrders = [], ordersLoading = false, orde
 
     setTgToast('sending')
     const cleanId = (order.id || '').replace(/^#/, '')
-    const productIds = extras?.designSnapshot?.selectedProducts
-    const allProductNames = productIds?.length
-      ? productIds.map(pid => allProducts.find(p => p.id === pid)?.nameUk).filter(Boolean)
-      : order.productName ? [order.productName] : []
-    const productNamesStr = allProductNames.join(', ') || order.productName || '';
+    const checkedMockupNames = checkedFiles
+      .filter(f => f.id.startsWith('mockup-'))
+      .map(f => (f.label || '').replace(/^Мокап №\d+ — /, '').trim())
+      .filter(Boolean)
+    const productNamesStr = checkedMockupNames.join(', ') || order.productName || '';
 
     (async () => {
       const caption = [cleanId, productNamesStr, designerData.orderSize, designerData.embroiderySize].filter(Boolean).join(' ')
@@ -698,11 +733,16 @@ export default function MyOrders({ savedOrders = [], ordersLoading = false, orde
             } catch { /* fall back to stored thumbnail */ }
           }
         }
-        return {
-          dataUrl,
-          label: caption,
-          filename: f.id === 'design' ? `${cleanId}.png` : `${caption}.png`,
-        }
+        const filename = f.id === 'design'
+          ? `${cleanId}.png`
+          : (() => {
+              const colorPart = (f.colorLabel || cleanId).trim().replace(/[\s/\\]+/g, '_')
+              const productPart = (f.label || '').replace(/^Мокап №\d+ — /, '').trim().replace(/[\s/\\,]+/g, '_').replace(/_{2,}/g, '_')
+              const embPart = (f.embSize || '').trim().replace(/\s+/g, '')
+              const sizePart = f.itemSize || ''
+              return [colorPart, productPart, embPart, sizePart].filter(Boolean).join('_') + '.png'
+            })()
+        return { dataUrl, label: filename.replace(/\.\w+$/, ''), filename }
       }))
       sendOrderToDesignerTelegram({
         order: { ...order, productName: productNamesStr, orderSize: designerData.orderSize, embroiderySize: designerData.embroiderySize, comment: designerData.comment },
@@ -842,6 +882,62 @@ export default function MyOrders({ savedOrders = [], ordersLoading = false, orde
           onConfirm={handleConfirmTransfer}
           onClose={() => setTransferPending(null)}
         />
+      )}
+
+      {/* Palette confirmation modal */}
+      {palettePending && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setPalettePending(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6" onClick={e => e.stopPropagation()}>
+            <div className="w-12 h-12 bg-orange-100 rounded-xl flex items-center justify-center mx-auto mb-4">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#f97316" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="13.5" cy="6.5" r="2"/><circle cx="6.5" cy="12.5" r="2"/><circle cx="17.5" cy="14.5" r="2"/>
+                <path d="M2 20h20"/>
+              </svg>
+            </div>
+            <h2 className="text-lg font-bold text-gray-900 text-center mb-2">Перейти в Палітру SVG?</h2>
+            <p className="text-sm text-gray-500 text-center mb-6">
+              Замовлення буде переміщено до статусу «Палітра». Бажаєте відкрити редактор палітри для цього дизайну?
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  onUpdateOrder?.(palettePending.order.id, { status: 'palette' })
+                  setPalettePending(null)
+                }}
+                className="flex-1 border border-gray-200 text-gray-700 hover:bg-gray-50 rounded-xl py-2.5 text-sm font-semibold transition-colors"
+              >
+                Ні, тільки змінити статус
+              </button>
+              <button
+                onClick={() => {
+                  const { order, extras } = palettePending
+                  onUpdateOrder?.(order.id, { status: 'palette' })
+                  // Resolve full product objects from designSnapshot for high-quality regeneration
+                  const productIds = extras?.designSnapshot?.selectedProducts || []
+                  const mockupProducts = productIds
+                    .map(pid => allProducts.find(p => p.id === pid))
+                    .filter(Boolean)
+                    .map(p => ({ id: p.id, nameUk: p.nameUk, image: p.image, category: p.category }))
+                  navigate('/palette-editor', {
+                    state: {
+                      designImage: extras?.transparentImage || extras?.fullImage || order.image,
+                      mockupDesignUrl: extras?.transparentImage || null,
+                      fileName: (order.name || order.id || '').replace(/^#/, ''),
+                      editingOrderId: order.id,
+                      mockupProducts: mockupProducts.length > 0 ? mockupProducts : null,
+                      mockupThumbs: mockupProducts.length === 0 ? (order.mockupThumbs || []) : [],
+                      mockupOverlay: extras?.designSnapshot?.mockupOverlay || { x: 50, y: 35, size: 32 },
+                    }
+                  })
+                  setPalettePending(null)
+                }}
+                className="flex-1 bg-orange-500 hover:bg-orange-600 text-white rounded-xl py-2.5 text-sm font-semibold transition-colors"
+              >
+                Так, відкрити
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {tgToast && (

@@ -164,6 +164,61 @@ function removeWhiteBg(img, threshold = 220, noDilation = false) {
   return canvas
 }
 
+// ─── Per-mockup colour overrides ─────────────────────────────────────────────
+
+function hexToRgb(hex) {
+  return [parseInt(hex.slice(1,3),16), parseInt(hex.slice(3,5),16), parseInt(hex.slice(5,7),16)]
+}
+function rgbToHex(r,g,b) {
+  return '#' + [r,g,b].map(v => v.toString(16).padStart(2,'0')).join('')
+}
+
+async function extractDesignColors(imageUrl, maxColors = 24) {
+  const img = await loadImgEl(imageUrl)
+  const W = img.naturalWidth || img.width, H = img.naturalHeight || img.height
+  const canvas = document.createElement('canvas')
+  canvas.width = W; canvas.height = H
+  const ctx = canvas.getContext('2d')
+  ctx.drawImage(img, 0, 0)
+  const data = ctx.getImageData(0, 0, W, H).data
+  const counts = new Map()
+  for (let i = 0; i < data.length; i += 4) {
+    if (data[i+3] < 128) continue
+    const r = Math.min(255, Math.round(data[i]/8)*8)
+    const g = Math.min(255, Math.round(data[i+1]/8)*8)
+    const b = Math.min(255, Math.round(data[i+2]/8)*8)
+    const k = rgbToHex(r, g, b)
+    counts.set(k, (counts.get(k) || 0) + 1)
+  }
+  return [...counts.entries()].sort((a,b) => b[1]-a[1]).slice(0, maxColors).map(([c]) => c)
+}
+
+async function applyMockupColorMap(imageUrl, colorMap) {
+  if (!imageUrl || !colorMap) return imageUrl
+  const entries = Object.entries(colorMap).filter(([from, to]) => from !== to)
+  if (!entries.length) return imageUrl
+  const img = await loadImgEl(imageUrl)
+  const W = img.naturalWidth || img.width, H = img.naturalHeight || img.height
+  const canvas = document.createElement('canvas')
+  canvas.width = W; canvas.height = H
+  const ctx = canvas.getContext('2d')
+  ctx.drawImage(img, 0, 0)
+  const iData = ctx.getImageData(0, 0, W, H)
+  const d = iData.data
+  const pairs = entries.map(([from, to]) => ({ f: hexToRgb(from), t: hexToRgb(to) }))
+  const TOL = 60
+  for (let i = 0; i < d.length; i += 4) {
+    if (d[i+3] < 10) continue
+    for (const { f, t } of pairs) {
+      if (Math.abs(d[i]-f[0]) + Math.abs(d[i+1]-f[1]) + Math.abs(d[i+2]-f[2]) < TOL) {
+        d[i] = t[0]; d[i+1] = t[1]; d[i+2] = t[2]; break
+      }
+    }
+  }
+  ctx.putImageData(iData, 0, 0)
+  return canvas.toDataURL('image/png')
+}
+
 function drawLetters(ctx, letters, W, H, style = 'D') {
   const isTwoColor = style.includes('TWO_COLOR')
   for (const letter of letters) {
@@ -333,15 +388,15 @@ async function renderEstTransparent(letters, estEl, estText, showEstText, imageU
   if (imageUrl) {
     try {
       const img = await loadImgEl(imageUrl)
-      const cleaned = removeWhiteBg(img, 230, true)
+      const cleanedSrc = removeWhiteBg(img, 230, true)
       const iW = illus.size / 100 * W
-      const iH = iW * cleaned.height / cleaned.width
+      const iH = iW * cleanedSrc.height / cleanedSrc.width
       const cropFrac = (illus.cropBottom || 0) / 100
-      const srcH = cleaned.height * (1 - cropFrac)
+      const srcH = cleanedSrc.height * (1 - cropFrac)
       const destH = iH * (1 - cropFrac)
       const iX = illus.x / 100 * W - iW / 2
       const iY = illus.y / 100 * H - iH / 2
-      ctx.drawImage(cleaned, 0, 0, cleaned.width, srcH, iX, iY, iW, destH)
+      ctx.drawImage(cleanedSrc, 0, 0, cleanedSrc.width, srcH, iX, iY, iW, destH)
     } catch { /* skip */ }
   }
 
@@ -426,6 +481,16 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
   useImperativeHandle(ref, () => ({
     exportToCanvas:    () => renderEstToCanvas(letters, estEl, estText, showEstText, imageUrl, illus, letterStyle, ttoLetters, bgColor, dadText, dadTextEl, showChildName, childName, childNameEl),
     exportTransparent: () => renderEstTransparent(letters, estEl, estText, showEstText, imageUrl, illus, letterStyle, ttoLetters, dadText, dadTextEl, showChildName, childName, childNameEl),
+    exportTransparentWithOverrides: (ov = {}) => {
+      const ovLetters = letters.map(l => ({
+        ...l,
+        color:     ov.letterColor !== undefined ? ov.letterColor : l.color,
+        fillColor: ov.fillColor   !== undefined ? ov.fillColor   : l.fillColor,
+      }))
+      const ovTto = ttoLetters.map(l => ({ ...l, color: ov.letterColor !== undefined ? ov.letterColor : l.color }))
+      const ovEst = { ...estEl, color: ov.estColor !== undefined ? ov.estColor : estEl.color }
+      return renderEstTransparent(ovLetters, ovEst, estText, showEstText, imageUrl, illus, letterStyle, ovTto, dadText, dadTextEl, showChildName, childName, childNameEl)
+    },
     getState:          () => ({ letters, letterStyle, bgColor, ttoLetters, estEl, illus, childName, showChildName, childNameEl, dadText, dadTextEl }),
   }), [letters, estEl, estText, showEstText, imageUrl, illus, letterStyle, ttoLetters, bgColor, dadText, dadTextEl, showChildName, childName, childNameEl])
 
@@ -1079,9 +1144,183 @@ function ChangeProductModal({ current, onSelect, onClose }) {
   )
 }
 
+// ─── MockupColorModal ─────────────────────────────────────────────────────────
+
+const LETTER_COLOR_PRESETS = [
+  '#000000', '#ffffff', '#1e3a5f', '#c0392b', '#2d5a27',
+  '#d97706', '#7c3aed', '#9ca3af', '#8b5e3c', '#1e40af',
+  '#be185d', '#0f766e', '#b45309', '#4338ca',
+]
+
+function getLuminance(hex) {
+  const [r, g, b] = hexToRgb(hex)
+  return (0.299 * r + 0.587 * g + 0.114 * b) / 255
+}
+
+function MockupColorModal({ designUrl, colorOverrides, onSave, onClose, isEst, estPosterState, generatePreview }) {
+  const [overrides, setOverrides] = useState(() => ({ ...colorOverrides }))
+  const [previewUrl, setPreviewUrl] = useState(designUrl)
+  const [previewLoading, setPreviewLoading] = useState(false)
+  const [pixelColors, setPixelColors] = useState([])
+  const [loadingColors, setLoadingColors] = useState(!isEst)
+
+  // For EST designs: derive editable colour entries directly from poster state
+  const estEntries = (() => {
+    if (!isEst || !estPosterState) return []
+    const { letters, letterStyle, estEl } = estPosterState
+    const entries = []
+    if (letters?.[0]) {
+      entries.push({ key: 'letterColor', label: 'Колір букв Д', defaultColor: letters[0].color || '#000000' })
+      if (letterStyle === 'D_TWO_COLOR') {
+        entries.push({ key: 'fillColor', label: 'Заповнення Д', defaultColor: letters[0].fillColor || '#ffffff' })
+      }
+    }
+    if (estEl) {
+      entries.push({ key: 'estColor', label: 'Колір EST тексту', defaultColor: estEl.color || '#000000' })
+    }
+    return entries
+  })()
+
+  // Non-EST: extract letter colours by luminance
+  useEffect(() => {
+    if (isEst) return
+    let cancelled = false
+    setLoadingColors(true)
+    extractDesignColors(designUrl, 30).then(allColors => {
+      if (cancelled) return
+      const letterColors = allColors.filter(c => {
+        const lum = getLuminance(c)
+        return lum < 0.15 || lum > 0.82
+      }).slice(0, 6)
+      setPixelColors(letterColors)
+      setLoadingColors(false)
+    }).catch(() => { if (!cancelled) setLoadingColors(false) })
+    return () => { cancelled = true }
+  }, [designUrl, isEst])
+
+  // Preview: EST → re-render via generatePreview; non-EST → pixel replacement
+  useEffect(() => {
+    let cancelled = false
+    if (isEst && generatePreview) {
+      setPreviewLoading(true)
+      generatePreview(overrides)
+        .then(url => { if (!cancelled) { setPreviewUrl(url); setPreviewLoading(false) } })
+        .catch(() => { if (!cancelled) setPreviewLoading(false) })
+    } else {
+      applyMockupColorMap(designUrl, overrides)
+        .then(url => { if (!cancelled) setPreviewUrl(url) })
+        .catch(() => {})
+    }
+    return () => { cancelled = true }
+  }, [designUrl, overrides, isEst, generatePreview])
+
+  const hasChanges = isEst
+    ? estEntries.some(e => overrides[e.key] !== undefined && overrides[e.key] !== e.defaultColor)
+    : Object.entries(overrides).some(([f, t]) => f !== t)
+
+  const renderColorEntry = ({ key, label, defaultColor }) => {
+    const current = overrides[key] !== undefined ? overrides[key] : defaultColor
+    const changed = current !== defaultColor
+    return (
+      <div key={key} className={`rounded-xl p-3 transition-colors ${changed ? 'bg-indigo-50' : 'bg-gray-50'}`}>
+        <div className="flex items-center gap-2 mb-2.5">
+          <span className="text-xs font-medium text-gray-600 flex-1">{label}</span>
+          <div className="w-7 h-7 rounded-lg border border-gray-300 flex-shrink-0 shadow-sm" style={{ background: defaultColor }} title="Оригінал" />
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2" className="flex-shrink-0"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+          <div className="w-7 h-7 rounded-lg border border-gray-300 flex-shrink-0 shadow-sm" style={{ background: current }} />
+          <input
+            type="color"
+            value={current}
+            onChange={e => setOverrides(prev => ({ ...prev, [key]: e.target.value }))}
+            className="w-7 h-7 rounded cursor-pointer border border-gray-200 p-0 flex-shrink-0"
+          />
+          {changed && (
+            <button
+              onClick={() => setOverrides(prev => { const n = {...prev}; delete n[key]; return n })}
+              className="w-5 h-5 flex items-center justify-center text-gray-300 hover:text-red-400 rounded transition-colors flex-shrink-0"
+              title="Скинути"
+            >
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          )}
+        </div>
+        <div className="flex gap-1.5 flex-wrap">
+          {LETTER_COLOR_PRESETS.map(preset => (
+            <button
+              key={preset}
+              onClick={() => setOverrides(prev => ({ ...prev, [key]: preset }))}
+              title={preset}
+              className={`w-6 h-6 rounded-full transition-all flex-shrink-0 ${current === preset ? 'ring-2 ring-indigo-500 ring-offset-1 scale-110' : 'hover:scale-110'}`}
+              style={{
+                background: preset,
+                border: preset === '#ffffff' ? '1.5px solid #e5e7eb' : '1.5px solid transparent',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.15)',
+              }}
+            />
+          ))}
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[60] flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xs max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-5 pt-5 pb-3 border-b border-gray-100">
+          <h3 className="text-base font-bold text-gray-900">Кольори літер</h3>
+          <button onClick={onClose} className="w-7 h-7 flex items-center justify-center text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+        <div className="px-5 pb-5 pt-4 space-y-4">
+          {/* Live preview */}
+          <div className="w-full h-36 rounded-xl bg-gray-100 flex items-center justify-center overflow-hidden border border-gray-200 relative">
+            <img src={previewUrl} alt="" className="max-h-full max-w-full object-contain" />
+            {previewLoading && (
+              <div className="absolute inset-0 flex items-center justify-center bg-white/60">
+                <svg className="animate-spin w-5 h-5 text-indigo-500" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" className="opacity-25"/><path d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" fill="currentColor"/></svg>
+              </div>
+            )}
+          </div>
+
+          {/* Colour entries */}
+          {isEst ? (
+            <div className="space-y-4">
+              {estEntries.map(renderColorEntry)}
+            </div>
+          ) : loadingColors ? (
+            <div className="flex items-center justify-center py-4 gap-2 text-sm text-gray-400">
+              <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" className="opacity-25"/><path d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" fill="currentColor"/></svg>
+              Аналіз кольорів...
+            </div>
+          ) : pixelColors.length === 0 ? (
+            <p className="text-sm text-gray-400 text-center py-2">Кольори літер не знайдено</p>
+          ) : (
+            <div className="space-y-4">
+              {pixelColors.map(color => renderColorEntry({ key: color, label: color, defaultColor: color }))}
+            </div>
+          )}
+
+          <div className="flex gap-2 pt-1">
+            <button
+              onClick={() => setOverrides({})}
+              disabled={!hasChanges}
+              className="flex-1 border border-gray-200 text-gray-600 hover:bg-gray-50 rounded-xl py-2.5 text-sm transition-colors disabled:opacity-40"
+            >Скинути все</button>
+            <button
+              onClick={() => onSave(overrides)}
+              className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl py-2.5 text-sm font-semibold transition-colors"
+            >Зберегти</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── DesignPlacement ──────────────────────────────────────────────────────────
 
-export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onUpdateOrderFull, onRenameOrder }) {
+export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onUpdateOrderFull, onUpdateOrder, onRenameOrder }) {
   const navigate = useNavigate()
   const estPosterRef = useRef(null)
   const autoSaveRef = useRef(false)
@@ -1119,6 +1358,9 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
   const [showAddMockupModal, setShowAddMockupModal] = useState(false)
   const [changingMockupIndex, setChangingMockupIndex] = useState(null)
   const [downloadingMockupIndex, setDownloadingMockupIndex] = useState(null)
+  const [mockupColorOverrides, setMockupColorOverrides] = useState({})
+  const [editingColorIndex, setEditingColorIndex] = useState(null)
+  const [mockupDesignPreviews, setMockupDesignPreviews] = useState({})
   const [showSendModal, setShowSendModal] = useState(false)
   const [sendItems, setSendItems] = useState([])
   const [preparingSend, setPreparingSend] = useState(false)
@@ -1184,6 +1426,29 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
       ctx.clearRect(0, 0, canvas.width, canvas.height)
     }
   }, [currentDesignImage])
+
+  // Regenerate per-mockup colour previews whenever overrides or base design changes
+  useEffect(() => {
+    if (!mockupDesignUrl) { setMockupDesignPreviews({}); return }
+    let cancelled = false
+    ;(async () => {
+      const next = {}
+      for (let i = 0; i < allMockupProducts.length; i++) {
+        const ov = mockupColorOverrides[i]
+        if (!ov || Object.keys(ov).length === 0) continue
+        try {
+          if (isEst && estPosterRef.current && ('letterColor' in ov || 'fillColor' in ov || 'estColor' in ov)) {
+            const canvas = await estPosterRef.current.exportTransparentWithOverrides(ov)
+            next[i] = canvas.toDataURL('image/png')
+          } else if (Object.entries(ov).some(([f, t]) => f !== t)) {
+            next[i] = await applyMockupColorMap(mockupDesignUrl, ov)
+          }
+        } catch {}
+      }
+      if (!cancelled) setMockupDesignPreviews(next)
+    })()
+    return () => { cancelled = true }
+  }, [mockupColorOverrides, mockupDesignUrl, allMockupProducts.length, isEst]) // eslint-disable-line
 
   // Initialize drawing canvas when tool is activated — bake design (or existing edits) into canvas
   useEffect(() => {
@@ -1402,6 +1667,17 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
         }
         setMockupDesignUrl(designUrl)
       }
+      // Apply per-mockup colour overrides
+      const dlOv = mockupColorOverrides[index] || {}
+      let effectiveDesignUrl = designUrl
+      if (Object.keys(dlOv).length > 0) {
+        if (isEst && estPosterRef.current && ('letterColor' in dlOv || 'fillColor' in dlOv || 'estColor' in dlOv)) {
+          const ovCanvas = await estPosterRef.current.exportTransparentWithOverrides(dlOv)
+          effectiveDesignUrl = ovCanvas.toDataURL('image/png')
+        } else if (designUrl && Object.entries(dlOv).some(([f,t]) => f !== t)) {
+          effectiveDesignUrl = await applyMockupColorMap(designUrl, dlOv)
+        }
+      }
       const SIZE = 1200
       const canvas = document.createElement('canvas')
       canvas.width = SIZE; canvas.height = SIZE
@@ -1414,8 +1690,8 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
       if (pA2 >= 1) { pW2 = SIZE; pH2 = SIZE / pA2; pX2 = 0; pY2 = (SIZE - pH2) / 2 }
       else           { pH2 = SIZE; pW2 = SIZE * pA2; pX2 = (SIZE - pW2) / 2; pY2 = 0 }
       ctx.drawImage(productImg, pX2, pY2, pW2, pH2)
-      if (designUrl) {
-        const designImg = await loadImgEl(designUrl)
+      if (effectiveDesignUrl) {
+        const designImg = await loadImgEl(effectiveDesignUrl)
         const dW = mockupOverlay.size / 100 * SIZE
         const aspect = (designImg.naturalHeight || designImg.height) / (designImg.naturalWidth || designImg.width)
         const dH = dW * aspect
@@ -1495,8 +1771,17 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
       else          { pH = SIZE; pW = SIZE * pA; pX = (SIZE - pW) / 2; pY = 0 }
       ctx.drawImage(productImg, pX, pY, pW, pH)
       if (overlayUrl) {
-        // overlayUrl = mockupDesignUrl (already bg-removed) or EST transparent export — skip double removal
-        const dImg = await loadImgEl(overlayUrl)
+        const sendOv = mockupColorOverrides[i] || {}
+        let effectiveSendUrl = overlayUrl
+        if (Object.keys(sendOv).length > 0) {
+          if (isEst && estPosterRef.current && ('letterColor' in sendOv || 'fillColor' in sendOv || 'estColor' in sendOv)) {
+            const ovCanvas = await estPosterRef.current.exportTransparentWithOverrides(sendOv)
+            effectiveSendUrl = ovCanvas.toDataURL('image/png')
+          } else if (Object.entries(sendOv).some(([f,t]) => f !== t)) {
+            effectiveSendUrl = await applyMockupColorMap(overlayUrl, sendOv)
+          }
+        }
+        const dImg = await loadImgEl(effectiveSendUrl)
         const srcW = dImg.naturalWidth || dImg.width
         const srcH = dImg.naturalHeight || dImg.height
         const dW = mockupOverlay.size / 100 * SIZE
@@ -1515,6 +1800,9 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
         filename: `${fileName || 'mockup'}_Мокап_№${i + 1}.png`,
         size: formatFileSize(Math.round(mockupUrl.length * 0.75)),
         checked: true,
+        itemSize: '',
+        embSize: '',
+        colorLabel: (fileName || '').replace(/^#/, '') || '',
       })
     }
     return items
@@ -1639,16 +1927,18 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
     let mockupThumb = null
     let mockupThumbs = []
     try {
-      const SIZE = 320
+      const SIZE = 900
       const dSrc = mockupDesignUrl || fullImage
       // mockupDesignUrl is already bg-removed; only apply removeWhiteBg on raw fullImage fallback
       const dSrcNeedsClean = !mockupDesignUrl
-      let overlayDesign = null
+      let baseOverlayDataUrl = null
       if (dSrc) {
         const dImg = await loadImgEl(dSrc)
-        overlayDesign = dSrcNeedsClean ? removeWhiteBg(dImg) : dImg
+        baseOverlayDataUrl = dSrcNeedsClean
+          ? removeWhiteBg(dImg).toDataURL('image/png')
+          : dSrc
       }
-      for (const product of allMockupProducts) {
+      for (const [productIdx, product] of allMockupProducts.entries()) {
         if (!product?.image) continue
         const mCanvas = document.createElement('canvas')
         mCanvas.width = SIZE; mCanvas.height = SIZE
@@ -1657,17 +1947,28 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
         mCtx.imageSmoothingQuality = 'high'
         const pImg = await loadImgEl(product.image)
         mCtx.drawImage(pImg, 0, 0, SIZE, SIZE)
-        if (overlayDesign) {
-          const srcW = overlayDesign.naturalWidth || overlayDesign.width
-          const srcH = overlayDesign.naturalHeight || overlayDesign.height
+        if (baseOverlayDataUrl) {
+          const thumbOv = mockupColorOverrides[productIdx] || {}
+          let effectiveThumbUrl = baseOverlayDataUrl
+          if (Object.keys(thumbOv).length > 0) {
+            if (isEst && estPosterRef.current && ('letterColor' in thumbOv || 'fillColor' in thumbOv || 'estColor' in thumbOv)) {
+              const ovCanvas = await estPosterRef.current.exportTransparentWithOverrides(thumbOv)
+              effectiveThumbUrl = ovCanvas.toDataURL('image/png')
+            } else if (Object.entries(thumbOv).some(([f,t]) => f !== t)) {
+              effectiveThumbUrl = await applyMockupColorMap(baseOverlayDataUrl, thumbOv)
+            }
+          }
+          const overlayImg = await loadImgEl(effectiveThumbUrl)
+          const srcW = overlayImg.naturalWidth || overlayImg.width
+          const srcH = overlayImg.naturalHeight || overlayImg.height
           const dW = mockupOverlay.size / 100 * SIZE
           const dH = dW * srcH / srcW
-          mCtx.drawImage(overlayDesign, 0, 0, srcW, srcH,
+          mCtx.drawImage(overlayImg, 0, 0, srcW, srcH,
             mockupOverlay.x / 100 * SIZE - dW / 2,
             mockupOverlay.y / 100 * SIZE - dH / 2,
             dW, dH)
         }
-        const t = mCanvas.toDataURL('image/jpeg', 0.82)
+        const t = mCanvas.toDataURL('image/jpeg', 0.93)
         if (!mockupThumb) mockupThumb = t
         mockupThumbs.push({ productId: product.id, label: product.nameUk, thumbnail: t })
       }
@@ -1860,16 +2161,18 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
     let mockupThumb = null
     let mockupThumbs = []
     try {
-      const SIZE = 320
+      const SIZE = 900
       const dSrc = mockupDesignUrl || fullImage
       // mockupDesignUrl is already bg-removed; only apply removeWhiteBg on raw fullImage fallback
       const dSrcNeedsClean = !mockupDesignUrl
-      let overlayDesign = null
+      let baseOverlayDataUrl = null
       if (dSrc) {
         const dImg = await loadImgEl(dSrc)
-        overlayDesign = dSrcNeedsClean ? removeWhiteBg(dImg) : dImg
+        baseOverlayDataUrl = dSrcNeedsClean
+          ? removeWhiteBg(dImg).toDataURL('image/png')
+          : dSrc
       }
-      for (const product of allMockupProducts) {
+      for (const [productIdx, product] of allMockupProducts.entries()) {
         if (!product?.image) continue
         const mCanvas = document.createElement('canvas')
         mCanvas.width = SIZE; mCanvas.height = SIZE
@@ -1878,17 +2181,28 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
         mCtx.imageSmoothingQuality = 'high'
         const pImg = await loadImgEl(product.image)
         mCtx.drawImage(pImg, 0, 0, SIZE, SIZE)
-        if (overlayDesign) {
-          const srcW = overlayDesign.naturalWidth || overlayDesign.width
-          const srcH = overlayDesign.naturalHeight || overlayDesign.height
+        if (baseOverlayDataUrl) {
+          const thumbOv = mockupColorOverrides[productIdx] || {}
+          let effectiveThumbUrl = baseOverlayDataUrl
+          if (Object.keys(thumbOv).length > 0) {
+            if (isEst && estPosterRef.current && ('letterColor' in thumbOv || 'fillColor' in thumbOv || 'estColor' in thumbOv)) {
+              const ovCanvas = await estPosterRef.current.exportTransparentWithOverrides(thumbOv)
+              effectiveThumbUrl = ovCanvas.toDataURL('image/png')
+            } else if (Object.entries(thumbOv).some(([f,t]) => f !== t)) {
+              effectiveThumbUrl = await applyMockupColorMap(baseOverlayDataUrl, thumbOv)
+            }
+          }
+          const overlayImg = await loadImgEl(effectiveThumbUrl)
+          const srcW = overlayImg.naturalWidth || overlayImg.width
+          const srcH = overlayImg.naturalHeight || overlayImg.height
           const dW = mockupOverlay.size / 100 * SIZE
           const dH = dW * srcH / srcW
-          mCtx.drawImage(overlayDesign, 0, 0, srcW, srcH,
+          mCtx.drawImage(overlayImg, 0, 0, srcW, srcH,
             mockupOverlay.x / 100 * SIZE - dW / 2,
             mockupOverlay.y / 100 * SIZE - dH / 2,
             dW, dH)
         }
-        const t = mCanvas.toDataURL('image/jpeg', 0.82)
+        const t = mCanvas.toDataURL('image/jpeg', 0.93)
         if (!mockupThumb) mockupThumb = t
         mockupThumbs.push({ productId: product.id, label: product.nameUk, thumbnail: t })
       }
@@ -1897,10 +2211,11 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
     const catMap = { 'hoodie-basic': 'hoodie', 'hoodie-fleece': 'hoodie', 'hoodie-premium': 'hoodie', 'tshirt-basic': 'tshirt', 'tshirt-oversized': 'oversized', 'sweatshirt': 'sweatshirt', 'cap': 'cap', 'shopper': 'totebag' }
     const transferDateStr = now.toLocaleString('uk-UA', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Kiev' }).replace(',', '')
     // Only include products whose mockup was checked by the user
-    const allProductNames = sendItems
-      .filter(i => i.checked && i.id.startsWith('mockup-'))
-      .map(i => allMockupProducts[parseInt(i.id.replace('mockup-', ''))]?.nameUk)
+    const checkedMockupsSend = sendItems.filter(i => i.checked && i.id.startsWith('mockup-'))
+    const allProductNames = checkedMockupsSend
+      .map(i => (i.label || '').replace(/^Мокап №\d+ — /, '').trim())
       .filter(Boolean)
+    const orderSizeStr = checkedMockupsSend.map(i => i.itemSize).filter(Boolean).join(', ')
     const order = {
       id: orderNum,
       name: fileName || `Дизайн від ${dateStr}`,
@@ -1918,8 +2233,8 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
       transferDate: now.toISOString(),
       transferDateStr,
       comment: designerComment,
-      orderSize: sendOrderSize,
-      embroiderySize: sendEmbroiderySize,
+      orderSize: orderSizeStr || sendOrderSize,
+      embroiderySize: checkedMockupsSend.map(i => i.embSize).filter(Boolean).join(', ') || sendEmbroiderySize,
     }
     const designSnapshot = {
       selectedProducts: [selectedProduct, ...extraMockupProducts],
@@ -1964,13 +2279,20 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
             }
           } catch {}
           const cleanId = (fileName || order.id).replace(/^#/, '')
-          const caption = [cleanId, allProductNames.join(' + '), sendOrderSize, sendEmbroiderySize].filter(Boolean).join(' ')
-          const designerFiles = checkedFiles.map(item => ({
-            ...item,
-            dataUrl: item.id === 'design' && transparentDesignUrl ? transparentDesignUrl : item.dataUrl,
-            filename: item.id === 'design' ? `${cleanId}.png` : item.filename,
-            label: caption,
-          }))
+          const tgSizes = checkedFiles.filter(f => f.id.startsWith('mockup-')).map(f => f.itemSize).filter(Boolean).join(', ')
+          const tgEmbSizes = checkedFiles.filter(f => f.id.startsWith('mockup-')).map(f => f.embSize).filter(Boolean).join(', ')
+          const caption = [cleanId, allProductNames.join(' + '), tgSizes || sendOrderSize, tgEmbSizes || sendEmbroiderySize].filter(Boolean).join(' ')
+          const designerFiles = checkedFiles.map(item => {
+            if (item.id === 'design') {
+              return { ...item, dataUrl: transparentDesignUrl || item.dataUrl, filename: `${cleanId}.png`, label: cleanId }
+            }
+            const colorPart = (item.colorLabel || cleanId).trim().replace(/[\s/\\]+/g, '_')
+            const productPart = (item.label || '').replace(/^Мокап №\d+ — /, '').trim().replace(/[\s/\\,]+/g, '_').replace(/_{2,}/g, '_')
+            const embPart = (item.embSize || '').trim().replace(/\s+/g, '')
+            const sizePart = item.itemSize || ''
+            const parts = [colorPart, productPart, embPart, sizePart].filter(Boolean)
+            return { ...item, filename: `${parts.join('_')}.png`, label: parts.join('_') }
+          })
           await sendOrderToDesignerTelegram({ order, files: designerFiles })
           setDesignerSendToast('ok')
         } catch {
@@ -2242,7 +2564,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
                       className="absolute pointer-events-none"
                       style={{ left: `${mockupOverlay.x}%`, top: `${mockupOverlay.y}%`, width: `${mockupOverlay.size}%`, transform: 'translate(-50%, -50%)' }}
                     >
-                      <img src={mockupDesignUrl} alt="design overlay" className="w-full" />
+                      <img src={mockupDesignPreviews[index] || mockupDesignUrl} alt="design overlay" className="w-full" />
                     </div>
                   )}
                   {preparingMockup && (
@@ -2272,7 +2594,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
                       </div>
                     )}
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 flex-wrap">
                     <button
                       onClick={() => setChangingMockupIndex(index)}
                       className="flex items-center justify-center gap-1.5 border border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-indigo-600 rounded-xl px-3 py-2 text-sm font-medium transition-colors"
@@ -2281,6 +2603,20 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
                       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                       Змінити
                     </button>
+                    {mockupDesignUrl && (
+                      <button
+                        onClick={() => setEditingColorIndex(index)}
+                        className={`flex items-center justify-center gap-1.5 border rounded-xl px-3 py-2 text-sm font-medium transition-colors ${
+                          mockupDesignPreviews[index]
+                            ? 'border-indigo-400 bg-indigo-50 text-indigo-600'
+                            : 'border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-indigo-600'
+                        }`}
+                        title="Редагувати кольори дизайну для цього мокапу"
+                      >
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg>
+                        Кольори
+                      </button>
+                    )}
                     <button
                       onClick={() => handleDownloadMockupForProduct(product, index)}
                       disabled={downloadingMockupIndex === index}
@@ -2389,6 +2725,31 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
                 : <><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>Зберегти дизайн</>
               }
             </button>
+            {currentDesignImage && (
+              <button
+                onClick={() => {
+                  const editingId = designData?.editingOrderId
+                  if (editingId) onUpdateOrder?.(editingId, { status: 'palette' })
+                  navigate('/palette-editor', { state: {
+                    designImage: mockupDesignUrl || currentDesignImage,
+                    mockupDesignUrl: mockupDesignUrl || null,
+                    fileName: fileName || '',
+                    orderSize: sendOrderSize || '',
+                    embroiderySize: sendEmbroiderySize || '',
+                    editingOrderId: editingId || null,
+                    mockupProducts: allMockupProducts.map(p => ({ id: p.id, nameUk: p.nameUk, image: p.image, category: p.category })),
+                    mockupOverlay,
+                  } })
+                }}
+                className="w-full flex items-center justify-center gap-2 border border-violet-300 text-violet-700 hover:bg-violet-50 rounded-xl py-2.5 text-sm font-semibold transition-colors"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="13.5" cy="6.5" r="0.5" fill="currentColor"/><circle cx="17.5" cy="10.5" r="0.5" fill="currentColor"/><circle cx="8.5" cy="7.5" r="0.5" fill="currentColor"/><circle cx="6.5" cy="12.5" r="0.5" fill="currentColor"/>
+                  <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/>
+                </svg>
+                Палітра кольорів
+              </button>
+            )}
             <button
               onClick={handleOpenClientModal}
               className="w-full flex items-center justify-center gap-2 border border-emerald-300 text-emerald-700 hover:bg-emerald-50 rounded-xl py-2.5 text-sm font-semibold transition-colors"
@@ -2435,6 +2796,24 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
         />
       )}
 
+      {editingColorIndex !== null && mockupDesignUrl && (
+        <MockupColorModal
+          designUrl={mockupDesignUrl}
+          colorOverrides={mockupColorOverrides[editingColorIndex] || {}}
+          isEst={isEst}
+          estPosterState={isEst ? estPosterRef.current?.getState() : null}
+          generatePreview={isEst && estPosterRef.current ? async (ov) => {
+            const canvas = await estPosterRef.current.exportTransparentWithOverrides(ov)
+            return canvas.toDataURL('image/png')
+          } : null}
+          onSave={(overrides) => {
+            setMockupColorOverrides(prev => ({ ...prev, [editingColorIndex]: overrides }))
+            setEditingColorIndex(null)
+          }}
+          onClose={() => setEditingColorIndex(null)}
+        />
+      )}
+
       {showSendModal && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setShowSendModal(false)}>
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
@@ -2469,19 +2848,23 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
                       {preparingSend ? '…' : (() => {
                         const names = sendItems
                           .filter(i => i.checked && i.id.startsWith('mockup-'))
-                          .map(i => allMockupProducts[parseInt(i.id.replace('mockup-', ''))]?.nameUk)
+                          .map(i => (i.label || '').replace(/^Мокап №\d+ — /, '').trim())
                           .filter(Boolean)
                         return names.length ? names.join(', ') : '—'
                       })()}
                     </div>
                   </div>
                   <div>
-                    <label className="text-xs text-gray-500 block mb-1">Розмір</label>
-                    <input value={sendOrderSize} onChange={e => setSendOrderSize(e.target.value)} className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300" placeholder="XL" />
+                    <label className="text-xs text-gray-500 block mb-1">Розмір (з мокапів)</label>
+                    <div className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-800 bg-gray-50 min-h-[38px]">
+                      {sendItems.filter(i => i.checked && i.id.startsWith('mockup-')).map(i => i.itemSize).filter(Boolean).join(', ') || '—'}
+                    </div>
                   </div>
                   <div>
                     <label className="text-xs text-gray-500 block mb-1">Розмір вишивки</label>
-                    <input value={sendEmbroiderySize} onChange={e => setSendEmbroiderySize(e.target.value)} className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300" placeholder="23 см" />
+                    <div className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-800 bg-gray-50 min-h-[38px]">
+                      {sendItems.filter(i => i.checked && i.id.startsWith('mockup-')).map(i => i.embSize).filter(Boolean).join(', ') || '—'}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -2498,7 +2881,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
                 ) : (
                   <div className="flex gap-3 overflow-x-auto pb-2">
                     {sendItems.map((item, idx) => (
-                      <div key={item.id} className={`flex-shrink-0 w-44 border-2 rounded-xl p-3 cursor-pointer transition-all ${item.checked ? 'border-indigo-500 bg-indigo-50/40' : 'border-gray-200 bg-white'}`} onClick={() => setSendItems(prev => prev.map((it, i) => i === idx ? { ...it, checked: !it.checked } : it))}>
+                      <div key={item.id} className={`flex-shrink-0 w-48 border-2 rounded-xl p-3 cursor-pointer transition-all ${item.checked ? 'border-indigo-500 bg-indigo-50/40' : 'border-gray-200 bg-white'}`} onClick={() => setSendItems(prev => prev.map((it, i) => i === idx ? { ...it, checked: !it.checked } : it))}>
                         <div className="flex items-center justify-between mb-2">
                           <div className={`w-5 h-5 rounded flex items-center justify-center border-2 transition-colors ${item.checked ? 'bg-indigo-600 border-indigo-600' : 'border-gray-300 bg-white'}`}>
                             {item.checked && <svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M2 6l3 3 5-5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
@@ -2510,8 +2893,32 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
                         <div className="w-full h-28 bg-white rounded-lg overflow-hidden border border-gray-100 flex items-center justify-center mb-2">
                           <img src={item.thumbnail} alt="" className="w-full h-full object-contain" />
                         </div>
-                        <p className="text-xs font-semibold text-gray-800 truncate">{item.label.replace('.png','')}</p>
-                        <p className="text-[10px] text-gray-400 mt-0.5 truncate">{item.filename}</p>
+                        <p className="text-xs font-semibold text-gray-800 truncate mb-1">{item.id.startsWith('mockup-') ? (item.colorLabel || item.label) : item.label.replace('.png','')}</p>
+                        {item.id.startsWith('mockup-') && (
+                          <div onClick={e => e.stopPropagation()} className="space-y-1.5">
+                            <div className="flex gap-0.5 flex-wrap">
+                              {['XS','S','M','L','XL'].map(sz => (
+                                <button key={sz} type="button"
+                                  onClick={() => setSendItems(prev => prev.map((it, i) => i === idx ? { ...it, itemSize: sz } : it))}
+                                  className={`px-1.5 py-0.5 text-[10px] font-bold rounded border transition-colors ${item.itemSize === sz ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-gray-300 text-gray-500 hover:border-indigo-400'}`}
+                                >{sz}</button>
+                              ))}
+                            </div>
+                            <input
+                              value={item.embSize || ''}
+                              onChange={e => setSendItems(prev => prev.map((it, i) => i === idx ? { ...it, embSize: e.target.value } : it))}
+                              placeholder="Вишивка (напр. 27см)"
+                              className="w-full border border-gray-200 rounded-lg px-2 py-1 text-[11px] focus:outline-none focus:ring-1 focus:ring-indigo-300"
+                            />
+                            <input
+                              value={item.colorLabel || ''}
+                              onChange={e => setSendItems(prev => prev.map((it, i) => i === idx ? { ...it, colorLabel: e.target.value } : it))}
+                              placeholder="напр. 387437_1"
+                              className="w-full border border-gray-200 rounded-lg px-2 py-1 text-[11px] focus:outline-none focus:ring-1 focus:ring-indigo-300"
+                            />
+                          </div>
+                        )}
+                        {!item.id.startsWith('mockup-') && <p className="text-[10px] text-gray-400 mt-0.5 truncate">{item.filename}</p>}
                       </div>
                     ))}
                   </div>

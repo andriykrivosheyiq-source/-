@@ -93,6 +93,29 @@ async function handleTelegramSendOrder(request, env) {
   return jsonResp({ ok: true })
 }
 
+async function handleVectorize(request, env) {
+  if (!env.VECTORIZER_AI_ID || !env.VECTORIZER_AI_SECRET) {
+    return new Response(JSON.stringify({ error: 'VECTORIZER_NOT_CONFIGURED' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
+    })
+  }
+  let formData
+  try { formData = await request.formData() }
+  catch { return new Response(JSON.stringify({ error: 'Invalid form data' }), { status: 400, headers: CORS_HEADERS }) }
+
+  const res = await fetch('https://vectorizer.ai/api/v1/vectorize', {
+    method: 'POST',
+    headers: { 'Authorization': 'Basic ' + btoa(`${env.VECTORIZER_AI_ID}:${env.VECTORIZER_AI_SECRET}`) },
+    body: formData,
+  })
+  const text = await res.text()
+  return new Response(text, {
+    status: res.status,
+    headers: { 'Content-Type': res.ok ? 'image/svg+xml' : 'text/plain', ...CORS_HEADERS },
+  })
+}
+
 export default {
   async fetch(request, env) {
     if (request.method === 'OPTIONS') {
@@ -100,6 +123,11 @@ export default {
     }
 
     const url = new URL(request.url)
+
+    // Vectorizer.ai proxy (avoids browser CORS block)
+    if (url.pathname === '/vectorize' && request.method === 'POST') {
+      return handleVectorize(request, env)
+    }
 
     // Telegram order notification
     if (url.pathname === '/tg/send-order' && request.method === 'POST') {

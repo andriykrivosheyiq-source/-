@@ -1,63 +1,168 @@
-import React, { useRef, useEffect } from 'react'
+import React, { useRef, useEffect, useState } from 'react'
+import { useLocation } from 'react-router-dom'
 import { THREAD_PALETTE } from '../data/threadPalette'
+import { preprocessBlob, vectorizeBlob } from '../services/vectorizer'
+import { vectorizeWithAI, isVectorizerAIConfigured } from '../services/vectorizerAI'
+import { sendOrderToDesignerTelegram } from '../services/crmService'
 
 const CSS = `
-.pe-container{display:flex;gap:14px;padding:16px;height:100%;align-items:stretch;font-family:Inter,"Segoe UI",Arial,Helvetica,sans-serif;color:#111;background:#f5f6f7;box-sizing:border-box;overflow:hidden}
+.pe-container{display:flex;gap:0;height:100%;align-items:stretch;font-family:Inter,"Segoe UI",Arial,Helvetica,sans-serif;color:#111;background:#f8f9fb;box-sizing:border-box;overflow:hidden}
 .pe-container *,.pe-container *:before,.pe-container *:after{box-sizing:inherit}
-.pe-left{width:360px;min-width:260px;display:flex;flex-direction:column;gap:12px;overflow:hidden}
-.pe-panel{background:#fbfbfb;border:1px solid #e6e6e6;border-radius:10px;padding:12px;height:100%;overflow:auto;box-shadow:0 2px 8px rgba(24,24,24,0.04)}
-.pe-panel h2{margin:0 0 8px 0;font-size:15px;color:#222}
-.pe-controls-row{display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap}
-.pe-container label.small{font-size:13px;color:#333;display:flex;align-items:center;gap:8px;min-width:120px}
-.pe-container input[type=number],.pe-container input[type=text]{padding:6px 8px;border:1px solid #ddd;border-radius:6px;font-family:inherit;font-size:13px}
-.pe-container input[type=range]{accent-color:#2b6fb3}
-.pe-container input[type=color]{width:44px;height:30px;padding:0;border-radius:6px;border:1px solid #ddd}
-.pe-container button{padding:8px 12px;cursor:pointer;font-size:13px;border-radius:8px;border:1px solid transparent;background:#fff;box-shadow:0 1px 0 rgba(0,0,0,0.03)}
-.pe-container button:hover{transform:translateY(-1px)}
-.pe-container button.primary{background:linear-gradient(180deg,#2f80ed,#1e63c8);color:#fff;border-color:rgba(0,0,0,0.06)}
-.pe-container button.danger{background:#ffecec;color:#a00;border-color:#f5bcbc}
-.pe-note{color:#6f6f6f;font-size:13px;margin-top:6px;line-height:1.4}
-.pe-muted{color:#6f6f6f;font-size:12px}
-.pe-muted-small{color:#6f6f6f;font-size:12px}
-.group-item{display:flex;gap:8px;align-items:center;padding:8px;border-bottom:1px solid #eee;background:#fff;border-radius:8px;margin-bottom:8px}
-.sw{width:28px;height:20px;border:1px solid #bbb;cursor:pointer;border-radius:4px;flex:0 0 28px}
-.palette-swatch{width:36px;height:28px;border-radius:6px;border:1px solid #ccc;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:11px;color:#fff;text-shadow:0 1px 0 rgba(0,0,0,0.3)}
-.pe-right{flex:1;min-width:420px;display:flex;flex-direction:column;gap:12px;overflow:hidden}
-.pe-preview-wrap{border-radius:10px;border:1px solid #e6e6e6;background:#fff;padding:12px;box-sizing:border-box;height:100%;overflow:hidden;display:flex;position:relative;box-shadow:0 2px 12px rgba(0,0,0,0.04)}
-.pe-preview-columns{display:flex;gap:14px;width:100%;align-items:flex-start;justify-content:center;margin:0 auto}
-.pe-preview-column{box-sizing:border-box;display:flex;flex-direction:column;align-items:center;background:#fff;border-radius:8px;padding:8px;border:1px solid #f0f0f0;height:calc(100vh - 120px);overflow:auto}
-.pe-preview-column#editedColumn{flex:1 1 0;max-width:55%;min-width:320px}
-.pe-preview-column#originalColumn{flex:1 1 0;max-width:45%;min-width:300px}
-.pe-preview-column .title{font-size:13px;color:#666;margin-bottom:8px;text-align:center;width:100%}
-#svgPreview,#originalPreview{width:100%;height:auto;display:block;background:#fff;padding:8px;border-radius:6px;box-sizing:border-box}
+
+/* ── Sidebar ── */
+.pe-left{width:300px;min-width:260px;display:flex;flex-direction:column;background:#fff;border-right:1px solid #f0f0f0;overflow:hidden;flex-shrink:0}
+.pe-sidebar-header{padding:16px 18px 12px;border-bottom:1px solid #f0f0f0;flex-shrink:0}
+.pe-sidebar-header h2{margin:0;font-size:15px;font-weight:700;color:#111;letter-spacing:-0.3px}
+.pe-sidebar-header p{margin:2px 0 0;font-size:12px;color:#9ca3af}
+.pe-panel{flex:1;overflow-y:auto;padding:14px 16px 80px}
+.pe-section{margin-bottom:18px}
+.pe-section-title{font-size:11px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.6px;margin:0 0 8px}
+
+/* ── Upload area ── */
+.pe-upload-row{display:flex;gap:8px;align-items:center}
+.pe-file-label{flex:1;display:flex;align-items:center;gap:8px;padding:8px 12px;border:1.5px dashed #e5e7eb;border-radius:10px;cursor:pointer;font-size:12px;color:#6b7280;transition:border-color .15s,background .15s}
+.pe-file-label:hover{border-color:#6366f1;background:#f5f3ff;color:#6366f1}
+.pe-file-label svg{flex-shrink:0;color:#9ca3af}
+.pe-file-label:hover svg{color:#6366f1}
+.pe-file-label input{display:none}
+.pe-vectorizer-status{display:none;font-size:12px;color:#6366f1;font-weight:500;padding:6px 10px;background:#f5f3ff;border-radius:8px;margin-top:6px;text-align:center}
+
+/* ── Controls ── */
+.pe-row{display:flex;gap:8px;align-items:center;margin-bottom:8px}
+.pe-label{font-size:12px;color:#374151;flex:1}
+.pe-val{font-size:12px;font-weight:600;color:#6366f1;min-width:32px;text-align:right}
+.pe-container input[type=range]{flex:1;accent-color:#6366f1;height:4px}
+.pe-container input[type=number]{width:72px;padding:5px 8px;border:1.5px solid #e5e7eb;border-radius:8px;font-size:12px;font-family:inherit;color:#111;outline:none;transition:border-color .15s}
+.pe-container input[type=number]:focus{border-color:#6366f1}
+.pe-container input[type=color]{width:40px;height:28px;padding:0;border-radius:6px;border:1.5px solid #e5e7eb;cursor:pointer}
+.pe-check-row{display:flex;align-items:center;gap:7px;font-size:12px;color:#374151;cursor:pointer;margin-bottom:6px}
+.pe-check-row input[type=checkbox]{accent-color:#6366f1;width:14px;height:14px;cursor:pointer}
+
+/* ── Action buttons ── */
+.pe-actions{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:4px}
+.pe-btn{display:flex;align-items:center;justify-content:center;gap:5px;padding:8px 10px;border-radius:10px;border:1.5px solid #e5e7eb;background:#fff;font-size:12px;font-weight:500;color:#374151;cursor:pointer;transition:all .15s;white-space:nowrap}
+.pe-btn:hover:not(:disabled){border-color:#6366f1;color:#6366f1;background:#f5f3ff}
+.pe-btn:disabled{opacity:.4;cursor:not-allowed}
+.pe-btn.primary{background:#6366f1;border-color:#6366f1;color:#fff;font-weight:600}
+.pe-btn.primary:hover:not(:disabled){background:#4f46e5;border-color:#4f46e5;color:#fff}
+.pe-btn.danger{border-color:#fecaca;color:#ef4444;background:#fff}
+.pe-btn.danger:hover:not(:disabled){background:#fef2f2;border-color:#ef4444}
+.pe-btn.full{grid-column:1/-1}
+
+/* ── Palette swatches ── */
+.palette{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}
+.palette-swatch{width:32px;height:24px;border-radius:6px;border:1.5px solid rgba(0,0,0,0.08);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:10px;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,0.4);transition:transform .1s,box-shadow .1s}
+.palette-swatch:hover{transform:scale(1.15);box-shadow:0 2px 8px rgba(0,0,0,0.15)}
+.palette-swatch.used{opacity:.22;pointer-events:none;filter:grayscale(70%)}
+.sw{width:24px;height:16px;border:1.5px solid rgba(0,0,0,0.1);cursor:pointer;border-radius:4px;flex:0 0 24px}
+
+/* ── Group list ── */
+.group-item{display:flex;gap:8px;align-items:center;padding:7px 8px;background:#f9fafb;border-radius:10px;margin-bottom:5px;border:1px solid #f0f0f0;transition:background .12s}
+.group-item:hover{background:#f0f0ff}
+
+/* ── Sidebar footer ── */
+.pe-sidebar-footer{padding:12px 16px;border-top:1px solid #f0f0f0;flex-shrink:0;background:#fff}
+
+/* ── Right preview ── */
+.pe-right{flex:1;display:flex;flex-direction:column;overflow:hidden;background:#f8f9fb}
+.pe-preview-header{display:flex;align-items:center;justify-content:space-between;padding:12px 18px;background:#fff;border-bottom:1px solid #f0f0f0;flex-shrink:0}
+.pe-preview-header-title{font-size:13px;font-weight:600;color:#111}
+.pe-preview-wrap{flex:1;padding:16px;overflow:hidden;display:flex;position:relative}
+.pe-preview-columns{display:flex;gap:12px;width:100%;align-items:flex-start;justify-content:center}
+.pe-preview-column{box-sizing:border-box;display:flex;flex-direction:column;align-items:center;background:#fff;border-radius:14px;padding:12px;border:1px solid #f0f0f0;height:calc(100vh - 116px);overflow:auto;box-shadow:0 1px 4px rgba(0,0,0,0.04)}
+.pe-preview-column#editedColumn{flex:1 1 0;max-width:58%;min-width:300px;overflow:hidden;cursor:grab}
+.pe-preview-column#originalColumn{flex:1 1 0;max-width:42%;min-width:260px}
+.pe-preview-column .title{font-size:11px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;text-align:center;width:100%}
+#svgPreview,#originalPreview{width:100%;height:auto;display:block;background:#fff;border-radius:8px;box-sizing:border-box}
 #svgPreview svg,#originalPreview svg{width:100%;height:auto;display:block;max-width:100%;transform-origin:0 0}
-.highlight-elm{outline:none;filter:drop-shadow(0 0 6px rgba(255,0,0,0.35));stroke-width:3px !important;stroke:#FF0000 !important;stroke-linejoin:round;stroke-linecap:round;paint-order:stroke fill markers}
+.highlight-elm{outline:none;filter:drop-shadow(0 0 6px rgba(99,102,241,0.5));stroke-width:3px !important;stroke:#6366f1 !important;stroke-linejoin:round;stroke-linecap:round;paint-order:stroke fill markers}
+
+/* ── Overlay badges ── */
 .pe-preview-overlay{position:absolute;inset:0;pointer-events:none}
 .side-detected{display:none !important}
-.side-codes{position:absolute;right:18px;top:18px;display:flex;flex-direction:column;gap:8px;max-height:calc(100% - 56px);overflow:auto;pointer-events:auto;z-index:150;min-width:180px}
-.side-badge{background:rgba(255,255,255,0.95);border:1px solid #e6e6e6;padding:6px 8px;display:flex;align-items:center;gap:8px;border-radius:8px;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.04);font-family:monospace;font-size:13px;white-space:nowrap}
-.side-badge .sw{width:18px;height:12px;border-radius:4px;border:1px solid #bbb;flex:0 0 18px}
-.side-badge .count{color:#666;font-size:12px;margin-left:6px}
-.side-badge .del-btn{position:absolute;right:8px;top:4px;width:20px;height:20px;border-radius:6px;background:#fff;border:1px solid #e6e6e6;color:#a00;font-weight:bold;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:13px;padding:0}
-.side-badge.custom{position:relative;padding-right:32px}
-.side-badge.generated{position:relative;padding-right:32px}
-.palette{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;max-height:200px;overflow:auto;padding-right:6px}
-.palette-swatch.used{opacity:0.28;pointer-events:none;cursor:default;filter:grayscale(60%)}
-.side-add-area{position:absolute;right:18px;bottom:18px;z-index:160;pointer-events:auto;display:flex;gap:8px;flex-direction:column;align-items:flex-end}
-.side-add-btn{background:#fff;border:1px solid #e6e6e6;padding:8px 10px;border-radius:10px;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.04);font-size:18px}
-.side-add-dialog{position:absolute;right:18px;bottom:64px;z-index:170;background:#fff;border:1px solid #ddd;padding:10px;border-radius:8px;box-shadow:0 10px 28px rgba(0,0,0,0.08);display:flex;gap:8px;align-items:center;pointer-events:auto;flex-wrap:wrap}
-.element-editor{position:fixed;z-index:9999;background:rgba(255,255,255,0.99);border:1px solid #ddd;padding:8px;border-radius:8px;display:flex;gap:8px;align-items:center;pointer-events:auto;box-shadow:0 8px 20px rgba(0,0,0,0.08)}
-.element-editor .hex-in{width:120px;padding:8px;border:1px solid #ddd;border-radius:6px;font-family:monospace}
-.detected-editor{background:rgba(255,255,255,0.95);border:1px solid #eee;padding:8px;border-radius:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-.detected-editor input[type=color]{width:46px;height:30px;padding:0;border-radius:6px;border:1px solid #ccc}
-.detected-editor .hex-in{width:120px;padding:8px;border:1px solid #ddd;border-radius:6px;font-family:monospace;font-size:13px}
-.pe-panel::-webkit-scrollbar,.pe-preview-column::-webkit-scrollbar,.side-codes::-webkit-scrollbar,.palette::-webkit-scrollbar{height:10px;width:10px}
-.pe-panel::-webkit-scrollbar-thumb,.pe-preview-column::-webkit-scrollbar-thumb,.side-codes::-webkit-scrollbar-thumb{background:rgba(0,0,0,0.08);border-radius:6px}
-.pe-footer-controls{display:flex;gap:8px;align-items:center;justify-content:flex-end;margin-top:8px}
+.side-codes{position:absolute;right:28px;top:28px;display:flex;flex-direction:column;gap:6px;max-height:calc(100% - 72px);overflow:auto;pointer-events:auto;z-index:150;min-width:160px}
+.side-badge{background:rgba(255,255,255,0.97);border:1px solid #e5e7eb;padding:5px 8px;display:flex;align-items:center;gap:7px;border-radius:10px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.06);font-family:monospace;font-size:12px;white-space:nowrap;transition:box-shadow .12s}
+.side-badge:hover{box-shadow:0 4px 12px rgba(99,102,241,0.15);border-color:#c7d2fe}
+.side-badge .sw{width:16px;height:11px;border-radius:3px;border:1px solid rgba(0,0,0,0.1);flex:0 0 16px}
+.side-badge .count{color:#9ca3af;font-size:11px;margin-left:4px}
+.side-badge .del-btn{position:absolute;right:6px;top:3px;width:18px;height:18px;border-radius:5px;background:#fff;border:1px solid #e5e7eb;color:#ef4444;font-weight:bold;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:12px;padding:0}
+.side-badge.custom{position:relative;padding-right:28px}
+.side-badge.generated{position:relative;padding-right:28px}
+.side-add-area{position:absolute;right:28px;bottom:28px;z-index:160;pointer-events:auto;display:flex;gap:8px;flex-direction:column;align-items:flex-end}
+.side-add-btn{background:#6366f1;border:none;width:38px;height:38px;border-radius:12px;cursor:pointer;box-shadow:0 4px 14px rgba(99,102,241,0.35);font-size:20px;color:#fff;display:flex;align-items:center;justify-content:center;transition:transform .15s,box-shadow .15s}
+.side-add-btn:hover{transform:scale(1.08);box-shadow:0 6px 18px rgba(99,102,241,0.45)}
+.side-add-dialog{position:absolute;right:28px;bottom:76px;z-index:170;background:#fff;border:1px solid #e5e7eb;padding:12px;border-radius:12px;box-shadow:0 12px 32px rgba(0,0,0,0.1);display:flex;gap:8px;align-items:center;pointer-events:auto;flex-wrap:wrap}
+.element-editor{position:fixed;z-index:9999;background:#fff;border:1px solid #e5e7eb;padding:10px;border-radius:12px;display:flex;gap:8px;align-items:center;pointer-events:auto;box-shadow:0 10px 28px rgba(0,0,0,0.1)}
+.element-editor .hex-in{width:110px;padding:7px 10px;border:1.5px solid #e5e7eb;border-radius:8px;font-family:monospace;font-size:12px;outline:none}
+.element-editor .hex-in:focus{border-color:#6366f1}
+.detected-editor{background:rgba(255,255,255,0.97);border:1px solid #e5e7eb;padding:10px;border-radius:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.detected-editor input[type=color]{width:42px;height:28px;padding:0;border-radius:6px;border:1.5px solid #e5e7eb}
+.detected-editor .hex-in{width:110px;padding:7px 10px;border:1.5px solid #e5e7eb;border-radius:8px;font-family:monospace;font-size:12px}
+
+@keyframes pe-spin { to { transform: rotate(360deg) } }
+
+/* ── Scrollbars ── */
+.pe-panel::-webkit-scrollbar,.pe-preview-column::-webkit-scrollbar,.side-codes::-webkit-scrollbar,.palette::-webkit-scrollbar{width:4px;height:4px}
+.pe-panel::-webkit-scrollbar-thumb,.pe-preview-column::-webkit-scrollbar-thumb,.side-codes::-webkit-scrollbar-thumb{background:rgba(99,102,241,0.2);border-radius:4px}
 `
 
-export default function PaletteEditor() {
+export default function PaletteEditor({ onUpdateOrder }) {
+  const location = useLocation()
   const containerRef = useRef(null)
+  const autoImageRef = useRef(location.state?.designImage || null)
+  const svgRootRef = useRef(null)
+  const groupsRef = useRef([])
+
+  const ls = location.state || {}
+  const editingOrderId = ls.editingOrderId || null
+  const [showModal, setShowModal] = useState(false)
+  const [modalForm, setModalForm] = useState({
+    orderNum: ls.fileName || '',
+    size: ls.orderSize || 'XL',
+    embSize: ls.embroiderySize || '',
+    comment: '',
+  })
+  const [sendStatus, setSendStatus] = useState(null)
+  const [mockupItems, setMockupItems] = useState([])
+  const [preparingMockups, setPreparingMockups] = useState(false)
+
+  // Generate file thumbnails when modal opens
+  useEffect(() => {
+    if (!showModal) { setMockupItems([]); return }
+    setPreparingMockups(true)
+    const lsState = location.state || {}
+    const cleanId = modalForm.orderNum || String(Date.now()).slice(-5)
+    ;(async () => {
+      const items = []
+      try {
+        const dataUrl = await exportSvgToDataUrl()
+        if (dataUrl) items.push({ id: 'design', label: 'Дизайн', filename: `${cleanId}.png`, thumbnail: dataUrl, dataUrl, checked: true })
+      } catch {}
+      const gs = groupsRef.current
+      if (gs.length > 0) {
+        const dataUrl = generatePaletteImage(gs)
+        if (dataUrl) items.push({ id: 'palette', label: 'Палітра ниток', filename: `${cleanId}_palette.png`, thumbnail: dataUrl, dataUrl, checked: true })
+      }
+      if (lsState.mockupThumbs?.length) {
+        // Pre-generated mockup thumbnails (from kanban drag-to-palette)
+        lsState.mockupThumbs.forEach((t, i) => {
+          if (!t.thumbnail) return
+          const label = t.label || `Мокап ${i + 1}`
+          const safe = label.replace(/\s+/g, '_')
+          items.push({ id: `mockup-${i}`, label, filename: `${cleanId}_${safe}.jpg`, thumbnail: t.thumbnail, dataUrl: t.thumbnail, checked: true, itemSize: '', embSize: '', colorLabel: cleanId })
+        })
+      } else if (lsState.mockupProducts?.length) {
+        const thumbs = await generateMockupThumbs(lsState.mockupProducts, lsState.mockupOverlay, lsState.mockupDesignUrl)
+        thumbs.forEach((t, i) => {
+          const safe = (t.label || `mockup_${i}`).replace(/\s+/g, '_')
+          items.push({ id: `mockup-${i}`, label: t.label, filename: `${cleanId}_${safe}.jpg`, thumbnail: t.dataUrl, dataUrl: t.dataUrl, checked: true, itemSize: '', embSize: '', colorLabel: cleanId })
+        })
+      }
+      setMockupItems(items)
+      setPreparingMockups(false)
+    })()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showModal])
 
   useEffect(() => {
     const C = containerRef.current
@@ -336,9 +441,171 @@ export default function PaletteEditor() {
     const addCustomColorBtn = $('addCustomColorBtn')
     const addCustomDup = $('addCustomColorBtnDuplicate')
 
+    let zoomState = { s: 1, tx: 0, ty: 0 }
+
+    function applyTransform() {
+      const { s, tx, ty } = zoomState
+      try {
+        if (svgRoot) svgRoot.style.transform = `translate(${tx}px,${ty}px) scale(${s})`
+        if (originalSvgRoot) originalSvgRoot.style.transform = `scale(${s})`
+      } catch(e){}
+      const pct = Math.round(s * 100)
+      if (scaleRangeEl) scaleRangeEl.value = Math.min(200, Math.max(10, pct))
+      if (scaleValEl) scaleValEl.textContent = pct + '%'
+    }
+
     function applyScale(pct) {
-      const s = Math.max(0.01, (parseFloat(pct)||100) / 100)
-      try { if (svgRoot) svgRoot.style.transform = `scale(${s})`; if (originalSvgRoot) originalSvgRoot.style.transform = `scale(${s})` } catch(e){}
+      zoomState = { s: Math.max(0.01, (parseFloat(pct)||100) / 100), tx: 0, ty: 0 }
+      applyTransform()
+    }
+
+    // Pre-process a raster image blob before vectorization:
+    // 1) crop to non-white content area, 2) resize to max 512px for speed.
+    function preprocessImageBlob(blob) {
+      return new Promise((resolve) => {
+        const url = URL.createObjectURL(blob)
+        const img = new Image()
+        img.onload = () => {
+          const W = img.naturalWidth, H = img.naturalHeight
+          const canvas = document.createElement('canvas')
+          canvas.width = W; canvas.height = H
+          const ctx = canvas.getContext('2d')
+          ctx.drawImage(img, 0, 0)
+          URL.revokeObjectURL(url)
+          const { data } = ctx.getImageData(0, 0, W, H)
+          let x0 = W, y0 = H, x1 = 0, y1 = 0, found = false
+          for (let y = 0; y < H; y++) {
+            for (let x = 0; x < W; x++) {
+              const i = (y * W + x) * 4
+              const r = data[i], g = data[i+1], b = data[i+2], a = data[i+3]
+              if (a > 30 && (r < 235 || g < 235 || b < 235)) {
+                if (x < x0) x0 = x; if (y < y0) y0 = y
+                if (x > x1) x1 = x; if (y > y1) y1 = y
+                found = true
+              }
+            }
+          }
+          if (!found || x1 <= x0 || y1 <= y0) { resolve(blob); return }
+          const px = Math.max(8, Math.round((x1 - x0) * 0.04))
+          const py = Math.max(8, Math.round((y1 - y0) * 0.04))
+          const sx = Math.max(0, x0 - px), sy = Math.max(0, y0 - py)
+          const sw = Math.min(W - sx, x1 - x0 + 2 * px)
+          const sh = Math.min(H - sy, y1 - y0 + 2 * py)
+          const MAX = 512
+          const scale = Math.min(1, MAX / Math.max(sw, sh))
+          const out = document.createElement('canvas')
+          out.width = Math.round(sw * scale); out.height = Math.round(sh * scale)
+          out.getContext('2d').drawImage(canvas, sx, sy, sw, sh, 0, 0, out.width, out.height)
+          out.toBlob(b => resolve(b || blob), 'image/png')
+        }
+        img.onerror = () => { URL.revokeObjectURL(url); resolve(blob) }
+        img.src = url
+      })
+    }
+
+    // Crop SVG viewBox to actual content bounds, skipping full-canvas background element.
+    function trimSvgToContent(svgText) {
+      const parser = new DOMParser()
+      const doc = parser.parseFromString(svgText, 'image/svg+xml')
+      if (doc.querySelector('parsererror')) return svgText
+      const root = doc.documentElement
+      const vbAttr = root.getAttribute('viewBox')
+      if (!vbAttr) return svgText
+      const parts = vbAttr.trim().split(/[\s,]+/)
+      if (parts.length !== 4) return svgText
+      const [vx, vy, vw, vh] = parts.map(Number)
+      if (!vw || !vh) return svgText
+      const eps = Math.max(vw, vh) * 0.01
+
+      const tmp = document.createElement('div')
+      tmp.style.cssText = `position:fixed;left:-9999px;top:-9999px;visibility:hidden;overflow:hidden;width:${vw}px;height:${vh}px`
+      const clone = document.importNode(root, true)
+      clone.setAttribute('width', vw)
+      clone.setAttribute('height', vh)
+      tmp.appendChild(clone)
+      document.body.appendChild(tmp)
+
+      try {
+        const shapes = clone.querySelectorAll('path,rect,circle,ellipse,polygon,polyline,line')
+        let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity
+        for (const el of shapes) {
+          try {
+            const bb = el.getBBox()
+            if (bb.width < 1 && bb.height < 1) continue
+            // skip element that fills the entire canvas
+            if (bb.x <= vx + eps && bb.y <= vy + eps &&
+                bb.x + bb.width >= vx + vw - eps &&
+                bb.y + bb.height >= vy + vh - eps) continue
+            x0 = Math.min(x0, bb.x); y0 = Math.min(y0, bb.y)
+            x1 = Math.max(x1, bb.x + bb.width); y1 = Math.max(y1, bb.y + bb.height)
+          } catch(e) {}
+        }
+        if (isFinite(x0) && x1 > x0 && y1 > y0) {
+          const pad = Math.max(x1 - x0, y1 - y0) * 0.04
+          clone.setAttribute('viewBox', `${x0-pad} ${y0-pad} ${x1-x0+2*pad} ${y1-y0+2*pad}`)
+        }
+        return new XMLSerializer().serializeToString(clone)
+      } finally {
+        document.body.removeChild(tmp)
+      }
+    }
+
+    // SVG background removal — mirrors Python BackgroundRemover:
+    // removes elements whose bounding box intersects >= 3 canvas edge zones.
+    // epsilon = 0.25% of avg(width, height), touch_threshold = 3.
+    function removeSvgBackground(text) {
+      const parser = new DOMParser()
+      const doc = parser.parseFromString(text, 'image/svg+xml')
+      if (doc.querySelector('parsererror')) return text
+      const root = doc.documentElement
+
+      const vbAttr = root.getAttribute('viewBox')
+      if (!vbAttr) return text
+      const parts = vbAttr.trim().split(/[\s,]+/)
+      if (parts.length !== 4) return text
+      const [minX, minY, vw, vh] = parts.map(Number)
+      if (!vw || !vh) return text
+
+      const maxX = minX + vw
+      const maxY = minY + vh
+      const eps = ((vw + vh) / 2) * 0.0025
+
+      const zones = [
+        { x1: minX - eps, y1: minY - eps, x2: maxX + eps, y2: minY + eps },
+        { x1: minX - eps, y1: maxY - eps, x2: maxX + eps, y2: maxY + eps },
+        { x1: minX - eps, y1: minY - eps, x2: minX + eps, y2: maxY + eps },
+        { x1: maxX - eps, y1: minY - eps, x2: maxX + eps, y2: maxY + eps },
+      ]
+
+      const hits = (bbox, z) =>
+        bbox.x < z.x2 && bbox.x + bbox.width > z.x1 &&
+        bbox.y < z.y2 && bbox.y + bbox.height > z.y1
+
+      const container = document.createElement('div')
+      container.style.cssText =
+        'position:fixed;left:-9999px;top:-9999px;visibility:hidden;' +
+        'overflow:hidden;width:' + vw + 'px;height:' + vh + 'px'
+      const clone = document.importNode(root, true)
+      clone.setAttribute('width', vw)
+      clone.setAttribute('height', vh)
+      container.appendChild(clone)
+      document.body.appendChild(container)
+
+      try {
+        const shapes = clone.querySelectorAll('path,rect,circle,ellipse,polygon,polyline,line')
+        const toRemove = []
+        for (const el of shapes) {
+          try {
+            const bbox = el.getBBox()
+            if (bbox.width === 0 && bbox.height === 0) { toRemove.push(el); continue }
+            if (zones.filter(z => hits(bbox, z)).length >= 3) toRemove.push(el)
+          } catch (e) {}
+        }
+        for (const el of toRemove) el.parentNode?.removeChild(el)
+        return new XMLSerializer().serializeToString(clone)
+      } finally {
+        document.body.removeChild(container)
+      }
     }
 
     function parseAndShow(text) {
@@ -356,10 +623,12 @@ export default function PaletteEditor() {
       originalSvgRoot = originalClone.tagName?.toLowerCase() === 'svg' ? originalClone : originalPreviewEl.querySelector('svg')
       if (svgRoot) { svgRoot.style.width = '100%'; svgRoot.style.height = 'auto' }
       if (originalSvgRoot) { originalSvgRoot.style.width = '100%'; originalSvgRoot.style.height = 'auto' }
+      svgRootRef.current = svgRoot
       applyScale(parseFloat(scaleRangeEl.value) || 100)
       if (exportBtn) exportBtn.disabled = false
       if (revertBtn) revertBtn.disabled = false
       groups = []; allGroups = []
+      groupsRef.current = []
       removeLabelsFromGroups()
       selectedDetectedHex = null; currentElementEditor = null; previewState = null
       updateDetectedColorsUI()
@@ -371,14 +640,76 @@ export default function PaletteEditor() {
 
     const loadBtn = $('loadBtn')
     const svgInp = $('svgInp')
+    const removeBgChk = $('removeBgChk')
+
+    function loadSvgText(text) {
+      const shouldRemoveBg = removeBgChk?.checked
+      originalText = shouldRemoveBg ? removeSvgBackground(text) : text
+      parseAndShow(originalText)
+    }
+
     if (loadBtn && svgInp) {
       loadBtn.addEventListener('click', () => {
         const f = svgInp.files && svgInp.files[0]
-        if (!f) { alert('Оберіть SVG'); return }
+        if (!f) { alert('Оберіть файл'); return }
+
+        const isRaster = f.type.startsWith('image/') && !f.type.includes('svg')
+        if (isRaster) {
+          const statusEl = $('vectorizerStatus')
+          if (statusEl) statusEl.style.display = 'block'
+          loadBtn.disabled = true
+          preprocessBlob(f)
+            .then(blob => vectorizeBlob(blob))
+            .then(svg => loadSvgText(svg))
+            .catch(err => alert('Помилка векторизації: ' + (err?.message || err)))
+            .finally(() => {
+              loadBtn.disabled = false
+              if (statusEl) statusEl.style.display = 'none'
+            })
+          return
+        }
+
         const r = new FileReader()
-        r.onload = e => { originalText = e.target.result; parseAndShow(originalText) }
+        r.onload = e => loadSvgText(e.target.result)
         r.readAsText(f, 'utf-8')
       })
+    }
+
+    // Auto-load design passed from DesignPlacement — preprocess → vectorize.
+    const autoImageUrl = autoImageRef.current
+    if (autoImageUrl) {
+      const statusEl = $('vectorizerStatus')
+      if (statusEl) { statusEl.style.display = 'block'; statusEl.textContent = '⏳ Векторизація...' }
+      if (loadBtn) loadBtn.disabled = true
+      fetch(autoImageUrl)
+        .then(r => r.blob())
+        .then(blob => preprocessBlob(blob))
+        .then(blob => {
+          if (!isVectorizerAIConfigured()) {
+            console.log('[Vectorizer] vectorizer.ai not configured → using ImageTracer.js')
+            return vectorizeBlob(blob)
+          }
+          return vectorizeWithAI(blob).then(svg => {
+            console.log('[Vectorizer] ✅ vectorizer.ai succeeded')
+            return svg
+          }).catch(err => {
+            console.warn('[Vectorizer] vectorizer.ai failed, falling back to ImageTracer.js. Error:', err)
+            return vectorizeBlob(blob)
+          })
+        })
+        .then(svg => {
+          originalText = svg
+          if (scaleRangeEl) { scaleRangeEl.value = '100'; if (scaleValEl) scaleValEl.textContent = '100%' }
+          parseAndShow(svg)
+        })
+        .catch(err => {
+          console.error('Vectorize failed:', err)
+          alert('Не вдалось векторизувати дизайн: ' + (err?.message || err))
+        })
+        .finally(() => {
+          if (statusEl) statusEl.style.display = 'none'
+          if (loadBtn) loadBtn.disabled = false
+        })
     }
     if (scaleRangeEl) {
       scaleRangeEl.addEventListener('input', () => {
@@ -387,6 +718,63 @@ export default function PaletteEditor() {
         applyScale(pct)
       })
     }
+
+    const editedCol = $('editedColumn')
+    if (editedCol) {
+      editedCol.addEventListener('wheel', (e) => {
+        if (!svgRoot) return
+        e.preventDefault()
+        const rect = editedCol.getBoundingClientRect()
+        const mx = e.clientX - rect.left
+        const my = e.clientY - rect.top + editedCol.scrollTop
+        const factor = e.deltaY < 0 ? 1.12 : 1 / 1.12
+        const newS = Math.max(0.1, Math.min(8, zoomState.s * factor))
+        const ratio = newS / zoomState.s
+        zoomState = {
+          s: newS,
+          tx: mx - (mx - zoomState.tx) * ratio,
+          ty: my - (my - zoomState.ty) * ratio,
+        }
+        applyTransform()
+      }, { passive: false })
+
+      let dragState = null
+      let dragMoved = false
+
+      editedCol.addEventListener('mousedown', (e) => {
+        if (e.button !== 0 || !svgRoot) return
+        dragState = { startX: e.clientX, startY: e.clientY, startTx: zoomState.tx, startTy: zoomState.ty }
+        dragMoved = false
+        editedCol.style.cursor = 'grabbing'
+      })
+
+      editedCol.addEventListener('mousemove', (e) => {
+        if (!dragState) return
+        const dx = e.clientX - dragState.startX
+        const dy = e.clientY - dragState.startY
+        if (Math.abs(dx) > 3 || Math.abs(dy) > 3) dragMoved = true
+        zoomState = { s: zoomState.s, tx: dragState.startTx + dx, ty: dragState.startTy + dy }
+        applyTransform()
+      })
+
+      const endDrag = () => {
+        if (!dragState) return
+        dragState = null
+        editedCol.style.cursor = ''
+      }
+
+      editedCol.addEventListener('mouseup', endDrag)
+      editedCol.addEventListener('mouseleave', endDrag)
+
+      editedCol.addEventListener('click', (e) => {
+        if (dragMoved) {
+          e.stopPropagation()
+          e.preventDefault()
+          dragMoved = false
+        }
+      }, true)
+    }
+
     if (threshRangeEl) threshRangeEl.addEventListener('input', () => { if (threshValEl) threshValEl.textContent = threshRangeEl.value })
 
     const autoGroupBtn = $('autoGroupBtn')
@@ -501,18 +889,41 @@ export default function PaletteEditor() {
     // --- auto group ---
     function autoGroup() {
       if (!svgRoot) return
+
+      // Walk up DOM to find inherited fill/stroke when element has none directly.
+      function inheritedColor(el, prop) {
+        let node = el.parentElement
+        while (node && node !== svgRoot) {
+          const v = node.getAttribute(prop)
+          if (v && v !== 'inherit') return v
+          const st = node.getAttribute('style') || ''
+          const m = st.match(new RegExp(prop + '\\s*:\\s*([^;]+)', 'i'))
+          if (m && m[1].trim() !== 'inherit') return m[1].trim()
+          node = node.parentElement
+        }
+        return null
+      }
+
       const allEls = Array.from(svgRoot.querySelectorAll('*'))
+      const LEAF_TAGS = new Set(['path','rect','circle','ellipse','polygon','polyline','line'])
       const items = []
       for (const el of allEls) {
-        if (el.tagName?.toLowerCase() === 'defs') continue
+        const tn = el.tagName?.toLowerCase()
+        if (tn === 'defs' || tn === 'symbol' || tn === 'marker') continue
         const fill = el.getAttribute('fill'), stroke = el.getAttribute('stroke')
         const style = el.getAttribute('style') || ''
         let styleFill=null,styleStroke=null
         if (style) { const mF=style.match(/fill\s*:\s*([^;]+)/i);const mS=style.match(/stroke\s*:\s*([^;]+)/i); if(mF)styleFill=mF[1].trim();if(mS)styleStroke=mS[1].trim() }
-        const finalFill = fill || styleFill || null, finalStroke = stroke || styleStroke || null
+        let finalFill = fill || styleFill || null
+        let finalStroke = stroke || styleStroke || null
+        // For leaf shapes with no direct fill, check inherited fill from parent <g>
+        if (!finalFill && LEAF_TAGS.has(tn)) {
+          const inherited = inheritedColor(el, 'fill')
+          if (inherited && inherited !== 'none') finalFill = inherited
+        }
         const isRef = s => s && /^url\(/i.test(s)
-        if (finalFill && !isRef(finalFill)) items.push({el,prop:'fill',raw:finalFill})
-        if (finalStroke && !isRef(finalStroke)) items.push({el,prop:'stroke',raw:finalStroke})
+        if (finalFill && finalFill !== 'none' && !isRef(finalFill)) items.push({el,prop:'fill',raw:finalFill})
+        if (finalStroke && finalStroke !== 'none' && !isRef(finalStroke)) items.push({el,prop:'stroke',raw:finalStroke})
       }
       const map = new Map()
       for (const it of items) {
@@ -562,6 +973,7 @@ export default function PaletteEditor() {
       const remaining = allGroups.filter(g=>(g.areaPct||0)<minArea).filter(g=>{for(const n of g.nodes)if(!mergedNodeSet.has(n))return true;return false})
       const resultGroups = large.concat(remaining); computeGeometry(resultGroups)
       groups = resultGroups.sort((a,b)=>(b.areaPct||0)-(a.areaPct||0))
+      groupsRef.current = groups
       removeLabelsFromGroups(); renderGroupsUI(); updateDetectedColorsUI()
     }
 
@@ -697,6 +1109,7 @@ export default function PaletteEditor() {
       for (const [hex, entry] of paletteMap.entries()) paletteGroups.push({key:'palette_'+entry.palCode,nodes:entry.nodes.slice(),repColor:null,colorValue:entry.colorValue,palCode:entry.palCode,area:0,bbox:null,centroid:null,areaPct:0,lab:null})
       computeGeometry(paletteGroups)
       groups = paletteGroups.sort((a,b)=>(b.areaPct||0)-(a.areaPct||0))
+      groupsRef.current = groups
       removeLabelsFromGroups(); addLabelsToGroups({perNode:false}); renderGroupsUI(); updateDetectedColorsUI()
     }
 
@@ -1084,67 +1497,293 @@ export default function PaletteEditor() {
     }
   }, [])
 
+  async function exportSvgToDataUrl() {
+    const root = svgRootRef.current
+    if (!root) return null
+    return new Promise((resolve) => {
+      const clone = root.cloneNode(true)
+      clone.style.transform = ''
+      try { clone.removeAttribute('transform') } catch {}
+      let svgW = 800, svgH = 600
+      try { const vb = root.viewBox?.baseVal; if (vb?.width && vb?.height) { svgW = vb.width; svgH = vb.height } } catch {}
+      // Scale up to at least 1400px on the longer side for high quality
+      const MIN_DIM = 1400
+      const upscale = Math.max(1, MIN_DIM / Math.max(svgW, svgH))
+      const exportW = Math.round(svgW * upscale)
+      const exportH = Math.round(svgH * upscale)
+      if (!clone.getAttribute('xmlns')) clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg')
+      clone.setAttribute('width', exportW); clone.setAttribute('height', exportH)
+      const blob = new Blob([new XMLSerializer().serializeToString(clone)], { type: 'image/svg+xml;charset=utf-8' })
+      const url = URL.createObjectURL(blob)
+      const img = new Image()
+      img.onload = () => {
+        const c = document.createElement('canvas')
+        c.width = exportW; c.height = exportH
+        const ctx = c.getContext('2d')
+        ctx.drawImage(img, 0, 0, exportW, exportH)
+        URL.revokeObjectURL(url)
+        resolve(c.toDataURL('image/png'))
+      }
+      img.onerror = () => { URL.revokeObjectURL(url); resolve(null) }
+      img.src = url
+    })
+  }
+
+  function generatePaletteImage(groups) {
+    if (!groups || groups.length === 0) return null
+    const COLS = 4, SW = 180, SH = 110, PAD = 20, CODE_H = 44, TITLE_H = 60
+    const rows = Math.ceil(groups.length / COLS)
+    const W = COLS * (SW + PAD) + PAD
+    const H = TITLE_H + rows * (SH + CODE_H + PAD) + PAD
+    const c = document.createElement('canvas')
+    c.width = W; c.height = H
+    const ctx = c.getContext('2d')
+    ctx.fillStyle = '#f8f9fb'; ctx.fillRect(0, 0, W, H)
+    ctx.fillStyle = '#111827'; ctx.font = 'bold 22px -apple-system,Inter,Arial,sans-serif'
+    ctx.fillText('Палітра ниток вишивки', PAD, 40)
+    groups.forEach((g, i) => {
+      const col = i % COLS, row = Math.floor(i / COLS)
+      const x = PAD + col * (SW + PAD), y = TITLE_H + row * (SH + CODE_H + PAD)
+      ctx.fillStyle = g.colorValue || '#cccccc'
+      ctx.fillRect(x, y, SW, SH)
+      ctx.strokeStyle = 'rgba(0,0,0,0.12)'; ctx.lineWidth = 1.5
+      ctx.strokeRect(x, y, SW, SH)
+      const code = g.palCode || g.colorValue || '?'
+      ctx.fillStyle = '#111827'; ctx.font = 'bold 18px monospace'
+      const cw = ctx.measureText(code).width
+      ctx.fillText(code, x + (SW - cw) / 2, y + SH + 22)
+      const cnt = g.count || (g.nodes && g.nodes.length) || 0
+      if (cnt) {
+        ctx.fillStyle = '#9ca3af'; ctx.font = '13px monospace'
+        const cs = `${cnt} ел.`, csw = ctx.measureText(cs).width
+        ctx.fillText(cs, x + (SW - csw) / 2, y + SH + 40)
+      }
+    })
+    return c.toDataURL('image/png')
+  }
+
+  async function generateMockupThumbs(mockupProducts, mockupOverlay, designUrl) {
+    const SIZE = 900, thumbs = []
+    if (!mockupProducts || mockupProducts.length === 0) return thumbs
+    let overlayEl = null
+    if (designUrl) {
+      try {
+        overlayEl = await new Promise((res, rej) => {
+          const img = new Image(); img.crossOrigin = 'anonymous'
+          img.onload = () => res(img); img.onerror = rej
+          img.src = designUrl
+        })
+      } catch {}
+    }
+    const ov = mockupOverlay || { x: 50, y: 35, size: 32 }
+    for (const product of mockupProducts) {
+      if (!product?.image) continue
+      try {
+        const pImg = await new Promise((res, rej) => {
+          const img = new Image(); img.crossOrigin = 'anonymous'
+          img.onload = () => res(img); img.onerror = rej
+          img.src = product.image
+        })
+        const c = document.createElement('canvas'); c.width = SIZE; c.height = SIZE
+        const ctx = c.getContext('2d')
+        ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high'
+        ctx.drawImage(pImg, 0, 0, SIZE, SIZE)
+        if (overlayEl) {
+          const srcW = overlayEl.naturalWidth || overlayEl.width
+          const srcH = overlayEl.naturalHeight || overlayEl.height
+          const dW = ov.size / 100 * SIZE
+          const dH = dW * srcH / srcW
+          ctx.drawImage(overlayEl, 0, 0, srcW, srcH,
+            ov.x / 100 * SIZE - dW / 2, ov.y / 100 * SIZE - dH / 2, dW, dH)
+        }
+        thumbs.push({ label: product.nameUk || product.name || product.id, dataUrl: c.toDataURL('image/jpeg', 0.93) })
+      } catch {}
+    }
+    return thumbs
+  }
+
+  const handleSendToDesigner = async () => {
+    setSendStatus('sending')
+    try {
+      const now = new Date()
+      const cleanId = modalForm.orderNum || String(now.getTime()).slice(-5)
+      const lsState = location.state || {}
+      const checkedMockups = mockupItems.filter(item => item.checked && item.id.startsWith('mockup-'))
+      const orderSizeStr = checkedMockups.map(i => i.itemSize).filter(Boolean).join(', ')
+      const productNames = checkedMockups.map(i => (i.label || '').replace(/^Мокап №\d+ — /, '').trim()).filter(Boolean).join(', ') || (lsState.mockupProducts || []).map(p => p.nameUk || p.name).filter(Boolean).join(', ')
+      const orderEmbSizeStr = checkedMockups.map(i => i.embSize).filter(Boolean).join(', ') || modalForm.embSize
+      const caption = [cleanId, productNames, orderSizeStr, orderEmbSizeStr].filter(Boolean).join(' ')
+      const order = {
+        id: `#${cleanId}`,
+        name: cleanId,
+        status: 'designer',
+        productName: productNames,
+        comment: modalForm.comment,
+        orderSize: orderSizeStr,
+        embroiderySize: orderEmbSizeStr,
+        transferDate: now.toISOString(),
+        transferDateStr: now.toLocaleString('uk-UA', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Kiev' }).replace(',', ''),
+      }
+      const files = mockupItems
+        .filter(item => item.checked)
+        .map(item => {
+          if (!item.id.startsWith('mockup-')) return { dataUrl: item.dataUrl, label: item.filename.replace(/\.\w+$/, ''), filename: item.filename }
+          const colorPart = (item.colorLabel || cleanId).trim().replace(/[\s/\\]+/g, '_')
+          const productPart = (item.label || '').replace(/^Мокап №\d+ — /, '').trim().replace(/[\s/\\,]+/g, '_').replace(/_{2,}/g, '_')
+          const embPart = (item.embSize || '').trim().replace(/\s+/g, '')
+          const sizePart = item.itemSize || ''
+          const filenameBase = [colorPart, productPart, embPart, sizePart].filter(Boolean).join('_')
+          return { dataUrl: item.dataUrl, label: filenameBase, filename: filenameBase + '.jpg' }
+        })
+      await sendOrderToDesignerTelegram({ order, files })
+      if (editingOrderId) {
+        onUpdateOrder?.(editingOrderId, {
+          status: 'designer',
+          transferDate: order.transferDate,
+          transferDateStr: order.transferDateStr,
+          orderSize: order.orderSize,
+          embroiderySize: order.embroiderySize,
+          comment: order.comment,
+        })
+      }
+      setSendStatus('ok')
+      setTimeout(() => { setShowModal(false); setSendStatus(null) }, 2500)
+    } catch (err) {
+      console.error('[PaletteEditor] Send to designer failed:', err)
+      setSendStatus('error')
+    }
+  }
+
   return (
+    <>
     <div ref={containerRef} className="pe-container">
       <style>{CSS}</style>
+
+      {/* ── Sidebar ── */}
       <div className="pe-left">
+        <div className="pe-sidebar-header">
+          <h2>Палітра SVG</h2>
+          <p>Редагування кольорів вишивки</p>
+        </div>
+
         <div className="pe-panel">
-          <h2>Інструменти</h2>
-          <div className="pe-controls-row">
-            <label className="small">SVG-файл: <input id="svgInp" type="file" accept=".svg,image/svg+xml" /></label>
-            <button id="loadBtn" className="primary">Завантажити</button>
-          </div>
-          <div className="pe-controls-row">
-            <label className="small">Авто-порог згрупування (0..200):</label>
-            <input id="threshRange" type="range" min="0" max="200" defaultValue="30" style={{flex:1}} />
-            <div id="threshVal" className="pe-muted">30</div>
-          </div>
-          <div className="pe-controls-row">
-            <label className="small">Мінімальна площа групи (%):</label>
-            <input id="minArea" type="number" min="0" max="5" step="0.01" defaultValue="0.15" style={{width:100}} />
-            <div className="pe-muted" style={{fontSize:12}}>Дрібні групи зливаються в найближчу велику</div>
-          </div>
-          <div className="pe-controls-row">
-            <label className="small">Масштаб (%):</label>
-            <input id="scaleRange" type="range" min="10" max="200" defaultValue="120" style={{flex:1}} />
-            <div id="scaleVal" className="pe-muted">120%</div>
-          </div>
-          <div className="pe-controls-row">
-            <label className="small">Максимум кольорів після мапінгу:</label>
-            <input id="maxColors" type="number" min="2" max="50" step="1" defaultValue="12" style={{width:100}} />
-            <label style={{marginLeft:8,display:'flex',alignItems:'center',gap:8}}>
-              <input id="autoMap" type="checkbox" /> Авто-мапінг при завантаженні
+
+          {/* Upload */}
+          <div className="pe-section">
+            <div className="pe-section-title">Файл</div>
+            <div className="pe-upload-row">
+              <label className="pe-file-label">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg>
+                <span>SVG або PNG/JPG</span>
+                <input id="svgInp" type="file" accept=".svg,image/svg+xml,.png,.jpg,.jpeg,.webp" />
+              </label>
+              <button id="loadBtn" className="pe-btn primary">Завантажити</button>
+            </div>
+            <div id="vectorizerStatus" className="pe-vectorizer-status">⏳ Векторизація...</div>
+            <label className="pe-check-row" style={{marginTop:8}}>
+              <input id="removeBgChk" type="checkbox" defaultChecked />
+              Видалити фон SVG (3+ країв)
             </label>
           </div>
-          <div style={{display:'flex',gap:8,marginBottom:8,alignItems:'center',flexWrap:'wrap'}}>
-            <button id="autoGroupBtn">Авто-групування</button>
-            <button id="mapPaletteBtn">Підібрати палітру</button>
-            <button id="mergeMirroredBtn">Merge mirrored</button>
-            <button id="toggleLabelsBtn">Показати/заховати коди</button>
-            <button id="revertBtn" disabled>Відкотити</button>
-            <button id="exportBtn" disabled>Експортувати PNG</button>
+
+          {/* Controls */}
+          <div className="pe-section">
+            <div className="pe-section-title">Налаштування</div>
+            <div className="pe-row">
+              <span className="pe-label">Порог групування</span>
+              <input id="threshRange" type="range" min="0" max="200" defaultValue="30" />
+              <span id="threshVal" className="pe-val">30</span>
+            </div>
+            <div className="pe-row">
+              <span className="pe-label">Масштаб</span>
+              <input id="scaleRange" type="range" min="10" max="200" defaultValue="120" />
+              <span id="scaleVal" className="pe-val">120%</span>
+            </div>
+            <div className="pe-row">
+              <span className="pe-label">Мін. площа групи (%)</span>
+              <input id="minArea" type="number" min="0" max="5" step="0.01" defaultValue="0.15" />
+            </div>
+            <div className="pe-row">
+              <span className="pe-label">Макс. кольорів</span>
+              <input id="maxColors" type="number" min="2" max="50" step="1" defaultValue="12" />
+            </div>
+            <label className="pe-check-row">
+              <input id="autoMap" type="checkbox" />
+              Авто-мапінг при завантаженні
+            </label>
           </div>
-          <div className="pe-note">Мітки агрегаційно збираються по координатах: замість декількох написів з'явиться один зведений (наприклад "3338/3341").</div>
-          <hr style={{border:'none',borderTop:'1px solid #eee',margin:'12px 0'}} />
-          <div style={{marginTop:8}} className="small">Палітра (коди):</div>
-          <div id="palette" className="palette" />
-          <div style={{marginTop:6}} className="pe-muted-small">Клік по елементу палітри застосує його до виділеного або всього ескізу. Кастомні кольори можна видалити (×).</div>
-          <hr style={{border:'none',borderTop:'1px solid #eee',margin:'12px 0'}} />
-          <div id="groups" style={{marginTop:8,maxHeight:'32vh',overflow:'auto'}} />
-          <div className="pe-footer-controls" style={{marginTop:8}}>
-            <button id="addCustomColorBtn">+ Додати колір</button>
+
+          {/* Actions */}
+          <div className="pe-section">
+            <div className="pe-section-title">Дії</div>
+            <div className="pe-actions">
+              <button id="autoGroupBtn" className="pe-btn">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>
+                Авто-групування
+              </button>
+              <button id="mapPaletteBtn" className="pe-btn">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="13.5" cy="6.5" r="2"/><circle cx="6.5" cy="12.5" r="2"/><circle cx="17.5" cy="14.5" r="2"/><path d="M2 20h20"/></svg>
+                Підібрати палітру
+              </button>
+              <button id="toggleLabelsBtn" className="pe-btn">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                Коди
+              </button>
+              <button id="revertBtn" className="pe-btn" disabled>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.28"/></svg>
+                Відкотити
+              </button>
+              <button id="exportBtn" className="pe-btn primary full" disabled>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                Експортувати PNG
+              </button>
+            </div>
           </div>
+
+          {/* Palette */}
+          <div className="pe-section">
+            <div className="pe-section-title">Палітра ниток</div>
+            <div id="palette" className="palette" />
+          </div>
+
+          {/* Groups */}
+          <div className="pe-section">
+            <div className="pe-section-title">Групи кольорів</div>
+            <div id="groups" />
+          </div>
+
+        </div>
+
+        <div className="pe-sidebar-footer" style={{display:'flex',flexDirection:'column',gap:8}}>
+          <button id="addCustomColorBtn" className="pe-btn full" style={{width:'100%',justifyContent:'center'}}>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Додати колір
+          </button>
+          <button
+            onClick={() => setShowModal(true)}
+            className="pe-btn primary full"
+            style={{width:'100%',justifyContent:'center'}}
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+            Передати дизайнеру
+          </button>
         </div>
       </div>
+
+      {/* ── Preview area ── */}
       <div className="pe-right">
+        <div className="pe-preview-header">
+          <span className="pe-preview-header-title">Попередній перегляд</span>
+          <span style={{fontSize:11,color:'#9ca3af'}}>Клік по елементу SVG — змінити колір</span>
+        </div>
         <div className="pe-preview-wrap">
           <div className="pe-preview-columns">
             <div className="pe-preview-column" id="editedColumn">
-              <div className="title">Редагований (для правок кольорів)</div>
+              <div className="title">Редагований</div>
               <div id="svgPreview" style={{width:'100%'}} />
             </div>
             <div className="pe-preview-column" id="originalColumn">
-              <div className="title">Оригінал (не редагується)</div>
+              <div className="title">Оригінал</div>
               <div id="originalPreview" style={{width:'100%'}} />
             </div>
           </div>
@@ -1155,11 +1794,164 @@ export default function PaletteEditor() {
             </div>
             <div className="side-codes" id="sideCodes" />
             <div className="side-add-area" id="sideAddArea" style={{pointerEvents:'auto'}}>
-              <button id="addCustomColorBtnDuplicate" className="side-add-btn" title="Додати свій колір">+</button>
+              <button id="addCustomColorBtnDuplicate" className="side-add-btn" title="Додати колір">+</button>
             </div>
           </div>
         </div>
       </div>
     </div>
+
+    {showModal && (
+      <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.5)',zIndex:9900,display:'flex',alignItems:'center',justifyContent:'center',padding:16}}
+           onClick={() => { if (sendStatus !== 'sending') { setShowModal(false); setSendStatus(null) } }}>
+        <div style={{background:'#fff',borderRadius:20,boxShadow:'0 20px 60px rgba(0,0,0,0.2)',width:'100%',maxWidth:500,maxHeight:'90vh',overflowY:'auto'}}
+             onClick={e => e.stopPropagation()}>
+          {/* Header */}
+          <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',padding:'22px 22px 14px'}}>
+            <div>
+              <h2 style={{margin:0,fontSize:17,fontWeight:700,color:'#111827'}}>Передати дизайнеру</h2>
+              <p style={{margin:'4px 0 0',fontSize:12,color:'#9ca3af'}}>Заповніть деталі та надішліть файли</p>
+            </div>
+            <button onClick={() => { if (sendStatus !== 'sending') { setShowModal(false); setSendStatus(null) } }}
+                    style={{width:30,height:30,border:'none',background:'#f3f4f6',cursor:'pointer',color:'#6b7280',borderRadius:8,display:'flex',alignItems:'center',justifyContent:'center',fontSize:16,flexShrink:0}}>×</button>
+          </div>
+
+          <div style={{padding:'0 22px 22px',display:'flex',flexDirection:'column',gap:14}}>
+            {/* Fields */}
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
+              <div style={{gridColumn:'1/-1'}}>
+                <label style={{fontSize:11,color:'#6b7280',display:'block',marginBottom:4}}>Номер замовлення</label>
+                <input value={modalForm.orderNum} onChange={e => setModalForm(f => ({...f, orderNum: e.target.value}))} placeholder="Номер"
+                  style={{width:'100%',boxSizing:'border-box',border:'1.5px solid #e5e7eb',borderRadius:9,padding:'7px 10px',fontSize:13,fontFamily:'inherit',outline:'none',transition:'border-color .15s'}}
+                  onFocus={e => e.target.style.borderColor='#6366f1'} onBlur={e => e.target.style.borderColor='#e5e7eb'} />
+              </div>
+              <div>
+                <label style={{fontSize:11,color:'#6b7280',display:'block',marginBottom:4}}>Розмір (з мокапів)</label>
+                <div style={{width:'100%',boxSizing:'border-box',border:'1.5px solid #e5e7eb',borderRadius:9,padding:'7px 10px',fontSize:13,background:'#f9fafb',color:'#374151',minHeight:34}}>
+                  {mockupItems.filter(i => i.checked && i.id.startsWith('mockup-')).map(i => i.itemSize).filter(Boolean).join(', ') || '—'}
+                </div>
+              </div>
+              <div>
+                <label style={{fontSize:11,color:'#6b7280',display:'block',marginBottom:4}}>Розмір вишивки</label>
+                <div style={{width:'100%',boxSizing:'border-box',border:'1.5px solid #e5e7eb',borderRadius:9,padding:'7px 10px',fontSize:13,fontFamily:'inherit',background:'#f9fafb',color:'#374151',minHeight:36}}>
+                  {mockupItems.filter(i => i.checked && i.id.startsWith('mockup-')).map(i => i.embSize).filter(Boolean).join(', ') || '—'}
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <label style={{fontSize:11,color:'#6b7280',display:'block',marginBottom:4}}>Коментар (необов'язково)</label>
+              <textarea
+                value={modalForm.comment}
+                onChange={e => setModalForm(f => ({...f, comment: e.target.value.slice(0, 200)}))}
+                placeholder="Коментар для дизайнера..."
+                rows={3}
+                style={{width:'100%',boxSizing:'border-box',border:'1.5px solid #e5e7eb',borderRadius:9,padding:'7px 10px',fontSize:13,fontFamily:'inherit',resize:'vertical',outline:'none',transition:'border-color .15s'}}
+                onFocus={e => e.target.style.borderColor='#6366f1'}
+                onBlur={e => e.target.style.borderColor='#e5e7eb'}
+              />
+              <div style={{fontSize:11,color:'#9ca3af',textAlign:'right'}}>{modalForm.comment.length}/200</div>
+            </div>
+
+            {/* Files to send - thumbnail cards */}
+            <div>
+              <div style={{fontWeight:600,marginBottom:8,fontSize:13,color:'#111827'}}>Файли для передачі</div>
+              {preparingMockups ? (
+                <div style={{display:'flex',alignItems:'center',justifyContent:'center',padding:'22px',gap:10,background:'#f8f9fb',borderRadius:10}}>
+                  <svg style={{animation:'pe-spin 1s linear infinite',width:17,height:17}} viewBox="0 0 24 24" fill="none">
+                    <circle cx="12" cy="12" r="10" stroke="#6366f1" strokeWidth="4" strokeOpacity="0.25"/>
+                    <path d="M4 12a8 8 0 018-8" stroke="#6366f1" strokeWidth="4" strokeLinecap="round"/>
+                  </svg>
+                  <span style={{fontSize:12,color:'#9ca3af'}}>Генерація файлів...</span>
+                </div>
+              ) : mockupItems.length === 0 ? (
+                <div style={{fontSize:12,color:'#9ca3af',textAlign:'center',padding:'14px 0',background:'#f8f9fb',borderRadius:10}}>
+                  Завантажте SVG щоб передати файли
+                </div>
+              ) : (
+                <div style={{display:'flex',gap:10,overflowX:'auto',paddingBottom:4}}>
+                  {mockupItems.map((item, idx) => (
+                    <div key={item.id}
+                         style={{flexShrink:0,width:148,border:`2px solid ${item.checked?'#6366f1':'#e5e7eb'}`,borderRadius:12,padding:10,cursor:'pointer',background:item.checked?'rgba(99,102,241,0.03)':'#fff',transition:'border-color .12s,background .12s'}}
+                         onClick={() => setMockupItems(prev => prev.map((it,i) => i===idx ? {...it,checked:!it.checked} : it))}>
+                      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:7}}>
+                        <div style={{width:19,height:19,borderRadius:5,border:`2px solid ${item.checked?'#6366f1':'#d1d5db'}`,background:item.checked?'#6366f1':'#fff',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,transition:'all .12s'}}>
+                          {item.checked && <svg width="10" height="10" viewBox="0 0 12 12" fill="none"><path d="M2 6l3 3 5-5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                        </div>
+                        <button onClick={e=>{e.stopPropagation();setMockupItems(prev=>prev.filter((_,i)=>i!==idx))}}
+                                style={{width:20,height:20,border:'none',background:'transparent',cursor:'pointer',color:'#9ca3af',display:'flex',alignItems:'center',justifyContent:'center',borderRadius:4,padding:0}}>
+                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                        </button>
+                      </div>
+                      <div style={{width:'100%',height:100,background:'#f3f4f6',borderRadius:7,overflow:'hidden',display:'flex',alignItems:'center',justifyContent:'center',marginBottom:7}}>
+                        {item.thumbnail && <img src={item.thumbnail} alt="" style={{width:'100%',height:'100%',objectFit:'contain'}}/>}
+                      </div>
+                      <p style={{margin:0,fontSize:11,fontWeight:600,color:'#111',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',marginBottom:item.id.startsWith('mockup-')?5:0}}>{item.id.startsWith('mockup-') ? (item.colorLabel || item.label) : item.label}</p>
+                      {item.id.startsWith('mockup-') ? (
+                        <div onClick={e => e.stopPropagation()}>
+                          <div style={{display:'flex',gap:2,flexWrap:'wrap',marginBottom:4}}>
+                            {['XS','S','M','L','XL'].map(sz => (
+                              <button key={sz} type="button"
+                                onClick={() => setMockupItems(prev => prev.map((it,i) => i===idx ? {...it,itemSize:sz} : it))}
+                                style={{padding:'1px 5px',fontSize:9,fontWeight:700,borderRadius:4,border:`1.5px solid ${item.itemSize===sz?'#6366f1':'#d1d5db'}`,background:item.itemSize===sz?'#6366f1':'#fff',color:item.itemSize===sz?'#fff':'#6b7280',cursor:'pointer'}}
+                              >{sz}</button>
+                            ))}
+                          </div>
+                          <input value={item.embSize || ''} onChange={e => setMockupItems(prev => prev.map((it,i) => i===idx ? {...it,embSize:e.target.value} : it))}
+                            placeholder="Вишивка (напр. 27см)" style={{width:'100%',boxSizing:'border-box',border:'1px solid #e5e7eb',borderRadius:5,padding:'3px 6px',fontSize:10,fontFamily:'inherit',outline:'none',marginBottom:3}} />
+                          <input value={item.colorLabel || ''} onChange={e => setMockupItems(prev => prev.map((it,i) => i===idx ? {...it,colorLabel:e.target.value} : it))}
+                            placeholder="напр. 387437_1" style={{width:'100%',boxSizing:'border-box',border:'1px solid #e5e7eb',borderRadius:5,padding:'3px 6px',fontSize:10,fontFamily:'inherit',outline:'none'}} />
+                        </div>
+                      ) : (
+                        <p style={{margin:'2px 0 0',fontSize:9,color:'#9ca3af',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{item.filename}</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Status */}
+            {sendStatus === 'ok' && (
+              <div style={{padding:'10px 13px',background:'#f0fdf4',border:'1px solid #bbf7d0',borderRadius:10,color:'#16a34a',fontSize:13,fontWeight:500}}>
+                ✅ Успішно надіслано дизайнеру!
+              </div>
+            )}
+            {sendStatus === 'error' && (
+              <div style={{padding:'10px 13px',background:'#fef2f2',border:'1px solid #fecaca',borderRadius:10,color:'#dc2626',fontSize:13,fontWeight:500}}>
+                ❌ Помилка надсилання. Перевірте з'єднання та спробуйте ще раз.
+              </div>
+            )}
+
+            {/* Buttons */}
+            <div style={{display:'flex',gap:9}}>
+              <button
+                onClick={() => { setShowModal(false); setSendStatus(null) }}
+                disabled={sendStatus === 'sending'}
+                style={{flex:1,border:'1.5px solid #e5e7eb',background:'#fff',borderRadius:10,padding:'10px',fontSize:13,fontWeight:600,cursor:'pointer',color:'#374151',opacity:sendStatus==='sending'?.5:1}}
+              >Скасувати</button>
+              <button
+                onClick={handleSendToDesigner}
+                disabled={sendStatus === 'sending'}
+                style={{flex:2,display:'flex',alignItems:'center',justifyContent:'center',gap:7,background:'#6366f1',border:'none',borderRadius:10,padding:'10px',fontSize:13,fontWeight:600,cursor:'pointer',color:'#fff',opacity:sendStatus==='sending'?.7:1}}
+              >
+                {sendStatus === 'sending' ? (
+                  <>
+                    <svg style={{animation:'pe-spin 1s linear infinite',width:15,height:15}} viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="white" strokeWidth="4" strokeOpacity="0.25"/><path d="M4 12a8 8 0 018-8" stroke="white" strokeWidth="4" strokeLinecap="round"/></svg>
+                    Надсилання...
+                  </>
+                ) : (
+                  <>
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                    Передати дизайнеру
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   )
 }
