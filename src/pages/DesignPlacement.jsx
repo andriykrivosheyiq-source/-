@@ -57,6 +57,29 @@ function loadImgEl(src) {
   })
 }
 
+async function stampSizeOnImage(dataUrl, sizeText) {
+  if (!sizeText || !sizeText.trim()) return dataUrl
+  const img = await loadImgEl(dataUrl)
+  const W = img.naturalWidth || img.width
+  const H = img.naturalHeight || img.height
+  const canvas = document.createElement('canvas')
+  canvas.width = W; canvas.height = H
+  const ctx = canvas.getContext('2d')
+  ctx.drawImage(img, 0, 0)
+  const fontSize = Math.round(W * 0.08)
+  const text = sizeText.trim().toUpperCase()
+  ctx.font = `bold ${fontSize}px Arial, sans-serif`
+  const tw = ctx.measureText(text).width
+  const pad = fontSize * 0.35
+  const rx = pad, ry = H - fontSize - pad * 2
+  ctx.fillStyle = 'rgba(0,0,0,0.62)'
+  ctx.fillRect(rx - pad * 0.5, ry - pad * 0.5, tw + pad, fontSize + pad)
+  ctx.fillStyle = '#ffffff'
+  ctx.textBaseline = 'top'
+  ctx.fillText(text, rx, ry)
+  return canvas.toDataURL('image/png')
+}
+
 // Remove white/paper background.
 // Pass 1: edge-seeded BFS removes border-connected white (threshold=220 catches
 //   off-white/cream paper; transparent pixels treated as background).
@@ -1460,7 +1483,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
   const [showSendModal, setShowSendModal] = useState(false)
   const [sendItems, setSendItems] = useState([])
   const [preparingSend, setPreparingSend] = useState(false)
-  const [sendOrderSize, setSendOrderSize] = useState('XL')
+  const [sendOrderSize, setSendOrderSize] = useState('')
   const [sendEmbroiderySize, setSendEmbroiderySize] = useState('')
   const [selectedDesigner, setSelectedDesigner] = useState(null)
   const [designerComment, setDesignerComment] = useState('')
@@ -2378,17 +2401,21 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
           const tgSizes = checkedFiles.filter(f => f.id.startsWith('mockup-')).map(f => f.itemSize).filter(Boolean).join(', ')
           const tgEmbSizes = checkedFiles.filter(f => f.id.startsWith('mockup-')).map(f => f.embSize).filter(Boolean).join(', ')
           const caption = [cleanId, allProductNames.join(' + '), tgSizes || sendOrderSize, tgEmbSizes || sendEmbroiderySize].filter(Boolean).join(' ')
-          const designerFiles = checkedFiles.map(item => {
+          const designerFiles = await Promise.all(checkedFiles.map(async item => {
             if (item.id === 'design') {
               return { ...item, dataUrl: transparentDesignUrl || item.dataUrl, filename: `${cleanId}.png`, label: cleanId }
             }
             const colorPart = (item.colorLabel || cleanId).trim().replace(/[\s/\\]+/g, '_')
             const productPart = (item.label || '').replace(/^Мокап №\d+ — /, '').trim().replace(/[\s/\\,]+/g, '_').replace(/_{2,}/g, '_')
             const embPart = (item.embSize || '').trim().replace(/\s+/g, '')
-            const sizePart = item.itemSize || ''
+            const sizePart = sendOrderSize?.trim() || item.itemSize || ''
             const parts = [colorPart, productPart, embPart, sizePart].filter(Boolean)
-            return { ...item, filename: `${parts.join('_')}.png`, label: parts.join('_') }
-          })
+            let dataUrl = item.dataUrl
+            if (sendOrderSize?.trim()) {
+              try { dataUrl = await stampSizeOnImage(dataUrl, sendOrderSize) } catch {}
+            }
+            return { ...item, dataUrl, filename: `${parts.join('_')}.png`, label: parts.join('_') }
+          }))
           await sendOrderToDesignerTelegram({ order, files: designerFiles })
           setDesignerSendToast('ok')
         } catch {
@@ -2954,9 +2981,12 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
                   </div>
                   <div>
                     <label className="text-xs text-gray-500 block mb-1">Розмір (з мокапів)</label>
-                    <div className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-800 bg-gray-50 min-h-[38px]">
-                      {sendItems.filter(i => i.checked && i.id.startsWith('mockup-')).map(i => i.itemSize).filter(Boolean).join(', ') || '—'}
-                    </div>
+                    <input
+                      value={sendOrderSize}
+                      onChange={e => setSendOrderSize(e.target.value)}
+                      className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                      placeholder="XL, 3XL, 4XL..."
+                    />
                   </div>
                   <div>
                     <label className="text-xs text-gray-500 block mb-1">Розмір вишивки</label>
