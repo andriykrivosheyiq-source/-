@@ -130,6 +130,30 @@ export async function removeBgFromUrl(url) {
   return removeWhiteBg(img).toDataURL('image/png')
 }
 
+/** Stamp a size label (e.g. "3XL") onto the bottom-left corner of a PNG data URL. */
+export async function stampSizeOnImage(dataUrl, sizeText) {
+  if (!sizeText || !sizeText.trim()) return dataUrl
+  const img = await loadImgEl(dataUrl)
+  const W = img.naturalWidth || img.width
+  const H = img.naturalHeight || img.height
+  const canvas = document.createElement('canvas')
+  canvas.width = W; canvas.height = H
+  const ctx = canvas.getContext('2d')
+  ctx.drawImage(img, 0, 0)
+  const fontSize = Math.round(W * 0.08)
+  const text = sizeText.trim().toUpperCase()
+  ctx.font = `bold ${fontSize}px Arial, sans-serif`
+  const tw = ctx.measureText(text).width
+  const pad = fontSize * 0.35
+  const rx = pad, ry = H - fontSize - pad * 2
+  ctx.fillStyle = 'rgba(0,0,0,0.62)'
+  ctx.fillRect(rx - pad * 0.5, ry - pad * 0.5, tw + pad, fontSize + pad)
+  ctx.fillStyle = '#ffffff'
+  ctx.textBaseline = 'top'
+  ctx.fillText(text, rx, ry)
+  return canvas.toDataURL('image/png')
+}
+
 /**
  * Remove background only if image is not already transparent (corner check).
  * Uses BFS flood-fill; skips if corners are already transparent.

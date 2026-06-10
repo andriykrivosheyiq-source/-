@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { products as allProducts } from '../data/mockData'
 import { sendOrderToDesignerTelegram } from '../services/crmService'
-import { removeBgFromUrlIfNeeded } from '../utils/imageUtils'
+import { removeBgFromUrlIfNeeded, stampSizeOnImage } from '../utils/imageUtils'
 
 const STATUS_CONFIG = {
   new:      { label: 'В роботі',          dot: 'bg-blue-400',   bg: 'bg-blue-50 border-blue-100',       badge: 'bg-blue-100 text-blue-700' },
@@ -270,15 +270,17 @@ function TransferToDesignerModal({ order, extras, onConfirm, onClose }) {
 
   const checkedMockups = files.filter(f => f.checked && f.id.startsWith('mockup-'))
   const orderSizeStr = checkedMockups.map(f => f.itemSize).filter(Boolean).join(', ')
+  const [customOrderSize, setCustomOrderSize] = useState('')
 
   const handleConfirm = () => {
     const orderEmbSizeStr = checkedMockups.map(f => f.embSize).filter(Boolean).join(', ')
     onConfirm({
       transferDate: new Date().toISOString(),
       comment,
-      orderSize: orderSizeStr,
+      orderSize: customOrderSize.trim() || orderSizeStr,
       embroiderySize: orderEmbSizeStr || embroiderySize,
       checkedFiles: files.filter(f => f.checked),
+      customOrderSize: customOrderSize.trim(),
     })
   }
 
@@ -312,7 +314,12 @@ function TransferToDesignerModal({ order, extras, onConfirm, onClose }) {
               </div>
               <div>
                 <label className="text-xs text-gray-500 block mb-1">Розмір (з мокапів)</label>
-                <div className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-800 bg-gray-50 min-h-[38px]">{orderSizeStr || '—'}</div>
+                <input
+                  value={customOrderSize}
+                  onChange={e => setCustomOrderSize(e.target.value)}
+                  placeholder={orderSizeStr || 'XL, 3XL, 4XL...'}
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-300 min-h-[38px]"
+                />
               </div>
               <div>
                 <label className="text-xs text-gray-500 block mb-1">Розмір вишивки</label>
@@ -732,6 +739,10 @@ export default function MyOrders({ savedOrders = [], ordersLoading = false, orde
               dataUrl = canvas.toDataURL('image/png')
             } catch { /* fall back to stored thumbnail */ }
           }
+          const sizeLabel = designerData.customOrderSize || ''
+          if (sizeLabel) {
+            try { dataUrl = await stampSizeOnImage(dataUrl, sizeLabel) } catch {}
+          }
         }
         const filename = f.id === 'design'
           ? `${cleanId}.png`
@@ -739,7 +750,7 @@ export default function MyOrders({ savedOrders = [], ordersLoading = false, orde
               const colorPart = (f.colorLabel || cleanId).trim().replace(/[\s/\\]+/g, '_')
               const productPart = (f.label || '').replace(/^Мокап №\d+ — /, '').trim().replace(/[\s/\\,]+/g, '_').replace(/_{2,}/g, '_')
               const embPart = (f.embSize || '').trim().replace(/\s+/g, '')
-              const sizePart = f.itemSize || ''
+              const sizePart = designerData.customOrderSize || f.itemSize || ''
               return [colorPart, productPart, embPart, sizePart].filter(Boolean).join('_') + '.png'
             })()
         return { dataUrl, label: filename.replace(/\.\w+$/, ''), filename }
