@@ -44,6 +44,17 @@ async function persistExtras(id, extras) {
     }
   }
 
+  if (extras.originalImage) {
+    try {
+      fields._originalImageUrl = await uploadImageToCloudinary(
+        extras.originalImage,
+        `original_${id.replace(/^#/, '')}`
+      )
+    } catch (e) {
+      console.error('Cloudinary originalImage upload failed:', e)
+    }
+  }
+
   if (extras.designSnapshot) {
     const snap = { ...extras.designSnapshot }
     if (snap.generatedDesigns?.length) {
@@ -137,6 +148,7 @@ function AppInner() {
             orderExtras.current[order.id] = {
               fullImage: order._fullImageUrl || null,
               transparentImage: order._transparentImageUrl || null,
+              originalImage: order._originalImageUrl || null,
               designSnapshot: order._designSnapshot || {},
             }
           }
@@ -172,6 +184,9 @@ function AppInner() {
     if (persisted._transparentImageUrl && orderExtras.current[finalOrder.id]) {
       orderExtras.current[finalOrder.id].transparentImage = persisted._transparentImageUrl
     }
+    if (persisted._originalImageUrl && orderExtras.current[finalOrder.id]) {
+      orderExtras.current[finalOrder.id].originalImage = persisted._originalImageUrl
+    }
     try {
       await setDoc(doc(db, 'orders', finalOrder.id), clean({ ...finalOrder, _createdAt: Date.now(), ...persisted }))
     } catch (e) {
@@ -196,6 +211,9 @@ function AppInner() {
     }
     if (persisted._transparentImageUrl && orderExtras.current[id]) {
       orderExtras.current[id].transparentImage = persisted._transparentImageUrl
+    }
+    if (persisted._originalImageUrl && orderExtras.current[id]) {
+      orderExtras.current[id].originalImage = persisted._originalImageUrl
     }
     try {
       await updateDoc(doc(db, 'orders', id), clean({ ...changes, ...persisted }))
@@ -232,7 +250,7 @@ function AppInner() {
   const handleOpenOrder = (orderId) => {
     const extras = orderExtras.current[orderId]
     const snapshot = extras?.designSnapshot || {}
-    setDesignData({ ...snapshot, editingOrderId: orderId, fileName: orderId.replace(/^#/, '') })
+    setDesignData({ ...snapshot, editingOrderId: orderId, fileName: orderId.replace(/^#/, ''), originalImageUrl: extras?.originalImage || null })
     navigate('/placement')
   }
 

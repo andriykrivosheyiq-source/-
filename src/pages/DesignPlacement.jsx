@@ -1460,7 +1460,8 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
   const [editError, setEditError] = useState(null)
   const [downloading, setDownloading] = useState(false)
   const [preparingMockup, setPreparingMockup] = useState(false)
-  const [originalImageUrl, setOriginalImageUrl] = useState(null)
+  const [originalImageUrl, setOriginalImageUrl] = useState(designData?.originalImageUrl || null)
+  const originalDataUrlRef = useRef(null)
   const [fileName, setFileName] = useState(() => {
     if (designData?.fileName) return designData.fileName
     const year = new Date().getFullYear()
@@ -1523,6 +1524,9 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
     if (!designData?.uploadedFile) return
     const url = URL.createObjectURL(designData.uploadedFile)
     setOriginalImageUrl(url)
+    const reader = new FileReader()
+    reader.onload = e => { originalDataUrlRef.current = e.target.result }
+    reader.readAsDataURL(designData.uploadedFile)
     return () => URL.revokeObjectURL(url)
   }, [designData?.uploadedFile])
 
@@ -2140,7 +2144,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
         colors: [designData?.productColors?.[selectedProduct] || '#1a1a1a'],
         productId: catMap[currentProduct?.category] || currentProduct?.category || 'hoodie',
         productName: productNameStr,
-      }, { fullImage, transparentImage, designSnapshot: { ...designSnapshot, editingOrderId: targetId } })
+      }, { fullImage, transparentImage, designSnapshot: { ...designSnapshot, editingOrderId: targetId }, originalImage: originalDataUrlRef.current || undefined })
     } else {
       const order = {
         id: orderNum,
@@ -2154,7 +2158,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
         mockupThumb,
         mockupThumbs,
       }
-      const savedId = await onSaveOrder?.(order, { fullImage, transparentImage, designSnapshot })
+      const savedId = await onSaveOrder?.(order, { fullImage, transparentImage, designSnapshot, originalImage: originalDataUrlRef.current })
       // After auto-save, mark as existing order so future manual saves go to the update path
       // Use the actual saved ID in case a conflict forced a different ID
       if (isAuto) onUpdate?.({ editingOrderId: savedId || orderNum })
@@ -2372,7 +2376,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
     if (!transparentImage && currentDesignImage) {
       try { transparentImage = await removeBgFromUrl(currentDesignImage) } catch { /* leave null */ }
     }
-    await onSaveOrder?.(order, { fullImage, transparentImage, designSnapshot })
+    await onSaveOrder?.(order, { fullImage, transparentImage, designSnapshot, originalImage: originalDataUrlRef.current })
 
     setShowSendModal(false)
     setSavedToast(true)
