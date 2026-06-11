@@ -188,6 +188,34 @@ function removeWhiteBg(img, threshold = 220, noDilation = false) {
   return canvas
 }
 
+// Trim fully-transparent border rows/columns so the canvas hugs its content.
+// Used so the illustration's bounding box (and the side-crop handles) sit on the
+// real artwork instead of empty margins.
+function trimTransparent(canvas, alphaThreshold = 8) {
+  const W = canvas.width, H = canvas.height
+  if (!W || !H) return canvas
+  const ctx = canvas.getContext('2d')
+  const px = ctx.getImageData(0, 0, W, H).data
+  let top = H, left = W, right = -1, bottom = -1
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      if (px[(y * W + x) * 4 + 3] > alphaThreshold) {
+        if (x < left) left = x
+        if (x > right) right = x
+        if (y < top) top = y
+        if (y > bottom) bottom = y
+      }
+    }
+  }
+  if (right < left || bottom < top) return canvas       // fully transparent
+  const cw = right - left + 1, ch = bottom - top + 1
+  if (cw === W && ch === H) return canvas                // nothing to trim
+  const out = document.createElement('canvas')
+  out.width = cw; out.height = ch
+  out.getContext('2d').drawImage(canvas, left, top, cw, ch, 0, 0, cw, ch)
+  return out
+}
+
 // ─── Per-mockup colour overrides ─────────────────────────────────────────────
 
 function hexToRgb(hex) {
@@ -380,7 +408,7 @@ async function drawIllus(ctx, imageUrl, illus, W, H) {
   if (!imageUrl) return
   try {
     const img = await loadImgEl(imageUrl)
-    const cleaned = removeWhiteBg(img, 230, true)
+    const cleaned = trimTransparent(removeWhiteBg(img, 230, true))
     const iW = illus.size / 100 * W
     const iH = iW * cleaned.height / cleaned.width
     const cropB = (illus.cropBottom || 0) / 100
@@ -510,7 +538,7 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
     let active = true
     loadImgEl(imageUrl).then(img => {
       if (!active) return
-      const c = removeWhiteBg(img, 230, true)
+      const c = trimTransparent(removeWhiteBg(img, 230, true))
       c.toBlob(blob => {
         if (!active) return
         const url = URL.createObjectURL(blob)
