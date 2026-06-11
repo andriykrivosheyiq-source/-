@@ -197,16 +197,48 @@ export async function removeBgForUpload(dataUrl) {
       if (matchesBg && !brighterThanBg) visited[i] = 1
     }
   } else {
-    // Phase 3: enclosed near-white regions for white/paper backgrounds
-    // (e.g. counter inside letters О, В, D, A, P).
-    // After the border flood any remaining near-white pixel is trapped inside a
-    // dark ink outline — make it transparent too.
-    for (let i = 0; i < W * H; i++) {
-      if (visited[i]) continue
-      const j = i * 4
-      if (px[j + 3] < 10) { visited[i] = 1; continue }
-      const r = px[j], g = px[j + 1], b = px[j + 2]
-      if (r > THR && g > THR && b > THR) visited[i] = 1
+    // Phase 3: enclosed near-white regions on a white/paper background.
+    // These are either letter counters (the hole inside О, В, D, A, P — bordered
+    // almost entirely by solid dark ink) OR white clothing/objects inside the
+    // illustration (bordered by skin/hair/colour). We only erase a region when
+    // its border is overwhelmingly dark ink, so white clothing stays protected.
+    const isNearWhite = (idx) => {
+      const j = idx * 4
+      return px[j + 3] >= 10 && px[j] > THR && px[j + 1] > THR && px[j + 2] > THR
+    }
+    const INK_BRIGHT = 90      // a border pixel darker than this counts as "ink"
+    const DARK_FRAC = 0.9      // require ≥90% of the border to be ink
+    const comp = new Int32Array(W * H).fill(-1)
+    for (let s = 0; s < W * H; s++) {
+      if (visited[s] || comp[s] !== -1 || !isNearWhite(s)) continue
+      // Flood this enclosed white component and inspect its border.
+      const stack = [s]
+      comp[s] = s
+      const members = [s]
+      let darkBorder = 0, totalBorder = 0, touchesEdge = false
+      let h = 0
+      while (h < stack.length) {
+        const pos = stack[h++]
+        const x = pos % W, y = (pos / W) | 0
+        if (x === 0 || y === 0 || x === W - 1 || y === H - 1) touchesEdge = true
+        for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
+          const nx = x + dx, ny = y + dy
+          if (nx < 0 || nx >= W || ny < 0 || ny >= H) continue
+          const np = ny * W + nx
+          if (isNearWhite(np)) {
+            if (comp[np] === -1) { comp[np] = s; stack.push(np); members.push(np) }
+          } else {
+            totalBorder++
+            const jj = np * 4
+            if ((px[jj] + px[jj + 1] + px[jj + 2]) / 3 < INK_BRIGHT) darkBorder++
+          }
+        }
+      }
+      // Erase only if fully enclosed and ringed by dark ink (a letter counter),
+      // never if the border is mixed with colour (white clothing).
+      if (!touchesEdge && totalBorder > 0 && darkBorder / totalBorder >= DARK_FRAC) {
+        for (const m of members) visited[m] = 1
+      }
     }
   }
 
