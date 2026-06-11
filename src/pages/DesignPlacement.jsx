@@ -246,6 +246,7 @@ async function applyMockupColorMap(imageUrl, colorMap) {
 function drawLetters(ctx, letters, W, H, style = 'D') {
   const isTwoColor = style.includes('TWO_COLOR')
   for (const letter of letters) {
+    const fillIsNone = letter.fillColor === 'transparent' || letter.fillColor === 'none'
     const lx = letter.x / 100 * W
     const ly = letter.y / 100 * H
     const isA = letter.type === 'A'
@@ -263,7 +264,7 @@ function drawLetters(ctx, letters, W, H, style = 'D') {
       ctx.transform(1.4, 0, 0, -1, 49, 1799)
       const aOuter = new Path2D(A_PATH_ORIG)
       const aHole = new Path2D(A_INNER_ORIG)
-      if (isTwoColor) {
+      if (isTwoColor && !fillIsNone) {
         ctx.fillStyle = letter.fillColor || '#ffffff'
         ctx.fill(new Path2D(A_PATH_ORIG + ' ' + A_INNER_ORIG), 'evenodd')
       }
@@ -272,7 +273,7 @@ function drawLetters(ctx, letters, W, H, style = 'D') {
       ctx.stroke(aOuter)
       ctx.stroke(aHole)
     } else if (letter.type === 'Y') {
-      if (isTwoColor) {
+      if (isTwoColor && !fillIsNone) {
         ctx.fillStyle = letter.color
         ctx.fill(new Path2D(Y_PATH), 'evenodd')
         ctx.fillStyle = letter.fillColor || '#ffffff'
@@ -284,7 +285,7 @@ function drawLetters(ctx, letters, W, H, style = 'D') {
     } else {
       // type D (default)
       ctx.translate(-60, -110)
-      if (isTwoColor) {
+      if (isTwoColor && !fillIsNone) {
         ctx.fillStyle = letter.color
         ctx.fill(new Path2D(D_PATH), 'evenodd')
         ctx.fillStyle = letter.fillColor || '#ffffff'
@@ -648,6 +649,7 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
   const isCollegeFontSelected = selected === 'college'
   const currentColor = isEstSelected ? estEl.color : isDadTextSelected ? dadTextEl.color : isChildNameSelected ? childNameEl.color : isExtraTextSelected ? selectedExtraText.color : isCollegeFontSelected ? collegeFontEl.color : (selectedLetter || selectedTTOLetter)?.color
   const currentFillColor = selectedLetter?.fillColor || '#ffffff'
+  const fillIsTransparent = selectedLetter?.fillColor === 'transparent' || selectedLetter?.fillColor === 'none'
   const setColor = (color) => {
     if (isEstSelected) setEstEl(prev => ({ ...prev, color }))
     else if (isDadTextSelected) setDadTextEl(prev => ({ ...prev, color }))
@@ -880,6 +882,7 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
         {letterStyle !== 'TTO' && letterStyle !== 'DADDY' && letters.map(letter => {
           const isSelected = selected === letter.id
           const isTwoColor = letterStyle.includes('TWO_COLOR')
+          const fillIsNone = letter.fillColor === 'transparent' || letter.fillColor === 'none'
           return (
             <div key={letter.id} onMouseDown={e => startDrag(letter.id, 'move', e)} onTouchStart={e => startDrag(letter.id, 'move', e)} onClick={e => handleClick(letter.id, e)} style={{ position: 'absolute', left: `${letter.x}%`, top: `${letter.y}%`, width: `${letter.size}%`, transform: `rotate(${letter.rotation}deg)`, transformOrigin: 'center center', cursor: isSelected ? 'grab' : 'pointer', zIndex: isSelected ? 20 : 10 }}>
               {isSelected && <div style={{ position: 'absolute', inset: '-5px', border: '2px dashed #4f46e5', borderRadius: '6px', pointerEvents: 'none' }} />}
@@ -899,20 +902,20 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
               {letter.type === 'A' ? (
                 <svg viewBox="0 0 1600 1799" style={{ width: '100%', height: 'auto', display: 'block' }}>
                   <g transform="translate(49 1799) scale(1.4 -1)">
-                    {isTwoColor && <path d={`${A_PATH_ORIG} ${A_INNER_ORIG}`} fill={letter.fillColor || '#ffffff'} fillRule="evenodd"/>}
+                    {isTwoColor && !fillIsNone && <path d={`${A_PATH_ORIG} ${A_INNER_ORIG}`} fill={letter.fillColor || '#ffffff'} fillRule="evenodd"/>}
                     <path d={A_PATH_ORIG} fill="none" stroke={letter.color} strokeWidth={A_STROKE_W}/>
                     <path d={A_INNER_ORIG} fill="none" stroke={letter.color} strokeWidth={A_STROKE_W}/>
                   </g>
                 </svg>
               ) : letter.type === 'Y' ? (
                 <svg viewBox="0 0 360 460" style={{ width: '100%', height: 'auto', display: 'block' }}>
-                  {isTwoColor ? (
+                  {isTwoColor && !fillIsNone ? (
                     <><path d={Y_PATH} fill={letter.color} fillRule="evenodd"/><path d={Y_PATH_INNER} fill={letter.fillColor || '#ffffff'} fillRule="evenodd"/></>
                   ) : <path d={Y_PATH} fill={letter.color} fillRule="evenodd"/>}
                 </svg>
               ) : (
                 <svg viewBox="60 110 360 460" style={{ width: '100%', height: 'auto', display: 'block' }}>
-                  {isTwoColor ? (
+                  {isTwoColor && !fillIsNone ? (
                     <><path d={D_PATH} fill={letter.color} fillRule="evenodd"/><path d={D_PATH_INNER} fill={letter.fillColor || '#ffffff'} fillRule="evenodd"/></>
                   ) : <path d={D_PATH} fill={letter.color} fillRule="evenodd"/>}
                 </svg>
@@ -1020,10 +1023,11 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
                 <span style={{ fontSize: '11px', color: '#6b7280', fontWeight: 600, minWidth: '70px' }}>Заповнення:</span>
+                <button title="Без заповнення (видно фон)" onClick={() => setFillColor('transparent')} style={{ width: '20px', height: '20px', borderRadius: '50%', cursor: 'pointer', padding: 0, flexShrink: 0, border: fillIsTransparent ? '3px solid #4f46e5' : '2px solid #d1d5db', background: 'linear-gradient(45deg, #fff 45%, #ef4444 45%, #ef4444 55%, #fff 55%)' }} />
                 {PRESET_COLORS.map(color => (
-                  <button key={color} onClick={() => setFillColor(color)} style={{ width: '20px', height: '20px', borderRadius: '50%', background: color, border: currentFillColor === color ? '3px solid #4f46e5' : '2px solid #d1d5db', cursor: 'pointer', padding: 0, flexShrink: 0 }} />
+                  <button key={color} onClick={() => setFillColor(color)} style={{ width: '20px', height: '20px', borderRadius: '50%', background: color, border: !fillIsTransparent && currentFillColor === color ? '3px solid #4f46e5' : '2px solid #d1d5db', cursor: 'pointer', padding: 0, flexShrink: 0 }} />
                 ))}
-                <input type="color" value={currentFillColor} onChange={e => setFillColor(e.target.value)} style={{ width: '26px', height: '26px', padding: 0, border: '2px solid #d1d5db', cursor: 'pointer', borderRadius: '50%', background: 'none' }} title="Власний колір заповнення" />
+                <input type="color" value={fillIsTransparent ? '#ffffff' : currentFillColor} onChange={e => setFillColor(e.target.value)} style={{ width: '26px', height: '26px', padding: 0, border: '2px solid #d1d5db', cursor: 'pointer', borderRadius: '50%', background: 'none' }} title="Власний колір заповнення" />
               </div>
             </div>
           ) : isExtraTextSelected ? (
