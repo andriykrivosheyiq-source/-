@@ -110,6 +110,71 @@ export function removeWhiteBg(img, threshold = 220, noDilation = false) {
   return canvas
 }
 
+/**
+ * Border-only BFS background removal for user-uploaded sketches.
+ * Floods white inward from the image border only — NO dilation, so it never
+ * jumps over outlines into white clothing/teeth inside the design.
+ * Skips removal entirely if corners are already transparent.
+ */
+export async function removeBgForUpload(dataUrl) {
+  const img = await loadImgEl(dataUrl)
+  const W = img.naturalWidth || img.width
+  const H = img.naturalHeight || img.height
+  const canvas = document.createElement('canvas')
+  canvas.width = W; canvas.height = H
+  const ctx = canvas.getContext('2d')
+  ctx.drawImage(img, 0, 0)
+
+  const corners = [
+    ctx.getImageData(0,     0,     1, 1).data,
+    ctx.getImageData(W - 1, 0,     1, 1).data,
+    ctx.getImageData(0,     H - 1, 1, 1).data,
+    ctx.getImageData(W - 1, H - 1, 1, 1).data,
+  ]
+  if (corners.some(p => p[3] < 128)) return canvas.toDataURL('image/png')
+
+  const imageData = ctx.getImageData(0, 0, W, H)
+  const px = imageData.data
+  const THR = 220
+  const isWhiteBg = (pos) => {
+    const i = pos * 4
+    if (px[i + 3] < 10) return true
+    return px[i] > THR && px[i + 1] > THR && px[i + 2] > THR
+  }
+
+  const visited = new Uint8Array(W * H)
+  const seeds = []
+  for (let x = 0; x < W; x++) {
+    for (const y of [0, H - 1]) {
+      const p = y * W + x
+      if (!visited[p] && isWhiteBg(p)) { visited[p] = 1; seeds.push(p) }
+    }
+  }
+  for (let y = 1; y < H - 1; y++) {
+    for (const x of [0, W - 1]) {
+      const p = y * W + x
+      if (!visited[p] && isWhiteBg(p)) { visited[p] = 1; seeds.push(p) }
+    }
+  }
+  let head = 0
+  while (head < seeds.length) {
+    const pos = seeds[head++]
+    const x = pos % W, y = (pos / W) | 0
+    for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
+      const nx = x + dx, ny = y + dy
+      if (nx < 0 || nx >= W || ny < 0 || ny >= H) continue
+      const npos = ny * W + nx
+      if (!visited[npos] && isWhiteBg(npos)) { visited[npos] = 1; seeds.push(npos) }
+    }
+  }
+
+  for (let i = 0; i < W * H; i++) {
+    if (visited[i]) px[i * 4 + 3] = 0
+  }
+  ctx.putImageData(imageData, 0, 0)
+  return canvas.toDataURL('image/png')
+}
+
 /** Convert a remote URL to a base64 data URL via fetch to avoid canvas CORS taint. */
 async function toDataUrl(url) {
   if (!url.startsWith('http')) return url

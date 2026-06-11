@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { products as allProducts, productCategories } from '../data/mockData'
 import { generateDesigns, clearCache, editDesign } from '../services/gemini'
 import { sendToClientCRM, getOrderByCrmNumber, updateOrderStatus, sendOrderToDesignerTelegram } from '../services/crmService'
-import { removeBgFromUrl } from '../utils/imageUtils'
+import { removeBgFromUrl, removeBgForUpload } from '../utils/imageUtils'
 
 const D_PATH =
   'M291 123L78 153L88 232L114 229L116 233L148 467L143 471L121 474L132 555L349 526L400 459L360 176Z ' +
@@ -375,7 +375,30 @@ function drawChildNameText(ctx, childNameEl, childName, W, H) {
 }
 
 // Full composite with white background (for regular download)
-async function renderEstToCanvas(letters, estEl, estText, showEstText, imageUrl, illus, letterStyle, ttoLetters, bgColor = '#f0f0f0', dadText, dadTextEl, showChildName, childName, childNameEl) {
+async function drawIllus(ctx, imageUrl, illus, W, H) {
+  if (!imageUrl) return
+  try {
+    const img = await loadImgEl(imageUrl)
+    const cleaned = removeWhiteBg(img, 230, true)
+    const iW = illus.size / 100 * W
+    const iH = iW * cleaned.height / cleaned.width
+    const cropFrac = (illus.cropBottom || 0) / 100
+    const srcH = cleaned.height * (1 - cropFrac)
+    const destH = iH * (1 - cropFrac)
+    const iX = illus.x / 100 * W - iW / 2
+    const iY = illus.y / 100 * H - iH / 2
+    ctx.drawImage(cleaned, 0, 0, cleaned.width, srcH, iX, iY, iW, destH)
+  } catch { /* skip */ }
+}
+
+function drawOverlayLetters(ctx, letters, ttoLetters, letterStyle, dadText, dadTextEl, showChildName, childName, childNameEl, W, H) {
+  if (letterStyle === 'TTO') drawTTOLetters(ctx, ttoLetters, W, H)
+  else if (letterStyle !== 'DADDY') drawLetters(ctx, letters, W, H, letterStyle)
+  if (letterStyle === 'DADDY' && dadTextEl && dadText) drawDadText(ctx, dadTextEl, dadText, W, H)
+  if (showChildName && childNameEl && childName) drawChildNameText(ctx, childNameEl, childName, W, H)
+}
+
+async function renderEstToCanvas(letters, estEl, estText, showEstText, imageUrl, illus, letterStyle, ttoLetters, bgColor = '#f0f0f0', dadText, dadTextEl, showChildName, childName, childNameEl, illusOnTop = false) {
   const W = 1600, H = 900
   const canvas = document.createElement('canvas')
   canvas.width = W; canvas.height = H
@@ -383,55 +406,23 @@ async function renderEstToCanvas(letters, estEl, estText, showEstText, imageUrl,
   ctx.fillStyle = bgColor || '#f0f0f0'
   ctx.fillRect(0, 0, W, H)
 
-  if (imageUrl) {
-    try {
-      const img = await loadImgEl(imageUrl)
-      const cleaned = removeWhiteBg(img, 230, true)
-      const iW = illus.size / 100 * W
-      const iH = iW * cleaned.height / cleaned.width
-      const cropFrac = (illus.cropBottom || 0) / 100
-      const srcH = cleaned.height * (1 - cropFrac)
-      const destH = iH * (1 - cropFrac)
-      const iX = illus.x / 100 * W - iW / 2
-      const iY = illus.y / 100 * H - iH / 2
-      ctx.drawImage(cleaned, 0, 0, cleaned.width, srcH, iX, iY, iW, destH)
-    } catch { /* skip */ }
-  }
-
-  if (letterStyle === 'TTO') drawTTOLetters(ctx, ttoLetters, W, H)
-  else if (letterStyle !== 'DADDY') drawLetters(ctx, letters, W, H, letterStyle)
-  if (letterStyle === 'DADDY' && dadTextEl && dadText) drawDadText(ctx, dadTextEl, dadText, W, H)
-  if (showChildName && childNameEl && childName) drawChildNameText(ctx, childNameEl, childName, W, H)
+  if (!illusOnTop) await drawIllus(ctx, imageUrl, illus, W, H)
+  drawOverlayLetters(ctx, letters, ttoLetters, letterStyle, dadText, dadTextEl, showChildName, childName, childNameEl, W, H)
+  if (illusOnTop) await drawIllus(ctx, imageUrl, illus, W, H)
   if (showEstText) drawEstText(ctx, estEl, estText, W, H)
   return canvas
 }
 
 // Transparent composite for mockup (no white fill, illustration bg removed)
-async function renderEstTransparent(letters, estEl, estText, showEstText, imageUrl, illus, letterStyle, ttoLetters, dadText, dadTextEl, showChildName, childName, childNameEl) {
+async function renderEstTransparent(letters, estEl, estText, showEstText, imageUrl, illus, letterStyle, ttoLetters, dadText, dadTextEl, showChildName, childName, childNameEl, illusOnTop = false) {
   const W = 1600, H = 900
   const canvas = document.createElement('canvas')
   canvas.width = W; canvas.height = H
   const ctx = canvas.getContext('2d')
 
-  if (imageUrl) {
-    try {
-      const img = await loadImgEl(imageUrl)
-      const cleanedSrc = removeWhiteBg(img, 230, true)
-      const iW = illus.size / 100 * W
-      const iH = iW * cleanedSrc.height / cleanedSrc.width
-      const cropFrac = (illus.cropBottom || 0) / 100
-      const srcH = cleanedSrc.height * (1 - cropFrac)
-      const destH = iH * (1 - cropFrac)
-      const iX = illus.x / 100 * W - iW / 2
-      const iY = illus.y / 100 * H - iH / 2
-      ctx.drawImage(cleanedSrc, 0, 0, cleanedSrc.width, srcH, iX, iY, iW, destH)
-    } catch { /* skip */ }
-  }
-
-  if (letterStyle === 'TTO') drawTTOLetters(ctx, ttoLetters, W, H)
-  else if (letterStyle !== 'DADDY') drawLetters(ctx, letters, W, H, letterStyle)
-  if (letterStyle === 'DADDY' && dadTextEl && dadText) drawDadText(ctx, dadTextEl, dadText, W, H)
-  if (showChildName && childNameEl && childName) drawChildNameText(ctx, childNameEl, childName, W, H)
+  if (!illusOnTop) await drawIllus(ctx, imageUrl, illus, W, H)
+  drawOverlayLetters(ctx, letters, ttoLetters, letterStyle, dadText, dadTextEl, showChildName, childName, childNameEl, W, H)
+  if (illusOnTop) await drawIllus(ctx, imageUrl, illus, W, H)
   if (showEstText) drawEstText(ctx, estEl, estText, W, H)
 
   // Crop to tight bounding box of non-transparent pixels so the overlay fills the product correctly
@@ -481,6 +472,7 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
   ])
   const [estEl, setEstEl] = useState(initialState?.estEl || { x: 50, y: 88, color: '#000000', fontSize: 6 })
   const [illus, setIllus] = useState(initialState?.illus || { x: 50, y: 45, size: 52, cropBottom: 0 })
+  const [illusOnTop, setIllusOnTop] = useState(initialState?.illusOnTop || false)
   const [childName, setChildName] = useState(initialState?.childName || '')
   const [showChildName, setShowChildName] = useState(initialState?.showChildName ?? false)
   const [childNameEl, setChildNameEl] = useState(initialState?.childNameEl || { x: 50, y: 8, color: '#000000', fontSize: 8 })
@@ -507,8 +499,8 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
   }, [imageUrl])
 
   useImperativeHandle(ref, () => ({
-    exportToCanvas:    () => renderEstToCanvas(letters, estEl, estText, showEstText, imageUrl, illus, letterStyle, ttoLetters, bgColor, dadText, dadTextEl, showChildName, childName, childNameEl),
-    exportTransparent: () => renderEstTransparent(letters, estEl, estText, showEstText, imageUrl, illus, letterStyle, ttoLetters, dadText, dadTextEl, showChildName, childName, childNameEl),
+    exportToCanvas:    () => renderEstToCanvas(letters, estEl, estText, showEstText, imageUrl, illus, letterStyle, ttoLetters, bgColor, dadText, dadTextEl, showChildName, childName, childNameEl, illusOnTop),
+    exportTransparent: () => renderEstTransparent(letters, estEl, estText, showEstText, imageUrl, illus, letterStyle, ttoLetters, dadText, dadTextEl, showChildName, childName, childNameEl, illusOnTop),
     exportTransparentWithOverrides: (ov = {}) => {
       const ovLetters = letters.map(l => ({
         ...l,
@@ -517,17 +509,17 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
       }))
       const ovTto = ttoLetters.map(l => ({ ...l, color: ov.letterColor !== undefined ? ov.letterColor : l.color }))
       const ovEst = { ...estEl, color: ov.estColor !== undefined ? ov.estColor : estEl.color }
-      return renderEstTransparent(ovLetters, ovEst, estText, showEstText, imageUrl, illus, letterStyle, ovTto, dadText, dadTextEl, showChildName, childName, childNameEl)
+      return renderEstTransparent(ovLetters, ovEst, estText, showEstText, imageUrl, illus, letterStyle, ovTto, dadText, dadTextEl, showChildName, childName, childNameEl, illusOnTop)
     },
-    getState:          () => ({ letters, letterStyle, bgColor, ttoLetters, estEl, illus, childName, showChildName, childNameEl, dadText, dadTextEl }),
-  }), [letters, estEl, estText, showEstText, imageUrl, illus, letterStyle, ttoLetters, bgColor, dadText, dadTextEl, showChildName, childName, childNameEl])
+    getState:          () => ({ letters, letterStyle, bgColor, ttoLetters, estEl, illus, illusOnTop, childName, showChildName, childNameEl, dadText, dadTextEl }),
+  }), [letters, estEl, estText, showEstText, imageUrl, illus, letterStyle, ttoLetters, bgColor, dadText, dadTextEl, showChildName, childName, childNameEl, illusOnTop])
 
   // Notify parent when letter positions/style change so mockup stays in sync
   const estMountedRef = useRef(false)
   useEffect(() => {
     if (!estMountedRef.current) { estMountedRef.current = true; return }
     onStateChange?.()
-  }, [letters, ttoLetters, estEl, illus, letterStyle]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [letters, ttoLetters, estEl, illus, letterStyle, illusOnTop]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const onMove = (e) => {
@@ -735,7 +727,7 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
             onMouseDown={e => startDrag('illus', 'move', e)}
             onTouchStart={e => startDrag('illus', 'move', e)}
             onClick={e => handleClick('illus', e)}
-            style={{ position: 'absolute', left: `${illus.x}%`, top: `${illus.y}%`, width: `${illus.size}%`, transform: 'translate(-50%, -50%)', cursor: selected === 'illus' ? 'grab' : 'pointer', zIndex: selected === 'illus' ? 15 : 5 }}
+            style={{ position: 'absolute', left: `${illus.x}%`, top: `${illus.y}%`, width: `${illus.size}%`, transform: 'translate(-50%, -50%)', cursor: selected === 'illus' ? 'grab' : 'pointer', zIndex: selected === 'illus' ? 22 : (illusOnTop ? 12 : 5) }}
           >
             {/* Clip wrapper: clips from bottom (cropBottom%), dashed border inside clips too */}
             <div style={{ clipPath: illus.cropBottom > 0 ? `inset(0 0 ${illus.cropBottom}% 0)` : undefined }}>
@@ -743,6 +735,19 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
               <img ref={illusImgRef} src={cleanedUrl || imageUrl} alt="EST illustration" style={{ width: '100%', height: 'auto', display: 'block', pointerEvents: 'none' }} />
             </div>
             {/* Resize handle — outside clip, always at visual bottom-right */}
+            {/* Layer toggle: illustration above / below letters */}
+            {selected === 'illus' && (
+              <div
+                onMouseDown={e => e.stopPropagation()}
+                onTouchStart={e => e.stopPropagation()}
+                onClick={e => { e.stopPropagation(); setIllusOnTop(v => !v) }}
+                title={illusOnTop ? 'Зараз поверх букв — клікни щоб опустити під букви' : 'Зараз під буквами — клікни щоб підняти поверх'}
+                style={{ position: 'absolute', top: '-10px', left: '-10px', padding: '0 6px', height: '20px', background: illusOnTop ? '#059669' : '#4f46e5', border: '2px solid #fff', borderRadius: '10px', cursor: 'pointer', zIndex: 32, boxShadow: '0 1px 4px rgba(0,0,0,0.25)', display: 'flex', alignItems: 'center', gap: '3px', whiteSpace: 'nowrap' }}
+              >
+                <svg width="9" height="9" viewBox="0 0 16 16" fill="white"><rect x="1" y="1" width="10" height="10" rx="2" opacity={illusOnTop ? 1 : 0.5}/><rect x="5" y="5" width="10" height="10" rx="2" opacity={illusOnTop ? 0.5 : 1}/></svg>
+                <span style={{ fontSize: '9px', fontWeight: 700, color: '#fff' }}>{illusOnTop ? 'Поверх' : 'Під буквами'}</span>
+              </div>
+            )}
             {selected === 'illus' && (
               <div onMouseDown={e => startDrag('illus', 'resize', e)} onTouchStart={e => startDrag('illus', 'resize', e)} onClick={e => e.stopPropagation()} style={{ position: 'absolute', bottom: '-10px', right: '-10px', width: '20px', height: '20px', background: '#4f46e5', border: '2px solid #fff', borderRadius: '4px', cursor: 'nwse-resize', zIndex: 30, boxShadow: '0 1px 4px rgba(0,0,0,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <svg width="8" height="8" viewBox="0 0 8 8" fill="none"><path d="M1 7L7 1M4 7L7 4" stroke="white" strokeWidth="1.5" strokeLinecap="round" /></svg>
@@ -1503,6 +1508,8 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
   const [savedToast, setSavedToast] = useState(false)
   const [autoSavedToast, setAutoSavedToast] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
+  const [uploadingSketch, setUploadingSketch] = useState(false)
+  const uploadSketchRef = useRef(null)
   const [designerSendToast, setDesignerSendToast] = useState(null) // null | 'sending' | 'ok' | 'error'
   // Feature 1: Background color picker (non-EST only)
   const [designBgColor, setDesignBgColor] = useState(null)
@@ -1670,6 +1677,26 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
     autoSaveRef.current = true
     doSave(true)
   }, [mockupDesignUrl]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleUploadSketch = (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    e.target.value = ''
+    const label = file.name.replace(/\.[^.]+$/, '') || 'Завантажено'
+    const reader = new FileReader()
+    reader.onload = async (ev) => {
+      setUploadingSketch(true)
+      let finalUrl = ev.target.result
+      try {
+        finalUrl = await removeBgForUpload(ev.target.result)
+      } catch { /* keep original */ } finally {
+        setUploadingSketch(false)
+      }
+      onUpdate?.({ generatedDesigns: [{ label, image: finalUrl }] })
+      setActiveTab(0)
+    }
+    reader.readAsDataURL(file)
+  }
 
   const handleRegenerate = async () => {
     if (!designData?.uploadedFile || !designData?.selectedStyle) { navigate('/create'); return }
@@ -2472,13 +2499,28 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
         <div className="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden mb-5">
           <div className="px-5 py-4 border-b border-gray-50 flex items-center justify-between">
             <h2 className="font-semibold text-gray-900">Згенерований дизайн</h2>
-            {hasDesigns && <span className="text-xs text-indigo-600 font-medium bg-indigo-50 px-2.5 py-1 rounded-full">{generatedDesigns[Math.min(activeTab, generatedDesigns.length - 1)].label}</span>}
+            <div className="flex items-center gap-2">
+              {hasDesigns && <span className="text-xs text-indigo-600 font-medium bg-indigo-50 px-2.5 py-1 rounded-full">{generatedDesigns[Math.min(activeTab, generatedDesigns.length - 1)].label}</span>}
+              <input ref={uploadSketchRef} type="file" accept="image/*" className="hidden" onChange={handleUploadSketch} />
+              <button
+                onClick={() => !uploadingSketch && uploadSketchRef.current?.click()}
+                disabled={uploadingSketch}
+                title="Завантажити власний ескіз — замінить поточний дизайн, фон вирізається автоматично"
+                className="flex items-center gap-1.5 text-xs font-medium text-gray-600 bg-gray-100 hover:bg-indigo-50 hover:text-indigo-600 disabled:opacity-60 disabled:cursor-wait px-3 py-1.5 rounded-full transition-colors"
+              >
+                {uploadingSketch
+                  ? <svg className="animate-spin w-3 h-3" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" className="opacity-25"/><path d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" fill="currentColor"/></svg>
+                  : <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M8 2v8M5 5l3-3 3 3"/><path d="M2 11v1.5A1.5 1.5 0 003.5 14h9a1.5 1.5 0 001.5-1.5V11"/></svg>
+                }
+                {uploadingSketch ? 'Вирізаю фон...' : 'Завантажити ескіз'}
+              </button>
+            </div>
           </div>
           <div className="p-5">
-            {regenerating ? (
+            {(regenerating || uploadingSketch) ? (
               <div className="w-full bg-gray-50 rounded-xl flex flex-col items-center justify-center py-20 gap-4">
                 <svg className="animate-spin w-10 h-10 text-indigo-500" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" className="opacity-25"/><path d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" fill="currentColor"/></svg>
-                <p className="text-sm text-gray-500 font-medium">Генерую новий дизайн... (15–30 сек)</p>
+                <p className="text-sm text-gray-500 font-medium">{uploadingSketch ? 'Вирізаю фон...' : 'Генерую новий дизайн... (15–30 сек)'}</p>
               </div>
             ) : (
               <div
