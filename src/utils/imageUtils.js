@@ -177,6 +177,26 @@ export async function removeBgForUpload(dataUrl) {
     }
   }
 
+  // Phase 2: remove enclosed background pockets (e.g. the gap trapped between
+  // two heads) that the border flood couldn't reach. Only runs when the
+  // background is distinctly grey/coloured — NOT paper-white — so that white
+  // clothing/blanket pockets stay protected. Matches the sampled bg colour
+  // tightly, with a brightness guard against brighter (white) content.
+  const bgMax = Math.max(br, bgc, bb)
+  const bgAvg = (br + bgc + bb) / 3
+  if (bgMax < 244) {
+    const POCKET_TOL = 18
+    for (let i = 0; i < W * H; i++) {
+      if (visited[i]) continue
+      const j = i * 4
+      if (px[j + 3] < 10) { visited[i] = 1; continue }
+      const r = px[j], g = px[j + 1], b = px[j + 2]
+      const matchesBg = Math.abs(r - br) <= POCKET_TOL && Math.abs(g - bgc) <= POCKET_TOL && Math.abs(b - bb) <= POCKET_TOL
+      const brighterThanBg = (r + g + b) / 3 > bgAvg + 10   // protects white content
+      if (matchesBg && !brighterThanBg) visited[i] = 1
+    }
+  }
+
   for (let i = 0; i < W * H; i++) {
     if (visited[i]) px[i * 4 + 3] = 0
   }
