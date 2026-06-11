@@ -477,7 +477,7 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
   ])
   const [estEl, setEstEl] = useState(initialState?.estEl || { x: 50, y: 88, color: '#000000', fontSize: 6 })
   const [extraTexts, setExtraTexts] = useState(initialState?.extraTexts || [])
-  const [collegeFontEl, setCollegeFontEl] = useState(initialState?.collegeFontEl || { x: 50, y: 50, size: 25, style: 'SOLID', color: '#000000', fillColor: '#ffffff', strokeColor: '#888888', text: 'DADDY' })
+  const [collegeFontEl, setCollegeFontEl] = useState(initialState?.collegeFontEl || { x: 50, y: 50, size: 25, style: 'SOLID', color: '#000000', fillColor: '#ffffff', strokeColor: '#888888', strokeWidthMult: 1, text: 'DADDY' })
   const [showCollegeFont, setShowCollegeFont] = useState(initialState?.showCollegeFont ?? false)
   const collegeFontRef = useRef(null)
   const [illus, setIllus] = useState(initialState?.illus || { x: 50, y: 45, size: 52, cropBottom: 0 })
@@ -831,7 +831,9 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
         })}
 
         {showCollegeFont && collegeFontEl?.text?.trim() && collegeFontRef.current && (() => {
-          const g = buildCollegeGlyphs(collegeFontRef.current, collegeFontEl.text, collegeFontEl.style)
+          const mlt = collegeFontEl.strokeWidthMult ?? 1
+          const g = buildCollegeGlyphs(collegeFontRef.current, collegeFontEl.text, mlt)
+          const actualStrokeW = g.baseStrokeW * mlt * 2
           return (
             <div
               key="college"
@@ -843,12 +845,12 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
               {isCollegeFontSelected && <div style={{ position: 'absolute', inset: '-5px', border: '2px dashed #d97706', borderRadius: '6px', pointerEvents: 'none' }} />}
               <svg viewBox={`${g.vbX} ${g.vbY} ${g.vbW} ${g.vbH}`} style={{ width: '100%', height: 'auto', display: 'block' }}>
                 {collegeFontEl.style === 'TWO_COLOR' ? (
-                  <path d={g.d} fill={collegeFontEl.color} stroke={collegeFontEl.strokeColor || '#888888'} strokeWidth={g.strokeW * 2} strokeLinejoin="round" paintOrder="stroke" fillRule="evenodd"/>
+                  // paint-order="stroke": border drawn first (outside), fill on top
+                  <path d={g.d} fill={collegeFontEl.color} stroke={collegeFontEl.strokeColor || '#888888'} strokeWidth={actualStrokeW} strokeLinejoin="round" paintOrder="stroke" fillRule="evenodd"/>
                 ) : collegeFontEl.style === 'HOLLOW' ? (
-                  <>
-                    {collegeFontEl.fillColor && collegeFontEl.fillColor !== 'transparent' && <path d={g.d} fill={collegeFontEl.fillColor} fillRule="evenodd"/>}
-                    <path d={g.d} fill="none" stroke={collegeFontEl.color} strokeWidth={g.strokeW} strokeLinejoin="round"/>
-                  </>
+                  // paint-order="stroke": thick stroke drawn first (half outside = visible border),
+                  // fill on top covers inner half of stroke → clean border, no inner artifacts
+                  <path d={g.d} fill={collegeFontEl.fillColor || '#ffffff'} fillRule="evenodd" stroke={collegeFontEl.color} strokeWidth={actualStrokeW} strokeLinejoin="round" paintOrder="stroke"/>
                 ) : (
                   <path d={g.d} fill={collegeFontEl.color} fillRule="evenodd"/>
                 )}
@@ -1034,26 +1036,43 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
             </div>
           ) : isCollegeFontSelected ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', width: '100%' }}>
+              {/* Style + stroke thickness on same row */}
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
                 <span style={{ fontSize: '11px', color: '#6b7280', fontWeight: 600, flexShrink: 0 }}>Стиль:</span>
                 {[['SOLID','Суцільний'],['TWO_COLOR','2 кольори'],['HOLLOW','Контур']].map(([s, label]) => (
                   <button key={s} onMouseDown={e => e.stopPropagation()} onClick={e => { e.stopPropagation(); setCollegeFontEl(prev => ({ ...prev, style: s })) }} style={{ padding: '2px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 700, border: 'none', cursor: 'pointer', background: collegeFontEl.style === s ? '#d97706' : '#f3f4f6', color: collegeFontEl.style === s ? '#fff' : '#6b7280' }}>{label}</button>
                 ))}
+                {collegeFontEl.style !== 'SOLID' && (
+                  <>
+                    <span style={{ fontSize: '11px', color: '#6b7280', fontWeight: 600, marginLeft: '4px', flexShrink: 0 }}>Товщ:</span>
+                    {[[0.5,'S'],[1,'M'],[1.5,'L'],[2.5,'XL']].map(([v, label]) => (
+                      <button key={v} onMouseDown={e => e.stopPropagation()} onClick={e => { e.stopPropagation(); setCollegeFontEl(prev => ({ ...prev, strokeWidthMult: v })) }} style={{ width: '22px', height: '22px', borderRadius: '5px', fontSize: '10px', fontWeight: 700, border: 'none', cursor: 'pointer', background: (collegeFontEl.strokeWidthMult ?? 1) === v ? '#d97706' : '#f3f4f6', color: (collegeFontEl.strokeWidthMult ?? 1) === v ? '#fff' : '#6b7280' }}>{label}</button>
+                    ))}
+                  </>
+                )}
               </div>
+              {/* Main color */}
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
                 <span style={{ fontSize: '11px', color: '#6b7280', fontWeight: 600, minWidth: '55px' }}>Колір:</span>
                 {PRESET_COLORS.map(color => (
                   <button key={color} onClick={() => setColor(color)} style={{ width: '20px', height: '20px', borderRadius: '50%', background: color, border: currentColor === color ? '3px solid #d97706' : '2px solid #d1d5db', cursor: 'pointer', padding: 0, flexShrink: 0 }} />
                 ))}
                 <input type="color" value={currentColor || '#000000'} onChange={e => setColor(e.target.value)} style={{ width: '26px', height: '26px', padding: 0, border: '2px solid #d1d5db', cursor: 'pointer', borderRadius: '50%', background: 'none' }} />
-                {collegeFontEl.style !== 'SOLID' && <>
-                  <span style={{ fontSize: '11px', color: '#6b7280', fontWeight: 600, marginLeft: '4px' }}>{collegeFontEl.style === 'TWO_COLOR' ? 'Рамка:' : 'Заливка:'}</span>
-                  {PRESET_COLORS.map(color => (
-                    <button key={color} onClick={() => setCollegeFontEl(prev => ({ ...prev, [collegeFontEl.style === 'TWO_COLOR' ? 'strokeColor' : 'fillColor']: color }))} style={{ width: '20px', height: '20px', borderRadius: '50%', background: color, border: (collegeFontEl.style === 'TWO_COLOR' ? collegeFontEl.strokeColor : collegeFontEl.fillColor) === color ? '3px solid #d97706' : '2px solid #d1d5db', cursor: 'pointer', padding: 0, flexShrink: 0 }} />
-                  ))}
-                  <input type="color" value={collegeFontEl.style === 'TWO_COLOR' ? (collegeFontEl.strokeColor || '#888888') : (collegeFontEl.fillColor || '#ffffff')} onChange={e => setCollegeFontEl(prev => ({ ...prev, [collegeFontEl.style === 'TWO_COLOR' ? 'strokeColor' : 'fillColor']: e.target.value }))} style={{ width: '26px', height: '26px', padding: 0, border: '2px solid #d1d5db', cursor: 'pointer', borderRadius: '50%', background: 'none' }} />
-                </>}
               </div>
+              {/* Second color: border (TWO_COLOR) or fill (HOLLOW) */}
+              {collegeFontEl.style !== 'SOLID' && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: '11px', color: '#6b7280', fontWeight: 600, minWidth: '55px' }}>{collegeFontEl.style === 'TWO_COLOR' ? 'Рамка:' : 'Заливка:'}</span>
+                  {PRESET_COLORS.map(color => {
+                    const cur2 = collegeFontEl.style === 'TWO_COLOR' ? collegeFontEl.strokeColor : collegeFontEl.fillColor
+                    const key2 = collegeFontEl.style === 'TWO_COLOR' ? 'strokeColor' : 'fillColor'
+                    return (
+                      <button key={color} onClick={() => setCollegeFontEl(prev => ({ ...prev, [key2]: color }))} style={{ width: '20px', height: '20px', borderRadius: '50%', background: color, border: cur2 === color ? '3px solid #d97706' : '2px solid #d1d5db', cursor: 'pointer', padding: 0, flexShrink: 0 }} />
+                    )
+                  })}
+                  <input type="color" value={collegeFontEl.style === 'TWO_COLOR' ? (collegeFontEl.strokeColor || '#888888') : (collegeFontEl.fillColor || '#ffffff')} onChange={e => { const k = collegeFontEl.style === 'TWO_COLOR' ? 'strokeColor' : 'fillColor'; setCollegeFontEl(prev => ({ ...prev, [k]: e.target.value })) }} style={{ width: '26px', height: '26px', padding: 0, border: '2px solid #d1d5db', cursor: 'pointer', borderRadius: '50%', background: 'none' }} />
+                </div>
+              )}
             </div>
           ) : (
             <>

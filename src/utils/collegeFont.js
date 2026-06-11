@@ -12,51 +12,48 @@ export function loadCollegeFont() {
   return _promise
 }
 
-// Reference glyph cap-height in path units. All geometry is computed at this
-// scale, then mapped through a viewBox so preview (SVG) and export (canvas)
-// render identically.
 const REF = 1000
-const CAP_H = 1800           // font cap height in font units
-const STROKE_FRAC = 0.07     // outline thickness relative to cap height
+const CAP_H = 1800
+const BASE_STROKE_FRAC = 0.07  // base stroke as fraction of cap height
 
 /**
- * Build the glyph path + a padded viewBox for `text`.
- * The viewBox is padded by the stroke width so the OUTER outline is never
- * clipped (this was the "contours not always drawn" bug). Returns geometry
- * in REF units; the consumer maps it to pixels via the viewBox.
+ * Build path + padded viewBox for rendering `text`.
+ *
+ * strokeWidthMult scales the visible border width for TWO_COLOR and HOLLOW.
+ * The viewBox is padded so the outer half of the rendered stroke is never clipped.
  */
-export function buildCollegeGlyphs(font, text, style = 'SOLID') {
+export function buildCollegeGlyphs(font, text, strokeWidthMult = 1) {
   const upper = (text || '').toUpperCase()
   const fontSize = REF * font.unitsPerEm / CAP_H
-  const path = font.getPath(upper, 0, REF, fontSize)   // baseline at y=REF
+  const path = font.getPath(upper, 0, REF, fontSize)
   const d = path.toPathData(2)
-  const bb = path.getBoundingBox()                      // tight ink bounds
+  const bb = path.getBoundingBox()
 
-  const strokeW = REF * STROKE_FRAC
-  // TWO_COLOR draws a stroke of width strokeW*2 (half = strokeW outside the
-  // ink), so pad by strokeW plus a small margin to guarantee no clipping.
-  const pad = strokeW + 6
+  const baseStrokeW = REF * BASE_STROKE_FRAC
+  // For TWO_COLOR and HOLLOW the actual SVG strokeWidth = baseStrokeW * strokeWidthMult * 2.
+  // paint-order="stroke" makes the fill cover the INNER half, so the visible border outside
+  // the fill region = baseStrokeW * strokeWidthMult. That's what needs to fit in the padding.
+  const pad = baseStrokeW * strokeWidthMult + 6
 
   const vbX = bb.x1 - pad
   const vbY = bb.y1 - pad
   const vbW = Math.max(bb.x2 - bb.x1, 1) + pad * 2
   const vbH = Math.max(bb.y2 - bb.y1, 1) + pad * 2
 
-  return { d, strokeW, vbX, vbY, vbW, vbH }
+  return { d, baseStrokeW, strokeWidthMult, vbX, vbY, vbW, vbH }
 }
 
 /**
- * Draw the College Block text onto a 2d canvas context, mapping the padded
- * viewBox so the result matches the on-screen SVG preview exactly.
- * el: { x, y, size, style, color, fillColor, strokeColor, text }
- *   style: 'SOLID' | 'TWO_COLOR' | 'HOLLOW'
+ * Draw college font text onto a canvas 2d context.
+ * Matches the SVG preview behaviour (paint-order="stroke" equivalent).
  */
 export async function drawCollegeFontOnCanvas(ctx, el, W, H) {
   if (!el?.text?.trim()) return
   const font = await loadCollegeFont()
-  const g = buildCollegeGlyphs(font, el.text, el.style)
+  const mlt = el.strokeWidthMult ?? 1
+  const g = buildCollegeGlyphs(font, el.text, mlt)
 
-  const drawnW = el.size / 100 * W          // word width on the product
+  const drawnW = el.size / 100 * W
   const scale = drawnW / g.vbW
   const drawnH = g.vbH * scale
   const topLeftX = el.x / 100 * W - drawnW / 2
@@ -66,26 +63,41 @@ export async function drawCollegeFontOnCanvas(ctx, el, W, H) {
   ctx.save()
   ctx.translate(topLeftX, topLeftY)
   ctx.scale(scale, scale)
-  ctx.translate(-g.vbX, -g.vbY)             // map viewBox origin (mirrors SVG)
+  ctx.translate(-g.vbX, -g.vbY)
   ctx.lineJoin = 'round'
 
+  const actualStrokeW = g.baseStrokeW * mlt * 2
+
   if (el.style === 'TWO_COLOR') {
+    // stroke first (border behind fill), then fill on top
     ctx.strokeStyle = el.strokeColor || '#888888'
-    ctx.lineWidth = g.strokeW * 2
-    ctx.stroke(p2d)                          // border behind the fill
+    ctx.lineWidth = actualStrokeW
+    ctx.stroke(p2d)
     ctx.fillStyle = el.color
     ctx.fill(p2d, 'evenodd')
+
   } else if (el.style === 'HOLLOW') {
-    if (el.fillColor && el.fillColor !== 'transparent') {
-      ctx.fillStyle = el.fillColor
-      ctx.fill(p2d, 'evenodd')
-    }
+    // stroke first (thick, centered), then fill covers the inside half
     ctx.strokeStyle = el.color
-    ctx.lineWidth = g.strokeW
+    ctx.lineWidth = actualStrokeW
     ctx.stroke(p2d)
+    const fc = el.fillColor
+    if (fc && fc !== 'transparent' && fc !== 'none') {
+      ctx.fillStyle = fc
+      ctx.fill(p2d, 'evenodd')
+    } else {
+      // transparent interior: erase the inside of the stroke using destination-out
+      ctx.save()
+      ctx.globalCompositeOperation = 'destination-out'
+      ctx.fillStyle = 'rgba(0,0,0,1)'
+      ctx.fill(p2d, 'evenodd')
+      ctx.restore()
+    }
+
   } else {
     ctx.fillStyle = el.color
     ctx.fill(p2d, 'evenodd')
   }
+
   ctx.restore()
 }
