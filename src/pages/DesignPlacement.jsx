@@ -1751,7 +1751,9 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
   const [autoSavedToast, setAutoSavedToast] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [uploadingSketch, setUploadingSketch] = useState(false)
+  const [showUploadMenu, setShowUploadMenu] = useState(false)
   const uploadSketchRef = useRef(null)
+  const uploadRemoveBgRef = useRef(true)   // whether the next upload should strip the bg
   const [designerSendToast, setDesignerSendToast] = useState(null) // null | 'sending' | 'ok' | 'error'
   // Feature 1: Background color picker (non-EST only)
   const [designBgColor, setDesignBgColor] = useState(null)
@@ -1924,20 +1926,29 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
     const file = e.target.files?.[0]
     if (!file) return
     e.target.value = ''
+    const removeBg = uploadRemoveBgRef.current
     const label = file.name.replace(/\.[^.]+$/, '') || 'Завантажено'
     const reader = new FileReader()
     reader.onload = async (ev) => {
-      setUploadingSketch(true)
       let finalUrl = ev.target.result
-      try {
-        finalUrl = await removeBgForUpload(ev.target.result)
-      } catch { /* keep original */ } finally {
-        setUploadingSketch(false)
+      if (removeBg) {
+        setUploadingSketch(true)
+        try {
+          finalUrl = await removeBgForUpload(ev.target.result)
+        } catch { /* keep original */ } finally {
+          setUploadingSketch(false)
+        }
       }
       onUpdate?.({ generatedDesigns: [{ label, image: finalUrl }] })
       setActiveTab(0)
     }
     reader.readAsDataURL(file)
+  }
+
+  const triggerUpload = (removeBg) => {
+    uploadRemoveBgRef.current = removeBg
+    setShowUploadMenu(false)
+    uploadSketchRef.current?.click()
   }
 
   const handleRegenerate = async () => {
@@ -2774,18 +2785,36 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
             <div className="flex items-center gap-2">
               {hasDesigns && <span className="text-xs text-indigo-600 font-medium bg-indigo-50 px-2.5 py-1 rounded-full">{generatedDesigns[Math.min(activeTab, generatedDesigns.length - 1)].label}</span>}
               <input ref={uploadSketchRef} type="file" accept="image/*" className="hidden" onChange={handleUploadSketch} />
-              <button
-                onClick={() => !uploadingSketch && uploadSketchRef.current?.click()}
-                disabled={uploadingSketch}
-                title="Завантажити власний ескіз — замінить поточний дизайн, фон вирізається автоматично"
-                className="flex items-center gap-1.5 text-xs font-medium text-gray-600 bg-gray-100 hover:bg-indigo-50 hover:text-indigo-600 disabled:opacity-60 disabled:cursor-wait px-3 py-1.5 rounded-full transition-colors"
-              >
-                {uploadingSketch
-                  ? <svg className="animate-spin w-3 h-3" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" className="opacity-25"/><path d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" fill="currentColor"/></svg>
-                  : <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M8 2v8M5 5l3-3 3 3"/><path d="M2 11v1.5A1.5 1.5 0 003.5 14h9a1.5 1.5 0 001.5-1.5V11"/></svg>
-                }
-                {uploadingSketch ? 'Вирізаю фон...' : 'Завантажити ескіз'}
-              </button>
+              <div className="relative">
+                <button
+                  onClick={() => !uploadingSketch && setShowUploadMenu(v => !v)}
+                  disabled={uploadingSketch}
+                  title="Завантажити власний ескіз — замінить поточний дизайн"
+                  className="flex items-center gap-1.5 text-xs font-medium text-gray-600 bg-gray-100 hover:bg-indigo-50 hover:text-indigo-600 disabled:opacity-60 disabled:cursor-wait px-3 py-1.5 rounded-full transition-colors"
+                >
+                  {uploadingSketch
+                    ? <svg className="animate-spin w-3 h-3" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" className="opacity-25"/><path d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" fill="currentColor"/></svg>
+                    : <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M8 2v8M5 5l3-3 3 3"/><path d="M2 11v1.5A1.5 1.5 0 003.5 14h9a1.5 1.5 0 001.5-1.5V11"/></svg>
+                  }
+                  {uploadingSketch ? 'Вирізаю фон...' : 'Завантажити ескіз'}
+                  {!uploadingSketch && <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"/></svg>}
+                </button>
+                {showUploadMenu && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setShowUploadMenu(false)} />
+                    <div className="absolute z-50 right-0 mt-1 w-64 bg-white rounded-xl shadow-2xl border border-gray-100 overflow-hidden">
+                      <button onClick={() => triggerUpload(true)} className="w-full flex items-start gap-2.5 px-3 py-2.5 text-left hover:bg-indigo-50 transition-colors">
+                        <svg className="mt-0.5 flex-shrink-0 text-indigo-500" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3l18 18M9 9a3 3 0 004 4"/><path d="M10.5 4.5A9 9 0 0121 12c-.3.5-.7 1-1.1 1.5M6 6a9 9 0 00-3 6s3 6 9 6a8.5 8.5 0 003-.5"/></svg>
+                        <span><span className="block text-xs font-semibold text-gray-800">Вирізати фон</span><span className="block text-[11px] text-gray-500">Автоматично прибрати фон зображення</span></span>
+                      </button>
+                      <button onClick={() => triggerUpload(false)} className="w-full flex items-start gap-2.5 px-3 py-2.5 text-left hover:bg-indigo-50 transition-colors border-t border-gray-50">
+                        <svg className="mt-0.5 flex-shrink-0 text-emerald-500" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                        <span><span className="block text-xs font-semibold text-gray-800">Не видаляти фон</span><span className="block text-[11px] text-gray-500">Фон уже прозорий (вирізали деінде)</span></span>
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
           </div>
           <div className="p-5">
