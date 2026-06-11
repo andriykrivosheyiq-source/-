@@ -383,12 +383,20 @@ async function drawIllus(ctx, imageUrl, illus, W, H) {
     const cleaned = removeWhiteBg(img, 230, true)
     const iW = illus.size / 100 * W
     const iH = iW * cleaned.height / cleaned.width
-    const cropFrac = (illus.cropBottom || 0) / 100
-    const srcH = cleaned.height * (1 - cropFrac)
-    const destH = iH * (1 - cropFrac)
+    const cropB = (illus.cropBottom || 0) / 100
+    const cropL = (illus.cropLeft || 0) / 100
+    const cropR = (illus.cropRight || 0) / 100
+    // Source rect (within the cleaned bitmap)
+    const sx = cleaned.width * cropL
+    const sW = cleaned.width * (1 - cropL - cropR)
+    const sH = cleaned.height * (1 - cropB)
+    // Destination rect keeps the un-cropped box anchored at the same top-left
     const iX = illus.x / 100 * W - iW / 2
     const iY = illus.y / 100 * H - iH / 2
-    ctx.drawImage(cleaned, 0, 0, cleaned.width, srcH, iX, iY, iW, destH)
+    const dX = iX + iW * cropL
+    const dW = iW * (1 - cropL - cropR)
+    const dH = iH * (1 - cropB)
+    if (sW > 0 && sH > 0) ctx.drawImage(cleaned, sx, 0, sW, sH, dX, iY, dW, dH)
   } catch { /* skip */ }
 }
 
@@ -480,7 +488,7 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
   const [collegeFontEl, setCollegeFontEl] = useState(initialState?.collegeFontEl || { x: 50, y: 50, size: 25, style: 'SOLID', color: '#000000', fillColor: 'transparent', strokeColor: '#888888', strokeWidthMult: 1, text: 'DADDY' })
   const [showCollegeFont, setShowCollegeFont] = useState(initialState?.showCollegeFont ?? false)
   const collegeFontRef = useRef(null)
-  const [illus, setIllus] = useState(initialState?.illus || { x: 50, y: 45, size: 52, cropBottom: 0 })
+  const [illus, setIllus] = useState(initialState?.illus || { x: 50, y: 45, size: 52, cropBottom: 0, cropLeft: 0, cropRight: 0 })
   const [illusOnTop, setIllusOnTop] = useState(initialState?.illusOnTop || false)
   const [childName, setChildName] = useState(initialState?.childName || '')
   const [showChildName, setShowChildName] = useState(initialState?.showChildName ?? false)
@@ -569,6 +577,16 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
           const newCropPx = dr.os / 100 * dr.imgH + pixelDy
           setIllus(prev => ({ ...prev, cropBottom: Math.max(0, Math.min(80, newCropPx / dr.imgH * 100)) }))
         }
+        if (dr.type === 'cropLeft') {
+          const pixelDx = clientX - dr.sx  // positive = dragging right = more crop from left
+          const newCropPx = dr.os / 100 * dr.imgW + pixelDx
+          setIllus(prev => ({ ...prev, cropLeft: Math.max(0, Math.min(80, newCropPx / dr.imgW * 100)) }))
+        }
+        if (dr.type === 'cropRight') {
+          const pixelDx = dr.sx - clientX  // positive = dragging left = more crop from right
+          const newCropPx = dr.os / 100 * dr.imgW + pixelDx
+          setIllus(prev => ({ ...prev, cropRight: Math.max(0, Math.min(80, newCropPx / dr.imgW * 100)) }))
+        }
       } else {
         const isTTO = dr.id === 'tLeft' || dr.id === 'tRight' || dr.id === 'o'
         const setter = isTTO ? setTtoLetters : setLetters
@@ -614,9 +632,14 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
     } else if (id === 'childName') {
       dragRef.current = { id, type, sx: clientX, sy: clientY, ox: childNameEl.x, oy: childNameEl.y, os: childNameEl.fontSize, cw: rect.width, ch: rect.height }
     } else if (id === 'illus') {
-      const imgH = illusImgRef.current?.getBoundingClientRect().height || 100
-      const os = type === 'cropBottom' ? illus.cropBottom : illus.size
-      dragRef.current = { id, type, sx: clientX, sy: clientY, ox: illus.x, oy: illus.y, os, imgH, cw: rect.width, ch: rect.height }
+      const imgRect = illusImgRef.current?.getBoundingClientRect()
+      const imgH = imgRect?.height || 100
+      const imgW = imgRect?.width || 100
+      const os = type === 'cropBottom' ? illus.cropBottom
+        : type === 'cropLeft' ? illus.cropLeft
+        : type === 'cropRight' ? illus.cropRight
+        : illus.size
+      dragRef.current = { id, type, sx: clientX, sy: clientY, ox: illus.x, oy: illus.y, os, imgH, imgW, cw: rect.width, ch: rect.height }
     } else {
       const letter = letters.find(l => l.id === id) || ttoLetters.find(l => l.id === id)
       dragRef.current = { id, type, sx: clientX, sy: clientY, ox: letter.x, oy: letter.y, os: type === 'rotate' ? letter.rotation : letter.size, cw: rect.width, ch: rect.height }
@@ -768,8 +791,8 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
             onClick={e => handleClick('illus', e)}
             style={{ position: 'absolute', left: `${illus.x}%`, top: `${illus.y}%`, width: `${illus.size}%`, transform: 'translate(-50%, -50%)', cursor: selected === 'illus' ? 'grab' : 'pointer', zIndex: selected === 'illus' ? 22 : (illusOnTop ? 12 : 5) }}
           >
-            {/* Clip wrapper: clips from bottom (cropBottom%), dashed border inside clips too */}
-            <div style={{ clipPath: illus.cropBottom > 0 ? `inset(0 0 ${illus.cropBottom}% 0)` : undefined }}>
+            {/* Clip wrapper: clips from bottom/left/right; dashed border inside clips too */}
+            <div style={{ clipPath: (illus.cropBottom > 0 || illus.cropLeft > 0 || illus.cropRight > 0) ? `inset(0 ${illus.cropRight || 0}% ${illus.cropBottom || 0}% ${illus.cropLeft || 0}%)` : undefined }}>
               {selected === 'illus' && <div style={{ position: 'absolute', inset: '-5px', border: '2px dashed #4f46e5', borderRadius: '6px', pointerEvents: 'none' }} />}
               <img ref={illusImgRef} src={cleanedUrl || imageUrl} alt="EST illustration" style={{ width: '100%', height: 'auto', display: 'block', pointerEvents: 'none' }} />
             </div>
@@ -794,8 +817,20 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
             )}
             {/* Crop-bottom handle — sits at the crop boundary line (bottom center) */}
             {selected === 'illus' && (
-              <div onMouseDown={e => startDrag('illus', 'cropBottom', e)} onTouchStart={e => startDrag('illus', 'cropBottom', e)} onClick={e => e.stopPropagation()} style={{ position: 'absolute', top: `${100 - (illus.cropBottom || 0)}%`, left: '50%', transform: 'translate(-50%, -50%)', width: '28px', height: '14px', background: '#4f46e5', border: '2px solid #fff', borderRadius: '4px', cursor: 'ns-resize', zIndex: 31, boxShadow: '0 1px 4px rgba(0,0,0,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div onMouseDown={e => startDrag('illus', 'cropBottom', e)} onTouchStart={e => startDrag('illus', 'cropBottom', e)} onClick={e => e.stopPropagation()} style={{ position: 'absolute', top: `${100 - (illus.cropBottom || 0)}%`, left: `${(illus.cropLeft || 0) + (100 - (illus.cropLeft || 0) - (illus.cropRight || 0)) / 2}%`, transform: 'translate(-50%, -50%)', width: '28px', height: '14px', background: '#4f46e5', border: '2px solid #fff', borderRadius: '4px', cursor: 'ns-resize', zIndex: 31, boxShadow: '0 1px 4px rgba(0,0,0,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <svg width="10" height="8" viewBox="0 0 10 8" fill="none"><path d="M5 7L2 4M5 7L8 4" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/><line x1="1" y1="1" x2="9" y2="1" stroke="white" strokeWidth="1.5" strokeLinecap="round"/></svg>
+              </div>
+            )}
+            {/* Crop-left handle — sits at the left crop boundary (vertical center) */}
+            {selected === 'illus' && (
+              <div onMouseDown={e => startDrag('illus', 'cropLeft', e)} onTouchStart={e => startDrag('illus', 'cropLeft', e)} onClick={e => e.stopPropagation()} style={{ position: 'absolute', left: `${illus.cropLeft || 0}%`, top: '50%', transform: 'translate(-50%, -50%)', width: '14px', height: '28px', background: '#4f46e5', border: '2px solid #fff', borderRadius: '4px', cursor: 'ew-resize', zIndex: 31, boxShadow: '0 1px 4px rgba(0,0,0,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <svg width="8" height="10" viewBox="0 0 8 10" fill="none"><path d="M7 5L4 2M7 5L4 8" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/><line x1="1" y1="1" x2="1" y2="9" stroke="white" strokeWidth="1.5" strokeLinecap="round"/></svg>
+              </div>
+            )}
+            {/* Crop-right handle — sits at the right crop boundary (vertical center) */}
+            {selected === 'illus' && (
+              <div onMouseDown={e => startDrag('illus', 'cropRight', e)} onTouchStart={e => startDrag('illus', 'cropRight', e)} onClick={e => e.stopPropagation()} style={{ position: 'absolute', left: `${100 - (illus.cropRight || 0)}%`, top: '50%', transform: 'translate(-50%, -50%)', width: '14px', height: '28px', background: '#4f46e5', border: '2px solid #fff', borderRadius: '4px', cursor: 'ew-resize', zIndex: 31, boxShadow: '0 1px 4px rgba(0,0,0,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <svg width="8" height="10" viewBox="0 0 8 10" fill="none"><path d="M1 5L4 2M1 5L4 8" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/><line x1="7" y1="1" x2="7" y2="9" stroke="white" strokeWidth="1.5" strokeLinecap="round"/></svg>
               </div>
             )}
           </div>
@@ -1006,8 +1041,10 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
             <>
               <span style={{ fontSize: '12px', color: '#6b7280', fontWeight: 500 }}>Ескіз:</span>
               <span style={{ fontSize: '11px', color: '#9ca3af' }}>{Math.round(illus.size)}% розмір</span>
-              {illus.cropBottom > 0 && <span style={{ fontSize: '11px', color: '#4f46e5', fontWeight: 600 }}>обрізано знизу {Math.round(illus.cropBottom)}%</span>}
-              <span style={{ fontSize: '11px', color: '#9ca3af', marginLeft: 'auto', whiteSpace: 'nowrap' }}>Тягни · ↑ обрізання · кут → розмір</span>
+              {illus.cropBottom > 0 && <span style={{ fontSize: '11px', color: '#4f46e5', fontWeight: 600 }}>знизу {Math.round(illus.cropBottom)}%</span>}
+              {illus.cropLeft > 0 && <span style={{ fontSize: '11px', color: '#4f46e5', fontWeight: 600 }}>зліва {Math.round(illus.cropLeft)}%</span>}
+              {illus.cropRight > 0 && <span style={{ fontSize: '11px', color: '#4f46e5', fontWeight: 600 }}>справа {Math.round(illus.cropRight)}%</span>}
+              <span style={{ fontSize: '11px', color: '#9ca3af', marginLeft: 'auto', whiteSpace: 'nowrap' }}>Тягни · сині ручки → обрізання · кут → розмір</span>
             </>
           ) : letterStyle.includes('TWO_COLOR') && selectedLetter ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', width: '100%' }}>
