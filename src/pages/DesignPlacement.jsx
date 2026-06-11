@@ -1178,6 +1178,39 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
   )
 })
 
+// ─── EmojiPicker ──────────────────────────────────────────────────────────────
+
+const EMOJI_GROUPS = [
+  { label: '😊', name: 'Смайли', emojis: ['😀','😃','😄','😁','😆','😅','😂','🤣','🥰','😍','😘','😗','😊','🙂','🙃','😉','😌','😋','😛','😜','🤪','🤩','🥳','😎','🤗','🤭','🫶','😏','😇','🥹','😢','😭','😮','😲','🥺','🤔','🙄','😴','🤤','😬','😅','🫡','🤝','🙏','💪'] },
+  { label: '👍', name: 'Жести', emojis: ['👍','👎','👌','🤌','✌️','🤞','🫰','🤟','🤙','👏','🙌','👐','🫶','🤝','🙏','✍️','💅','👀','👁️','💯','✅','❌','⭐','🌟','✨','🔥','💥','🎉','🎊','🎁','💝'] },
+  { label: '❤️', name: 'Серця', emojis: ['❤️','🧡','💛','💚','💙','💜','🖤','🤍','🤎','💖','💗','💓','💕','💞','💘','💌','❣️','💔','❤️‍🔥','💟'] },
+  { label: '👕', name: 'Одяг', emojis: ['👕','👔','👚','👗','🧥','🧦','👖','🩳','🧢','👒','🎽','🧣','🧤','👜','🎒','👟','👞','🥿','🛍️','🎨','🖌️','🖼️','📦','🚚','💸','💰'] },
+]
+
+function EmojiPicker({ onPick, onClose }) {
+  const [tab, setTab] = useState(0)
+  const ref = useRef(null)
+  useEffect(() => {
+    const h = e => { if (ref.current && !ref.current.contains(e.target)) onClose() }
+    document.addEventListener('mousedown', h)
+    return () => document.removeEventListener('mousedown', h)
+  }, [onClose])
+  return (
+    <div ref={ref} className="absolute z-50 bottom-full right-0 mb-2 w-72 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden" onClick={e => e.stopPropagation()}>
+      <div className="flex border-b border-gray-100 bg-gray-50">
+        {EMOJI_GROUPS.map((g, i) => (
+          <button key={i} onClick={() => setTab(i)} title={g.name} className={`flex-1 py-2 text-lg transition-colors ${tab === i ? 'bg-white' : 'hover:bg-gray-100'}`}>{g.label}</button>
+        ))}
+      </div>
+      <div className="p-2 grid grid-cols-8 gap-0.5 max-h-44 overflow-y-auto">
+        {EMOJI_GROUPS[tab].emojis.map((em, i) => (
+          <button key={i} onClick={() => onPick(em)} className="text-xl w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 transition-colors">{em}</button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 // ─── EditPromptBox ────────────────────────────────────────────────────────────
 
 function EditPromptBox({ currentImage, onSubmit, onCancel, loading }) {
@@ -1708,6 +1741,8 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
   const [lookingUpOrder, setLookingUpOrder] = useState(false)
   const [orderLookupError, setOrderLookupError] = useState(null)
   const [clientNote, setClientNote] = useState('')
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false)
+  const clientNoteRef = useRef(null)
   const [sendingToClient, setSendingToClient] = useState(false)
   const [clientSendResult, setClientSendResult] = useState(null)
   const [statusUpdateFailed, setStatusUpdateFailed] = useState(false)
@@ -2171,6 +2206,19 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
     try { setSendItems(await buildSendItems()) }
     catch (e) { console.error('Send prep error:', e) }
     finally { setPreparingSend(false) }
+  }
+
+  const insertEmoji = (emoji) => {
+    const ta = clientNoteRef.current
+    setClientNote(prev => {
+      if (!ta) return (prev + emoji).slice(0, 300)
+      const start = ta.selectionStart ?? prev.length
+      const end = ta.selectionEnd ?? prev.length
+      const next = (prev.slice(0, start) + emoji + prev.slice(end)).slice(0, 300)
+      // restore caret just after the inserted emoji
+      requestAnimationFrame(() => { ta.focus(); const pos = start + emoji.length; ta.setSelectionRange(pos, pos) })
+      return next
+    })
   }
 
   const handleOpenClientModal = async () => {
@@ -3443,12 +3491,24 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
               {/* Note */}
               <div>
                 <label className="text-xs text-gray-500 block mb-1">Повідомлення клієнту (необов'язково)</label>
-                <textarea
-                  value={clientNote}
-                  onChange={e => setClientNote(e.target.value.slice(0, 300))}
-                  placeholder="Ваш дизайн готовий! Ось ескізи та мокапи..."
-                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm resize-none h-20 focus:outline-none focus:ring-2 focus:ring-emerald-300"
-                />
+                <div className="relative">
+                  <textarea
+                    ref={clientNoteRef}
+                    value={clientNote}
+                    onChange={e => setClientNote(e.target.value.slice(0, 300))}
+                    placeholder="Напишіть текст для клієнта..."
+                    className="w-full border border-gray-200 rounded-xl px-3 py-2 pr-11 text-sm resize-none h-20 focus:outline-none focus:ring-2 focus:ring-emerald-300"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowEmojiPicker(v => !v)}
+                    title="Емодзі"
+                    className={`absolute top-2 right-2 w-7 h-7 flex items-center justify-center rounded-lg text-lg transition-colors ${showEmojiPicker ? 'bg-emerald-100' : 'hover:bg-gray-100'}`}
+                  >
+                    😊
+                  </button>
+                  {showEmojiPicker && <EmojiPicker onPick={insertEmoji} onClose={() => setShowEmojiPicker(false)} />}
+                </div>
                 <span className="text-[11px] text-gray-400">{clientNote.length}/300</span>
               </div>
 
