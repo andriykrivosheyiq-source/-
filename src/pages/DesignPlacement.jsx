@@ -4,7 +4,7 @@ import { products as allProducts, productCategories } from '../data/mockData'
 import { generateDesigns, clearCache, editDesign } from '../services/gemini'
 import { sendToClientCRM, getOrderByCrmNumber, updateOrderStatus, sendOrderToDesignerTelegram } from '../services/crmService'
 import { removeBgFromUrl, removeBgForUpload } from '../utils/imageUtils'
-import { loadCollegeFont, getCollegePath, drawCollegeFontOnCanvas } from '../utils/collegeFont'
+import { loadCollegeFont, buildCollegeGlyphs, drawCollegeFontOnCanvas } from '../utils/collegeFont'
 
 const D_PATH =
   'M291 123L78 153L88 232L114 229L116 233L148 467L143 471L121 474L132 555L349 526L400 459L360 176Z ' +
@@ -831,9 +831,7 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
         })}
 
         {showCollegeFont && collegeFontEl?.text?.trim() && collegeFontRef.current && (() => {
-          const font = collegeFontRef.current
-          const { d, w, h } = getCollegePath(font, collegeFontEl.text, 300)
-          const strokeW = 300 * 0.07
+          const g = buildCollegeGlyphs(collegeFontRef.current, collegeFontEl.text, collegeFontEl.style)
           return (
             <div
               key="college"
@@ -843,16 +841,16 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
               style={{ position: 'absolute', left: `${collegeFontEl.x}%`, top: `${collegeFontEl.y}%`, width: `${collegeFontEl.size}%`, transform: 'translate(-50%, -50%)', cursor: isCollegeFontSelected ? 'grab' : 'pointer', zIndex: isCollegeFontSelected ? 20 : 10 }}
             >
               {isCollegeFontSelected && <div style={{ position: 'absolute', inset: '-5px', border: '2px dashed #d97706', borderRadius: '6px', pointerEvents: 'none' }} />}
-              <svg viewBox={`0 0 ${w} ${h}`} style={{ width: '100%', height: 'auto', display: 'block', overflow: 'visible' }}>
+              <svg viewBox={`${g.vbX} ${g.vbY} ${g.vbW} ${g.vbH}`} style={{ width: '100%', height: 'auto', display: 'block' }}>
                 {collegeFontEl.style === 'TWO_COLOR' ? (
-                  <path d={d} fill={collegeFontEl.color} stroke={collegeFontEl.strokeColor || '#888888'} strokeWidth={strokeW * 2} strokeLinejoin="round" paintOrder="stroke" fillRule="evenodd"/>
+                  <path d={g.d} fill={collegeFontEl.color} stroke={collegeFontEl.strokeColor || '#888888'} strokeWidth={g.strokeW * 2} strokeLinejoin="round" paintOrder="stroke" fillRule="evenodd"/>
                 ) : collegeFontEl.style === 'HOLLOW' ? (
                   <>
-                    {collegeFontEl.fillColor && collegeFontEl.fillColor !== 'transparent' && <path d={d} fill={collegeFontEl.fillColor} fillRule="evenodd"/>}
-                    <path d={d} fill="none" stroke={collegeFontEl.color} strokeWidth={strokeW} strokeLinejoin="round"/>
+                    {collegeFontEl.fillColor && collegeFontEl.fillColor !== 'transparent' && <path d={g.d} fill={collegeFontEl.fillColor} fillRule="evenodd"/>}
+                    <path d={g.d} fill="none" stroke={collegeFontEl.color} strokeWidth={g.strokeW} strokeLinejoin="round"/>
                   </>
                 ) : (
-                  <path d={d} fill={collegeFontEl.color} fillRule="evenodd"/>
+                  <path d={g.d} fill={collegeFontEl.color} fillRule="evenodd"/>
                 )}
               </svg>
               {isCollegeFontSelected && (
