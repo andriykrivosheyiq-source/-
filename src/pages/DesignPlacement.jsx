@@ -1762,7 +1762,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
   const [mockupDesignUrl, setMockupDesignUrl] = useState(null)
   const [mockupOverlay, setMockupOverlay] = useState(designData?.mockupOverlay || { x: 50, y: 35, size: 32 })
   const [estText, setEstText] = useState(designData?.estText || 'EST.2025')
-  const [showEstText, setShowEstText] = useState(designData?.showEstText ?? true)
+  const [showEstText, setShowEstText] = useState(designData?.showEstText ?? false)
   const [regenerating, setRegenerating] = useState(false)
   const [regenError, setRegenError] = useState(null)
   const [showEditPrompt, setShowEditPrompt] = useState(false)
