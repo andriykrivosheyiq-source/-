@@ -1726,6 +1726,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
   const autoSaveRef = useRef(false)
   const [estVersion, setEstVersion] = useState(0)
   const [activeTab, setActiveTab] = useState(0)
+  const [designHistories, setDesignHistories] = useState({}) // tabIndex → [oldImage, ...]
   const [selectedProduct, setSelectedProduct] = useState(designData?.selectedProducts?.[0] || 'hoodie-black')
   const [showAIEdit, setShowAIEdit] = useState(false)
   const [showChangeProduct, setShowChangeProduct] = useState(false)
@@ -2006,17 +2007,32 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
   const handleEdit = async (editText) => {
     if (!currentDesignImage || !editText.trim()) return
     setEditing(true); setEditError(null); setShowEditPrompt(false)
+    const tabIdx = Math.min(activeTab, (generatedDesigns?.length || 1) - 1)
+    const oldImage = currentDesignImage
     try {
-      const edited = await editDesign(currentDesignImage, editText)
-      const updated = (generatedDesigns || []).map((d, i) =>
-        i === Math.min(activeTab, (generatedDesigns?.length || 1) - 1) ? { ...d, image: edited } : d
-      )
+      const edited = await editDesign(oldImage, editText)
+      const updated = (generatedDesigns || []).map((d, i) => i === tabIdx ? { ...d, image: edited } : d)
       onUpdate?.({ generatedDesigns: updated.length ? updated : [{ label: 'Редаговано', image: edited }] })
+      // Save previous version into history for this tab
+      setDesignHistories(prev => ({
+        ...prev,
+        [tabIdx]: [oldImage, ...(prev[tabIdx] || [])].slice(0, 10),
+      }))
     } catch (e) {
       setEditError(e.message)
     } finally {
       setEditing(false)
     }
+  }
+
+  const restoreHistoryImage = (tabIdx, historyImage) => {
+    const updated = (generatedDesigns || []).map((d, i) => i === tabIdx ? { ...d, image: historyImage } : d)
+    onUpdate?.({ generatedDesigns: updated })
+    // Remove the restored entry from history (it's now the current design)
+    setDesignHistories(prev => {
+      const arr = (prev[tabIdx] || []).filter(img => img !== historyImage)
+      return { ...prev, [tabIdx]: arr }
+    })
   }
 
   const handleDownload = async () => {
@@ -3015,6 +3031,33 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
                 loading={editing}
               />
             )}
+
+            {/* Design history strip */}
+            {(() => {
+              const tabIdx = Math.min(activeTab, (generatedDesigns?.length || 1) - 1)
+              const hist = designHistories[tabIdx] || []
+              if (!hist.length) return null
+              return (
+                <div className="mt-4 border border-indigo-100 bg-indigo-50/50 rounded-xl p-3">
+                  <p className="text-xs font-semibold text-indigo-600 mb-2">
+                    <svg className="inline-block mr-1" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.73"/></svg>
+                    Попередні версії — клікни щоб відновити
+                  </p>
+                  <div className="flex gap-2 overflow-x-auto pb-1">
+                    {hist.map((img, hi) => (
+                      <button key={hi} onClick={() => restoreHistoryImage(tabIdx, img)} title={`Відновити версію ${hi + 1}`}
+                        className="flex-shrink-0 w-24 h-24 rounded-lg overflow-hidden border-2 border-indigo-200 hover:border-indigo-500 bg-white transition-all group relative"
+                      >
+                        <img src={img} alt="" className="w-full h-full object-contain" />
+                        <div className="absolute inset-0 bg-indigo-600/0 group-hover:bg-indigo-600/10 transition-colors flex items-end justify-center pb-1">
+                          <span className="text-[9px] font-bold text-indigo-700 bg-white/90 px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity">Відновити</span>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )
+            })()}
 
             <div className="flex gap-3 mt-4">
               <button onClick={handleRegenerate} disabled={regenerating || editing} className="btn-secondary flex-1 justify-center">
