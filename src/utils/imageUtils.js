@@ -185,6 +185,7 @@ export async function removeBgForUpload(dataUrl) {
   const bgMax = Math.max(br, bgc, bb)
   const bgAvg = (br + bgc + bb) / 3
   if (bgMax < 244) {
+    // Phase 2: enclosed pockets for grey/coloured backgrounds
     const POCKET_TOL = 18
     for (let i = 0; i < W * H; i++) {
       if (visited[i]) continue
@@ -194,6 +195,18 @@ export async function removeBgForUpload(dataUrl) {
       const matchesBg = Math.abs(r - br) <= POCKET_TOL && Math.abs(g - bgc) <= POCKET_TOL && Math.abs(b - bb) <= POCKET_TOL
       const brighterThanBg = (r + g + b) / 3 > bgAvg + 10   // protects white content
       if (matchesBg && !brighterThanBg) visited[i] = 1
+    }
+  } else {
+    // Phase 3: enclosed near-white regions for white/paper backgrounds
+    // (e.g. counter inside letters О, В, D, A, P).
+    // After the border flood any remaining near-white pixel is trapped inside a
+    // dark ink outline — make it transparent too.
+    for (let i = 0; i < W * H; i++) {
+      if (visited[i]) continue
+      const j = i * 4
+      if (px[j + 3] < 10) { visited[i] = 1; continue }
+      const r = px[j], g = px[j + 1], b = px[j + 2]
+      if (r > THR && g > THR && b > THR) visited[i] = 1
     }
   }
 
