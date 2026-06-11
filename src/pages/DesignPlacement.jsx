@@ -1736,6 +1736,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
   const [mockupEditProduct, setMockupEditProduct] = useState(null)
   const [showClientModal, setShowClientModal] = useState(false)
   const [clientRevisionMode, setClientRevisionMode] = useState(false)
+  const [clientNoScript, setClientNoScript] = useState(false)
   const [crmOrderNumber, setCrmOrderNumber] = useState(designData?.fileName || '')
   const [crmOrderData, setCrmOrderData] = useState(null)
   const [lookingUpOrder, setLookingUpOrder] = useState(false)
@@ -2223,6 +2224,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
 
   const handleOpenClientModal = async () => {
     setClientRevisionMode(false)
+    setClientNoScript(false)
     setShowClientModal(true)
     setClientSendResult(null)
     setCrmOrderData(null)
@@ -2236,6 +2238,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
 
   const handleOpenRevisionModal = async () => {
     setClientRevisionMode(true)
+    setClientNoScript(false)
     setShowClientModal(true)
     setClientSendResult(null)
     setCrmOrderData(null)
@@ -2244,6 +2247,20 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
     setSendItems([])
     try { setSendItems(await buildSendItems()) }
     catch (e) { console.error('Revision send prep error:', e) }
+    finally { setPreparingSend(false) }
+  }
+
+  const handleOpenPlainModal = async () => {
+    setClientRevisionMode(false)
+    setClientNoScript(true)
+    setShowClientModal(true)
+    setClientSendResult(null)
+    setCrmOrderData(null)
+    setOrderLookupError(null)
+    setPreparingSend(true)
+    setSendItems([])
+    try { setSendItems(await buildSendItems()) }
+    catch (e) { console.error('Plain send prep error:', e) }
     finally { setPreparingSend(false) }
   }
 
@@ -2272,6 +2289,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
         files: sendItems.filter(i => i.checked),
         note: clientNote,
         isRevision: clientRevisionMode,
+        noScript: clientNoScript,
       })
       // Change order status to "На перевірці" (id: 12677)
       if (crmOrderData?.id) {
@@ -3190,6 +3208,13 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
               Передати правки
             </button>
             <button
+              onClick={handleOpenPlainModal}
+              className="w-full flex items-center justify-center gap-2 border border-gray-300 text-gray-600 hover:bg-gray-50 rounded-xl py-2.5 text-sm font-semibold transition-colors"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h16v12H5.17L4 17.17V4z"/><line x1="8" y1="9" x2="16" y2="9"/></svg>
+              Відправити без тексту
+            </button>
+            <button
               onClick={handleOpenSendModal}
               className="w-full flex items-center justify-center gap-2 border border-indigo-200 text-indigo-600 hover:bg-indigo-50 rounded-xl py-2.5 text-sm font-semibold transition-colors"
             >
@@ -3392,7 +3417,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <div className="flex items-start justify-between px-6 pt-6 pb-2">
               <div>
-                <h2 className="text-xl font-bold text-gray-900">{clientRevisionMode ? 'Передати правки' : 'Відправити клієнту'}</h2>
+                <h2 className="text-xl font-bold text-gray-900">{clientRevisionMode ? 'Передати правки' : clientNoScript ? 'Відправити без тексту' : 'Відправити клієнту'}</h2>
                 <p className="text-sm text-gray-500 mt-1">Ескізи та мокапи будуть надіслані через CRM напряму клієнту.</p>
               </div>
               <button onClick={() => setShowClientModal(false)} className="ml-4 flex-shrink-0 w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors">

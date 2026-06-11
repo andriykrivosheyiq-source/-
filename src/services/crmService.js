@@ -84,7 +84,7 @@ async function shortenUrl(cloudinaryUrl) {
 }
 
 /** Upload files to Cloudinary, shorten URLs, then send as a text message to a Sitniks chat. */
-export async function sendToClientCRM({ chatId, files, note, isRevision = false }) {
+export async function sendToClientCRM({ chatId, files, note, isRevision = false, noScript = false }) {
   const base = apiUrl()
 
   const uploaded = await Promise.all(
@@ -100,9 +100,13 @@ export async function sendToClientCRM({ chatId, files, note, isRevision = false 
     })
   )
 
-  // Build message: only the design/mockup links + the operator's own note.
-  // No auto-script intro — the operator writes their own text in the note field.
+  // Auto-script intro, unless the operator chose "no text" (noScript).
   let text = ''
+  if (!noScript) {
+    text = isRevision
+      ? 'Внесли правки ✅\nВам подобається?\n\n'
+      : 'Подивіться як гарно вийшло😍 Вам подобається?\n\n'
+  }
   for (const f of uploaded) {
     text += `${f.label}:\n${f.url}\n\n`
   }

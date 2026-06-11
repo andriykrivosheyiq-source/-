@@ -133,13 +133,22 @@ export async function removeBgForUpload(dataUrl) {
   ]
   if (corners.some(p => p[3] < 128)) return canvas.toDataURL('image/png')
 
+  // Sample the actual background colour from the corners (handles white AND
+  // grey/coloured uniform backgrounds — not just near-white).
+  let br = 0, bgc = 0, bb = 0
+  for (const c of corners) { br += c[0]; bgc += c[1]; bb += c[2] }
+  br /= 4; bgc /= 4; bb /= 4
+
   const imageData = ctx.getImageData(0, 0, W, H)
   const px = imageData.data
-  const THR = 220
+  const THR = 220              // near-white fallback
+  const TOL = 40               // per-channel tolerance around sampled bg colour
   const isWhiteBg = (pos) => {
     const i = pos * 4
     if (px[i + 3] < 10) return true
-    return px[i] > THR && px[i + 1] > THR && px[i + 2] > THR
+    const r = px[i], g = px[i + 1], b = px[i + 2]
+    if (r > THR && g > THR && b > THR) return true        // near-white
+    return Math.abs(r - br) <= TOL && Math.abs(g - bgc) <= TOL && Math.abs(b - bb) <= TOL // matches bg colour
   }
 
   const visited = new Uint8Array(W * H)
