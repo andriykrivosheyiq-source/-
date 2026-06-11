@@ -398,7 +398,7 @@ function drawOverlayLetters(ctx, letters, ttoLetters, letterStyle, dadText, dadT
   if (showChildName && childNameEl && childName) drawChildNameText(ctx, childNameEl, childName, W, H)
 }
 
-async function renderEstToCanvas(letters, estEl, estText, showEstText, imageUrl, illus, letterStyle, ttoLetters, bgColor = '#f0f0f0', dadText, dadTextEl, showChildName, childName, childNameEl, illusOnTop = false) {
+async function renderEstToCanvas(letters, estEl, estText, showEstText, imageUrl, illus, letterStyle, ttoLetters, bgColor = '#f0f0f0', dadText, dadTextEl, showChildName, childName, childNameEl, illusOnTop = false, extraTexts = []) {
   const W = 1600, H = 900
   const canvas = document.createElement('canvas')
   canvas.width = W; canvas.height = H
@@ -410,11 +410,12 @@ async function renderEstToCanvas(letters, estEl, estText, showEstText, imageUrl,
   drawOverlayLetters(ctx, letters, ttoLetters, letterStyle, dadText, dadTextEl, showChildName, childName, childNameEl, W, H)
   if (illusOnTop) await drawIllus(ctx, imageUrl, illus, W, H)
   if (showEstText) drawEstText(ctx, estEl, estText, W, H)
+  for (const xt of extraTexts) { if (xt.text?.trim()) drawEstText(ctx, xt, xt.text, W, H) }
   return canvas
 }
 
 // Transparent composite for mockup (no white fill, illustration bg removed)
-async function renderEstTransparent(letters, estEl, estText, showEstText, imageUrl, illus, letterStyle, ttoLetters, dadText, dadTextEl, showChildName, childName, childNameEl, illusOnTop = false) {
+async function renderEstTransparent(letters, estEl, estText, showEstText, imageUrl, illus, letterStyle, ttoLetters, dadText, dadTextEl, showChildName, childName, childNameEl, illusOnTop = false, extraTexts = []) {
   const W = 1600, H = 900
   const canvas = document.createElement('canvas')
   canvas.width = W; canvas.height = H
@@ -424,6 +425,7 @@ async function renderEstTransparent(letters, estEl, estText, showEstText, imageU
   drawOverlayLetters(ctx, letters, ttoLetters, letterStyle, dadText, dadTextEl, showChildName, childName, childNameEl, W, H)
   if (illusOnTop) await drawIllus(ctx, imageUrl, illus, W, H)
   if (showEstText) drawEstText(ctx, estEl, estText, W, H)
+  for (const xt of extraTexts) { if (xt.text?.trim()) drawEstText(ctx, xt, xt.text, W, H) }
 
   // Crop to tight bounding box of non-transparent pixels so the overlay fills the product correctly
   const imageData = ctx.getImageData(0, 0, W, H)
@@ -471,6 +473,7 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
     { id: 'o',      x: 76, y: 25, size: 22, rotation: 0, color: '#000000' },
   ])
   const [estEl, setEstEl] = useState(initialState?.estEl || { x: 50, y: 88, color: '#000000', fontSize: 6 })
+  const [extraTexts, setExtraTexts] = useState(initialState?.extraTexts || [])
   const [illus, setIllus] = useState(initialState?.illus || { x: 50, y: 45, size: 52, cropBottom: 0 })
   const [illusOnTop, setIllusOnTop] = useState(initialState?.illusOnTop || false)
   const [childName, setChildName] = useState(initialState?.childName || '')
@@ -499,8 +502,8 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
   }, [imageUrl])
 
   useImperativeHandle(ref, () => ({
-    exportToCanvas:    () => renderEstToCanvas(letters, estEl, estText, showEstText, imageUrl, illus, letterStyle, ttoLetters, bgColor, dadText, dadTextEl, showChildName, childName, childNameEl, illusOnTop),
-    exportTransparent: () => renderEstTransparent(letters, estEl, estText, showEstText, imageUrl, illus, letterStyle, ttoLetters, dadText, dadTextEl, showChildName, childName, childNameEl, illusOnTop),
+    exportToCanvas:    () => renderEstToCanvas(letters, estEl, estText, showEstText, imageUrl, illus, letterStyle, ttoLetters, bgColor, dadText, dadTextEl, showChildName, childName, childNameEl, illusOnTop, extraTexts),
+    exportTransparent: () => renderEstTransparent(letters, estEl, estText, showEstText, imageUrl, illus, letterStyle, ttoLetters, dadText, dadTextEl, showChildName, childName, childNameEl, illusOnTop, extraTexts),
     exportTransparentWithOverrides: (ov = {}) => {
       const ovLetters = letters.map(l => ({
         ...l,
@@ -509,17 +512,17 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
       }))
       const ovTto = ttoLetters.map(l => ({ ...l, color: ov.letterColor !== undefined ? ov.letterColor : l.color }))
       const ovEst = { ...estEl, color: ov.estColor !== undefined ? ov.estColor : estEl.color }
-      return renderEstTransparent(ovLetters, ovEst, estText, showEstText, imageUrl, illus, letterStyle, ovTto, dadText, dadTextEl, showChildName, childName, childNameEl, illusOnTop)
+      return renderEstTransparent(ovLetters, ovEst, estText, showEstText, imageUrl, illus, letterStyle, ovTto, dadText, dadTextEl, showChildName, childName, childNameEl, illusOnTop, extraTexts)
     },
-    getState:          () => ({ letters, letterStyle, bgColor, ttoLetters, estEl, illus, illusOnTop, childName, showChildName, childNameEl, dadText, dadTextEl }),
-  }), [letters, estEl, estText, showEstText, imageUrl, illus, letterStyle, ttoLetters, bgColor, dadText, dadTextEl, showChildName, childName, childNameEl, illusOnTop])
+    getState:          () => ({ letters, letterStyle, bgColor, ttoLetters, estEl, extraTexts, illus, illusOnTop, childName, showChildName, childNameEl, dadText, dadTextEl }),
+  }), [letters, estEl, estText, showEstText, imageUrl, illus, letterStyle, ttoLetters, bgColor, dadText, dadTextEl, showChildName, childName, childNameEl, illusOnTop, extraTexts])
 
   // Notify parent when letter positions/style change so mockup stays in sync
   const estMountedRef = useRef(false)
   useEffect(() => {
     if (!estMountedRef.current) { estMountedRef.current = true; return }
     onStateChange?.()
-  }, [letters, ttoLetters, estEl, illus, letterStyle, illusOnTop]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [letters, ttoLetters, estEl, extraTexts, illus, letterStyle, illusOnTop]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const onMove = (e) => {
@@ -535,6 +538,9 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
       if (dr.id === 'est') {
         if (dr.type === 'move')   setEstEl(prev => ({ ...prev, x: dr.ox + dx, y: dr.oy + dy }))
         if (dr.type === 'resize') setEstEl(prev => ({ ...prev, fontSize: Math.max(1, Math.min(30, dr.os + (dx + dy) * 0.12)) }))
+      } else if (dr.id.startsWith('xt-')) {
+        if (dr.type === 'move')   setExtraTexts(prev => prev.map(t => t.id !== dr.id ? t : { ...t, x: dr.ox + dx, y: dr.oy + dy }))
+        if (dr.type === 'resize') setExtraTexts(prev => prev.map(t => t.id !== dr.id ? t : { ...t, fontSize: Math.max(1, Math.min(30, dr.os + (dx + dy) * 0.12)) }))
       } else if (dr.id === 'dadText') {
         if (dr.type === 'move')   setDadTextEl(prev => ({ ...prev, x: dr.ox + dx, y: dr.oy + dy }))
         if (dr.type === 'resize') setDadTextEl(prev => ({ ...prev, fontSize: Math.max(4, Math.min(50, dr.os + (dx + dy) * 0.12)) }))
@@ -584,6 +590,9 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
     const clientY = e.touches ? e.touches[0].clientY : e.clientY
     if (id === 'est') {
       dragRef.current = { id, type, sx: clientX, sy: clientY, ox: estEl.x, oy: estEl.y, os: estEl.fontSize, cw: rect.width, ch: rect.height }
+    } else if (id.startsWith('xt-')) {
+      const xt = extraTexts.find(t => t.id === id)
+      dragRef.current = { id, type, sx: clientX, sy: clientY, ox: xt.x, oy: xt.y, os: xt.fontSize, cw: rect.width, ch: rect.height }
     } else if (id === 'dadText') {
       dragRef.current = { id, type, sx: clientX, sy: clientY, ox: dadTextEl.x, oy: dadTextEl.y, os: dadTextEl.fontSize, cw: rect.width, ch: rect.height }
     } else if (id === 'childName') {
@@ -605,16 +614,19 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
 
   const selectedLetter = letters.find(l => l.id === selected)
   const selectedTTOLetter = ttoLetters.find(l => l.id === selected)
+  const selectedExtraText = extraTexts.find(t => t.id === selected)
   const isEstSelected = selected === 'est'
   const isIllusSelected = selected === 'illus'
   const isDadTextSelected = selected === 'dadText'
   const isChildNameSelected = selected === 'childName'
-  const currentColor = isEstSelected ? estEl.color : isDadTextSelected ? dadTextEl.color : isChildNameSelected ? childNameEl.color : (selectedLetter || selectedTTOLetter)?.color
+  const isExtraTextSelected = !!selectedExtraText
+  const currentColor = isEstSelected ? estEl.color : isDadTextSelected ? dadTextEl.color : isChildNameSelected ? childNameEl.color : isExtraTextSelected ? selectedExtraText.color : (selectedLetter || selectedTTOLetter)?.color
   const currentFillColor = selectedLetter?.fillColor || '#ffffff'
   const setColor = (color) => {
     if (isEstSelected) setEstEl(prev => ({ ...prev, color }))
     else if (isDadTextSelected) setDadTextEl(prev => ({ ...prev, color }))
     else if (isChildNameSelected) setChildNameEl(prev => ({ ...prev, color }))
+    else if (isExtraTextSelected) setExtraTexts(prev => prev.map(t => t.id === selected ? { ...t, color } : t))
     else if (selectedLetter) setLetters(prev => prev.map(l => l.id === selected ? { ...l, color } : l))
     else if (selectedTTOLetter) setTtoLetters(prev => prev.map(l => l.id === selected ? { ...l, color } : l))
   }
@@ -766,11 +778,39 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
           {isEstSelected && <div style={{ position: 'absolute', inset: '-5px', border: '2px dashed #4f46e5', borderRadius: '6px', pointerEvents: 'none' }} />}
           {(estText || 'EST.2025').toUpperCase()}
           {isEstSelected && (
-            <div onMouseDown={e => startDrag('est', 'resize', e)} onTouchStart={e => startDrag('est', 'resize', e)} onClick={e => e.stopPropagation()} style={{ position: 'absolute', bottom: '-10px', right: '-10px', width: '20px', height: '20px', background: '#4f46e5', border: '2px solid #fff', borderRadius: '4px', cursor: 'nwse-resize', zIndex: 30, boxShadow: '0 1px 4px rgba(0,0,0,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <svg width="8" height="8" viewBox="0 0 8 8" fill="none"><path d="M1 7L7 1M4 7L7 4" stroke="white" strokeWidth="1.5" strokeLinecap="round" /></svg>
-            </div>
+            <>
+              <div onMouseDown={e => startDrag('est', 'resize', e)} onTouchStart={e => startDrag('est', 'resize', e)} onClick={e => e.stopPropagation()} style={{ position: 'absolute', bottom: '-10px', right: '-10px', width: '20px', height: '20px', background: '#4f46e5', border: '2px solid #fff', borderRadius: '4px', cursor: 'nwse-resize', zIndex: 30, boxShadow: '0 1px 4px rgba(0,0,0,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <svg width="8" height="8" viewBox="0 0 8 8" fill="none"><path d="M1 7L7 1M4 7L7 4" stroke="white" strokeWidth="1.5" strokeLinecap="round" /></svg>
+              </div>
+              <div onMouseDown={e => e.stopPropagation()} onTouchStart={e => e.stopPropagation()} onClick={e => { e.stopPropagation(); const nid = 'xt-' + Date.now(); setExtraTexts(prev => [...prev, { id: nid, text: estText || 'EST.2025', x: estEl.x + 3, y: estEl.y + 5, color: estEl.color, fontSize: estEl.fontSize }]); setSelected(nid) }} title="Дублювати текст" style={{ position: 'absolute', bottom: '-10px', left: '-10px', width: '20px', height: '20px', background: '#059669', border: '2px solid #fff', borderRadius: '4px', cursor: 'pointer', zIndex: 30, boxShadow: '0 1px 4px rgba(0,0,0,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <svg width="9" height="9" viewBox="0 0 16 16" fill="white"><rect x="1" y="1" width="9" height="9" rx="1.5"/><rect x="6" y="6" width="9" height="9" rx="1.5" opacity="0.7"/></svg>
+              </div>
+            </>
           )}
         </div>}
+
+        {extraTexts.map(xt => {
+          const isXtSel = selected === xt.id
+          return (
+            <div key={xt.id} onMouseDown={e => startDrag(xt.id, 'move', e)} onTouchStart={e => startDrag(xt.id, 'move', e)} onClick={e => handleClick(xt.id, e)} style={{ position: 'absolute', left: `${xt.x}%`, top: `${xt.y}%`, transform: 'translate(-50%, -50%)', fontFamily: 'Arial, Helvetica, sans-serif', fontWeight: 700, fontSize: `${xt.fontSize}cqw`, letterSpacing: '6px', color: xt.color, cursor: isXtSel ? 'grab' : 'pointer', zIndex: isXtSel ? 20 : 10, whiteSpace: 'nowrap' }}>
+              {isXtSel && <div style={{ position: 'absolute', inset: '-5px', border: '2px dashed #059669', borderRadius: '6px', pointerEvents: 'none' }} />}
+              {(xt.text || '').toUpperCase()}
+              {isXtSel && (
+                <>
+                  <div onMouseDown={e => startDrag(xt.id, 'resize', e)} onTouchStart={e => startDrag(xt.id, 'resize', e)} onClick={e => e.stopPropagation()} style={{ position: 'absolute', bottom: '-10px', right: '-10px', width: '20px', height: '20px', background: '#4f46e5', border: '2px solid #fff', borderRadius: '4px', cursor: 'nwse-resize', zIndex: 30, boxShadow: '0 1px 4px rgba(0,0,0,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <svg width="8" height="8" viewBox="0 0 8 8" fill="none"><path d="M1 7L7 1M4 7L7 4" stroke="white" strokeWidth="1.5" strokeLinecap="round" /></svg>
+                  </div>
+                  <div onMouseDown={e => e.stopPropagation()} onTouchStart={e => e.stopPropagation()} onClick={e => { e.stopPropagation(); const nid = 'xt-' + Date.now(); setExtraTexts(prev => [...prev, { id: nid, text: xt.text, x: xt.x + 3, y: xt.y + 5, color: xt.color, fontSize: xt.fontSize }]); setSelected(nid) }} title="Дублювати текст" style={{ position: 'absolute', bottom: '-10px', left: '-10px', width: '20px', height: '20px', background: '#059669', border: '2px solid #fff', borderRadius: '4px', cursor: 'pointer', zIndex: 30, boxShadow: '0 1px 4px rgba(0,0,0,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <svg width="9" height="9" viewBox="0 0 16 16" fill="white"><rect x="1" y="1" width="9" height="9" rx="1.5"/><rect x="6" y="6" width="9" height="9" rx="1.5" opacity="0.7"/></svg>
+                  </div>
+                  <div onMouseDown={e => e.stopPropagation()} onTouchStart={e => e.stopPropagation()} onClick={e => { e.stopPropagation(); setExtraTexts(prev => prev.filter(t => t.id !== xt.id)); setSelected(null) }} title="Видалити" style={{ position: 'absolute', top: '-10px', right: '-10px', width: '20px', height: '20px', background: '#ef4444', border: '2px solid #fff', borderRadius: '50%', cursor: 'pointer', zIndex: 30, boxShadow: '0 1px 4px rgba(0,0,0,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <svg width="8" height="8" viewBox="0 0 8 8" fill="none"><path d="M1 1L7 7M7 1L1 7" stroke="white" strokeWidth="1.5" strokeLinecap="round"/></svg>
+                  </div>
+                </>
+              )}
+            </div>
+          )
+        })}
 
         {letterStyle !== 'TTO' && letterStyle !== 'DADDY' && letters.map(letter => {
           const isSelected = selected === letter.id
@@ -892,7 +932,7 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
         })}
       </div>
 
-      {selected && (selectedLetter || selectedTTOLetter || isEstSelected || isIllusSelected || isDadTextSelected || isChildNameSelected) && (
+      {selected && (selectedLetter || selectedTTOLetter || isEstSelected || isIllusSelected || isDadTextSelected || isChildNameSelected || isExtraTextSelected) && (
         <div style={{ padding: '10px 16px', display: 'flex', alignItems: 'center', gap: '8px', borderTop: '1px solid #f3f4f6', background: '#fafafa', borderRadius: '0 0 12px 12px', flexWrap: 'wrap' }}>
           {isIllusSelected ? (
             <>
@@ -916,6 +956,30 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
                   <button key={color} onClick={() => setFillColor(color)} style={{ width: '20px', height: '20px', borderRadius: '50%', background: color, border: currentFillColor === color ? '3px solid #4f46e5' : '2px solid #d1d5db', cursor: 'pointer', padding: 0, flexShrink: 0 }} />
                 ))}
                 <input type="color" value={currentFillColor} onChange={e => setFillColor(e.target.value)} style={{ width: '26px', height: '26px', padding: 0, border: '2px solid #d1d5db', cursor: 'pointer', borderRadius: '50%', background: 'none' }} title="Власний колір заповнення" />
+              </div>
+            </div>
+          ) : isExtraTextSelected ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', width: '100%' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ fontSize: '11px', color: '#6b7280', fontWeight: 600, flexShrink: 0 }}>Текст:</span>
+                <input
+                  type="text"
+                  value={selectedExtraText.text}
+                  onChange={e => setExtraTexts(prev => prev.map(t => t.id === selected ? { ...t, text: e.target.value } : t))}
+                  onMouseDown={e => e.stopPropagation()}
+                  onClick={e => e.stopPropagation()}
+                  placeholder="Введіть текст..."
+                  autoFocus
+                  style={{ flex: 1, border: '1px solid #c7d2fe', borderRadius: '8px', padding: '3px 8px', fontSize: '12px', outline: 'none', textTransform: 'uppercase', background: '#fff', fontFamily: 'Arial, sans-serif', fontWeight: 700, letterSpacing: '4px' }}
+                />
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                <span style={{ fontSize: '11px', color: '#6b7280', fontWeight: 600, minWidth: '50px' }}>Колір:</span>
+                {PRESET_COLORS.map(color => (
+                  <button key={color} onClick={() => setColor(color)} style={{ width: '20px', height: '20px', borderRadius: '50%', background: color, border: currentColor === color ? '3px solid #059669' : '2px solid #d1d5db', cursor: 'pointer', padding: 0, flexShrink: 0 }} />
+                ))}
+                <input type="color" value={currentColor || '#000000'} onChange={e => setColor(e.target.value)} style={{ width: '26px', height: '26px', padding: 0, border: '2px solid #d1d5db', cursor: 'pointer', borderRadius: '50%', background: 'none' }} title="Власний колір" />
+                <span style={{ fontSize: '11px', color: '#9ca3af', marginLeft: 'auto', whiteSpace: 'nowrap' }}>Тягни • кут → розмір</span>
               </div>
             </div>
           ) : (
