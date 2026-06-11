@@ -631,6 +631,15 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
   const selectedLetter = letters.find(l => l.id === selected)
   const selectedTTOLetter = ttoLetters.find(l => l.id === selected)
   const selectedExtraText = extraTexts.find(t => t.id === selected)
+  const duplicateLetter = (id) => {
+    const src = letters.find(l => l.id === id)
+    if (src) {
+      const copy = { ...src, id: `${src.type}_${Date.now()}`, x: Math.min(src.x + 4, 96), y: Math.min(src.y + 4, 96) }
+      setLetters(prev => [...prev, copy])
+      setSelected(copy.id)
+    }
+  }
+
   const isEstSelected = selected === 'est'
   const isIllusSelected = selected === 'illus'
   const isDadTextSelected = selected === 'dadText'
@@ -882,6 +891,9 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
                   <div style={{ position: 'absolute', top: '-24px', left: 'calc(50% + 14px)', background: '#4f46e5', color: '#fff', fontSize: '10px', fontWeight: 700, padding: '2px 6px', borderRadius: '4px', pointerEvents: 'none', whiteSpace: 'nowrap', lineHeight: '16px' }}>
                     {Math.round(letter.rotation)}° · {Math.round(letter.size)}%
                   </div>
+                  <div onMouseDown={e => e.stopPropagation()} onTouchStart={e => e.stopPropagation()} onClick={e => { e.stopPropagation(); duplicateLetter(letter.id) }} style={{ position: 'absolute', top: '-26px', left: 'calc(50% - 36px)', transform: 'translateX(-50%)', width: '20px', height: '20px', background: '#ffffff', border: '2px solid #4f46e5', borderRadius: '50%', cursor: 'pointer', zIndex: 31, boxShadow: '0 1px 4px rgba(0,0,0,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="Дублювати">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#4f46e5" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                  </div>
                 </>
               )}
               {letter.type === 'A' ? (
@@ -1047,12 +1059,18 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
                   <button key={s} onMouseDown={e => e.stopPropagation()} onClick={e => { e.stopPropagation(); setCollegeFontEl(prev => ({ ...prev, style: s, ...(s === 'HOLLOW' ? { fillColor: 'transparent' } : {}) })) }} style={{ padding: '2px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 700, border: 'none', cursor: 'pointer', background: collegeFontEl.style === s ? '#d97706' : '#f3f4f6', color: collegeFontEl.style === s ? '#fff' : '#6b7280' }}>{label}</button>
                 ))}
                 {collegeFontEl.style !== 'SOLID' && (
-                  <>
-                    <span style={{ fontSize: '11px', color: '#6b7280', fontWeight: 600, marginLeft: '4px', flexShrink: 0 }}>Товщ:</span>
-                    {[[0.5,'S'],[1,'M'],[1.5,'L'],[2.5,'XL']].map(([v, label]) => (
-                      <button key={v} onMouseDown={e => e.stopPropagation()} onClick={e => { e.stopPropagation(); setCollegeFontEl(prev => ({ ...prev, strokeWidthMult: v })) }} style={{ width: '22px', height: '22px', borderRadius: '5px', fontSize: '10px', fontWeight: 700, border: 'none', cursor: 'pointer', background: (collegeFontEl.strokeWidthMult ?? 1) === v ? '#d97706' : '#f3f4f6', color: (collegeFontEl.strokeWidthMult ?? 1) === v ? '#fff' : '#6b7280' }}>{label}</button>
-                    ))}
-                  </>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginLeft: '4px', flexShrink: 0 }}>
+                    <span style={{ fontSize: '11px', color: '#6b7280', fontWeight: 600, flexShrink: 0 }}>Контур:</span>
+                    <input
+                      type="range" min="0.3" max="3" step="0.1"
+                      value={collegeFontEl.strokeWidthMult ?? 1}
+                      onMouseDown={e => e.stopPropagation()}
+                      onTouchStart={e => e.stopPropagation()}
+                      onChange={e => { e.stopPropagation(); setCollegeFontEl(prev => ({ ...prev, strokeWidthMult: parseFloat(e.target.value) })) }}
+                      style={{ width: '80px', accentColor: '#d97706', cursor: 'pointer' }}
+                    />
+                    <span style={{ fontSize: '10px', color: '#d97706', fontWeight: 700, minWidth: '24px' }}>{((collegeFontEl.strokeWidthMult ?? 1).toFixed(1))}×</span>
+                  </div>
                 )}
               </div>
               {/* Main color */}
