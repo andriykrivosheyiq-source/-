@@ -2233,9 +2233,24 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
     })
   }
 
+  // Quick-insert scripts the operator can drop into the message field.
+  const CLIENT_SCRIPTS = [
+    { label: 'Готово 😍', text: 'Подивіться як гарно вийшло😍 Вам подобається?' },
+    { label: 'Правки ✅', text: 'Внесли правки ✅\nВам подобається?' },
+  ]
+
+  const applyScript = (text) => {
+    setClientNote(text.slice(0, 300))
+    const ta = clientNoteRef.current
+    if (ta) requestAnimationFrame(() => { ta.focus(); const pos = text.length; ta.setSelectionRange(pos, pos) })
+  }
+
   const handleOpenClientModal = async () => {
+    // Single client-send flow: text always comes from the message field
+    // (empty by default = sends only mockups + design without any script).
     setClientRevisionMode(false)
-    setClientNoScript(false)
+    setClientNoScript(true)
+    setClientNote('')
     setShowClientModal(true)
     setClientSendResult(null)
     setCrmOrderData(null)
@@ -2244,34 +2259,6 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
     setSendItems([])
     try { setSendItems(await buildSendItems()) }
     catch (e) { console.error('Client send prep error:', e) }
-    finally { setPreparingSend(false) }
-  }
-
-  const handleOpenRevisionModal = async () => {
-    setClientRevisionMode(true)
-    setClientNoScript(false)
-    setShowClientModal(true)
-    setClientSendResult(null)
-    setCrmOrderData(null)
-    setOrderLookupError(null)
-    setPreparingSend(true)
-    setSendItems([])
-    try { setSendItems(await buildSendItems()) }
-    catch (e) { console.error('Revision send prep error:', e) }
-    finally { setPreparingSend(false) }
-  }
-
-  const handleOpenPlainModal = async () => {
-    setClientRevisionMode(false)
-    setClientNoScript(true)
-    setShowClientModal(true)
-    setClientSendResult(null)
-    setCrmOrderData(null)
-    setOrderLookupError(null)
-    setPreparingSend(true)
-    setSendItems([])
-    try { setSendItems(await buildSendItems()) }
-    catch (e) { console.error('Plain send prep error:', e) }
     finally { setPreparingSend(false) }
   }
 
@@ -3230,20 +3217,6 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
               Відправити клієнту
             </button>
             <button
-              onClick={handleOpenRevisionModal}
-              className="w-full flex items-center justify-center gap-2 border border-amber-300 text-amber-700 hover:bg-amber-50 rounded-xl py-2.5 text-sm font-semibold transition-colors"
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.73"/></svg>
-              Передати правки
-            </button>
-            <button
-              onClick={handleOpenPlainModal}
-              className="w-full flex items-center justify-center gap-2 border border-gray-300 text-gray-600 hover:bg-gray-50 rounded-xl py-2.5 text-sm font-semibold transition-colors"
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h16v12H5.17L4 17.17V4z"/><line x1="8" y1="9" x2="16" y2="9"/></svg>
-              Відправити без тексту
-            </button>
-            <button
               onClick={handleOpenSendModal}
               className="w-full flex items-center justify-center gap-2 border border-indigo-200 text-indigo-600 hover:bg-indigo-50 rounded-xl py-2.5 text-sm font-semibold transition-colors"
             >
@@ -3446,7 +3419,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <div className="flex items-start justify-between px-6 pt-6 pb-2">
               <div>
-                <h2 className="text-xl font-bold text-gray-900">{clientRevisionMode ? 'Передати правки' : clientNoScript ? 'Відправити без тексту' : 'Відправити клієнту'}</h2>
+                <h2 className="text-xl font-bold text-gray-900">Відправити клієнту</h2>
                 <p className="text-sm text-gray-500 mt-1">Ескізи та мокапи будуть надіслані через CRM напряму клієнту.</p>
               </div>
               <button onClick={() => setShowClientModal(false)} className="ml-4 flex-shrink-0 w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors">
@@ -3545,6 +3518,19 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
               {/* Note */}
               <div>
                 <label className="text-xs text-gray-500 block mb-1">Повідомлення клієнту (необов'язково)</label>
+                <div className="flex flex-wrap gap-2 mb-2">
+                  {CLIENT_SCRIPTS.map(s => (
+                    <button
+                      key={s.label}
+                      type="button"
+                      onClick={() => applyScript(s.text)}
+                      title={s.text}
+                      className="px-3 py-1.5 rounded-full border border-emerald-200 bg-emerald-50 text-emerald-700 text-xs font-semibold hover:bg-emerald-100 transition-colors"
+                    >
+                      {s.label}
+                    </button>
+                  ))}
+                </div>
                 <div className="relative">
                   <textarea
                     ref={clientNoteRef}
@@ -3613,7 +3599,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
                 >
                   {sendingToClient
                     ? <><svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" className="opacity-25"/><path d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" fill="currentColor"/></svg> Надсилання...</>
-                    : <><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.6 1.1h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 8.9a16 16 0 0 0 6 6l.81-.81a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 21.73 16.92z"/></svg> {clientRevisionMode ? 'Передати правки' : 'Відправити клієнту'} ({sendItems.filter(i=>i.checked).length} файлів)</>}
+                    : <><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.6 1.1h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 8.9a16 16 0 0 0 6 6l.81-.81a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 21.73 16.92z"/></svg> Відправити клієнту ({sendItems.filter(i=>i.checked).length} файлів)</>}
                 </button>
               )}
             </div>
