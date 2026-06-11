@@ -27,6 +27,7 @@
     "@huggingface/transformers": "^4.2.0",
     "firebase": "^12.14.0",
     "imagetracerjs": "^1.2.6",
+    "opentype.js": "^2.0.0",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
     "react-router-dom": "^7.16.0"

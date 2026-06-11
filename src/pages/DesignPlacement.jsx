@@ -4,6 +4,7 @@ import { products as allProducts, productCategories } from '../data/mockData'
 import { generateDesigns, clearCache, editDesign } from '../services/gemini'
 import { sendToClientCRM, getOrderByCrmNumber, updateOrderStatus, sendOrderToDesignerTelegram } from '../services/crmService'
 import { removeBgFromUrl, removeBgForUpload } from '../utils/imageUtils'
+import { loadCollegeFont, getCollegePath, drawCollegeFontOnCanvas } from '../utils/collegeFont'
 
 const D_PATH =
   'M291 123L78 153L88 232L114 229L116 233L148 467L143 471L121 474L132 555L349 526L400 459L360 176Z ' +
@@ -398,7 +399,7 @@ function drawOverlayLetters(ctx, letters, ttoLetters, letterStyle, dadText, dadT
   if (showChildName && childNameEl && childName) drawChildNameText(ctx, childNameEl, childName, W, H)
 }
 
-async function renderEstToCanvas(letters, estEl, estText, showEstText, imageUrl, illus, letterStyle, ttoLetters, bgColor = '#f0f0f0', dadText, dadTextEl, showChildName, childName, childNameEl, illusOnTop = false, extraTexts = []) {
+async function renderEstToCanvas(letters, estEl, estText, showEstText, imageUrl, illus, letterStyle, ttoLetters, bgColor = '#f0f0f0', dadText, dadTextEl, showChildName, childName, childNameEl, illusOnTop = false, extraTexts = [], collegeFontEl = null, showCollegeFont = false) {
   const W = 1600, H = 900
   const canvas = document.createElement('canvas')
   canvas.width = W; canvas.height = H
@@ -411,11 +412,12 @@ async function renderEstToCanvas(letters, estEl, estText, showEstText, imageUrl,
   if (illusOnTop) await drawIllus(ctx, imageUrl, illus, W, H)
   if (showEstText) drawEstText(ctx, estEl, estText, W, H)
   for (const xt of extraTexts) { if (xt.text?.trim()) drawEstText(ctx, xt, xt.text, W, H) }
+  if (showCollegeFont && collegeFontEl?.text?.trim()) await drawCollegeFontOnCanvas(ctx, collegeFontEl, W, H)
   return canvas
 }
 
 // Transparent composite for mockup (no white fill, illustration bg removed)
-async function renderEstTransparent(letters, estEl, estText, showEstText, imageUrl, illus, letterStyle, ttoLetters, dadText, dadTextEl, showChildName, childName, childNameEl, illusOnTop = false, extraTexts = []) {
+async function renderEstTransparent(letters, estEl, estText, showEstText, imageUrl, illus, letterStyle, ttoLetters, dadText, dadTextEl, showChildName, childName, childNameEl, illusOnTop = false, extraTexts = [], collegeFontEl = null, showCollegeFont = false) {
   const W = 1600, H = 900
   const canvas = document.createElement('canvas')
   canvas.width = W; canvas.height = H
@@ -426,6 +428,7 @@ async function renderEstTransparent(letters, estEl, estText, showEstText, imageU
   if (illusOnTop) await drawIllus(ctx, imageUrl, illus, W, H)
   if (showEstText) drawEstText(ctx, estEl, estText, W, H)
   for (const xt of extraTexts) { if (xt.text?.trim()) drawEstText(ctx, xt, xt.text, W, H) }
+  if (showCollegeFont && collegeFontEl?.text?.trim()) await drawCollegeFontOnCanvas(ctx, collegeFontEl, W, H)
 
   // Crop to tight bounding box of non-transparent pixels so the overlay fills the product correctly
   const imageData = ctx.getImageData(0, 0, W, H)
@@ -474,6 +477,9 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
   ])
   const [estEl, setEstEl] = useState(initialState?.estEl || { x: 50, y: 88, color: '#000000', fontSize: 6 })
   const [extraTexts, setExtraTexts] = useState(initialState?.extraTexts || [])
+  const [collegeFontEl, setCollegeFontEl] = useState(initialState?.collegeFontEl || { x: 50, y: 50, size: 25, style: 'SOLID', color: '#000000', fillColor: '#ffffff', strokeColor: '#888888', text: 'DADDY' })
+  const [showCollegeFont, setShowCollegeFont] = useState(initialState?.showCollegeFont ?? false)
+  const collegeFontRef = useRef(null)
   const [illus, setIllus] = useState(initialState?.illus || { x: 50, y: 45, size: 52, cropBottom: 0 })
   const [illusOnTop, setIllusOnTop] = useState(initialState?.illusOnTop || false)
   const [childName, setChildName] = useState(initialState?.childName || '')
@@ -484,6 +490,11 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
   const [cleanedUrl, setCleanedUrl] = useState(null)
   const [selected, setSelected] = useState(null)
   const [bgColor, setBgColor] = useState(initialState?.bgColor || '#f0f0f0')
+
+  // Load College Block font for preview rendering
+  useEffect(() => {
+    loadCollegeFont().then(f => { collegeFontRef.current = f }).catch(() => {})
+  }, [])
 
   // Pre-process illustration: remove white background for transparent preview
   useEffect(() => {
@@ -502,8 +513,8 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
   }, [imageUrl])
 
   useImperativeHandle(ref, () => ({
-    exportToCanvas:    () => renderEstToCanvas(letters, estEl, estText, showEstText, imageUrl, illus, letterStyle, ttoLetters, bgColor, dadText, dadTextEl, showChildName, childName, childNameEl, illusOnTop, extraTexts),
-    exportTransparent: () => renderEstTransparent(letters, estEl, estText, showEstText, imageUrl, illus, letterStyle, ttoLetters, dadText, dadTextEl, showChildName, childName, childNameEl, illusOnTop, extraTexts),
+    exportToCanvas:    () => renderEstToCanvas(letters, estEl, estText, showEstText, imageUrl, illus, letterStyle, ttoLetters, bgColor, dadText, dadTextEl, showChildName, childName, childNameEl, illusOnTop, extraTexts, collegeFontEl, showCollegeFont),
+    exportTransparent: () => renderEstTransparent(letters, estEl, estText, showEstText, imageUrl, illus, letterStyle, ttoLetters, dadText, dadTextEl, showChildName, childName, childNameEl, illusOnTop, extraTexts, collegeFontEl, showCollegeFont),
     exportTransparentWithOverrides: (ov = {}) => {
       const ovLetters = letters.map(l => ({
         ...l,
@@ -512,17 +523,17 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
       }))
       const ovTto = ttoLetters.map(l => ({ ...l, color: ov.letterColor !== undefined ? ov.letterColor : l.color }))
       const ovEst = { ...estEl, color: ov.estColor !== undefined ? ov.estColor : estEl.color }
-      return renderEstTransparent(ovLetters, ovEst, estText, showEstText, imageUrl, illus, letterStyle, ovTto, dadText, dadTextEl, showChildName, childName, childNameEl, illusOnTop, extraTexts)
+      return renderEstTransparent(ovLetters, ovEst, estText, showEstText, imageUrl, illus, letterStyle, ovTto, dadText, dadTextEl, showChildName, childName, childNameEl, illusOnTop, extraTexts, collegeFontEl, showCollegeFont)
     },
-    getState:          () => ({ letters, letterStyle, bgColor, ttoLetters, estEl, extraTexts, illus, illusOnTop, childName, showChildName, childNameEl, dadText, dadTextEl }),
-  }), [letters, estEl, estText, showEstText, imageUrl, illus, letterStyle, ttoLetters, bgColor, dadText, dadTextEl, showChildName, childName, childNameEl, illusOnTop, extraTexts])
+    getState: () => ({ letters, letterStyle, bgColor, ttoLetters, estEl, extraTexts, collegeFontEl, showCollegeFont, illus, illusOnTop, childName, showChildName, childNameEl, dadText, dadTextEl }),
+  }), [letters, estEl, estText, showEstText, imageUrl, illus, letterStyle, ttoLetters, bgColor, dadText, dadTextEl, showChildName, childName, childNameEl, illusOnTop, extraTexts, collegeFontEl, showCollegeFont])
 
   // Notify parent when letter positions/style change so mockup stays in sync
   const estMountedRef = useRef(false)
   useEffect(() => {
     if (!estMountedRef.current) { estMountedRef.current = true; return }
     onStateChange?.()
-  }, [letters, ttoLetters, estEl, extraTexts, illus, letterStyle, illusOnTop]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [letters, ttoLetters, estEl, extraTexts, collegeFontEl, showCollegeFont, illus, letterStyle, illusOnTop]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const onMove = (e) => {
@@ -538,6 +549,9 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
       if (dr.id === 'est') {
         if (dr.type === 'move')   setEstEl(prev => ({ ...prev, x: dr.ox + dx, y: dr.oy + dy }))
         if (dr.type === 'resize') setEstEl(prev => ({ ...prev, fontSize: Math.max(1, Math.min(30, dr.os + (dx + dy) * 0.12)) }))
+      } else if (dr.id === 'college') {
+        if (dr.type === 'move')   setCollegeFontEl(prev => ({ ...prev, x: dr.ox + dx, y: dr.oy + dy }))
+        if (dr.type === 'resize') setCollegeFontEl(prev => ({ ...prev, size: Math.max(5, Math.min(80, dr.os + (dx + dy) * 0.5)) }))
       } else if (dr.id.startsWith('xt-')) {
         if (dr.type === 'move')   setExtraTexts(prev => prev.map(t => t.id !== dr.id ? t : { ...t, x: dr.ox + dx, y: dr.oy + dy }))
         if (dr.type === 'resize') setExtraTexts(prev => prev.map(t => t.id !== dr.id ? t : { ...t, fontSize: Math.max(1, Math.min(30, dr.os + (dx + dy) * 0.12)) }))
@@ -590,6 +604,8 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
     const clientY = e.touches ? e.touches[0].clientY : e.clientY
     if (id === 'est') {
       dragRef.current = { id, type, sx: clientX, sy: clientY, ox: estEl.x, oy: estEl.y, os: estEl.fontSize, cw: rect.width, ch: rect.height }
+    } else if (id === 'college') {
+      dragRef.current = { id, type, sx: clientX, sy: clientY, ox: collegeFontEl.x, oy: collegeFontEl.y, os: collegeFontEl.size, cw: rect.width, ch: rect.height }
     } else if (id.startsWith('xt-')) {
       const xt = extraTexts.find(t => t.id === id)
       dragRef.current = { id, type, sx: clientX, sy: clientY, ox: xt.x, oy: xt.y, os: xt.fontSize, cw: rect.width, ch: rect.height }
@@ -620,13 +636,15 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
   const isDadTextSelected = selected === 'dadText'
   const isChildNameSelected = selected === 'childName'
   const isExtraTextSelected = !!selectedExtraText
-  const currentColor = isEstSelected ? estEl.color : isDadTextSelected ? dadTextEl.color : isChildNameSelected ? childNameEl.color : isExtraTextSelected ? selectedExtraText.color : (selectedLetter || selectedTTOLetter)?.color
+  const isCollegeFontSelected = selected === 'college'
+  const currentColor = isEstSelected ? estEl.color : isDadTextSelected ? dadTextEl.color : isChildNameSelected ? childNameEl.color : isExtraTextSelected ? selectedExtraText.color : isCollegeFontSelected ? collegeFontEl.color : (selectedLetter || selectedTTOLetter)?.color
   const currentFillColor = selectedLetter?.fillColor || '#ffffff'
   const setColor = (color) => {
     if (isEstSelected) setEstEl(prev => ({ ...prev, color }))
     else if (isDadTextSelected) setDadTextEl(prev => ({ ...prev, color }))
     else if (isChildNameSelected) setChildNameEl(prev => ({ ...prev, color }))
     else if (isExtraTextSelected) setExtraTexts(prev => prev.map(t => t.id === selected ? { ...t, color } : t))
+    else if (isCollegeFontSelected) setCollegeFontEl(prev => ({ ...prev, color }))
     else if (selectedLetter) setLetters(prev => prev.map(l => l.id === selected ? { ...l, color } : l))
     else if (selectedTTOLetter) setTtoLetters(prev => prev.map(l => l.id === selected ? { ...l, color } : l))
   }
@@ -812,6 +830,40 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
           )
         })}
 
+        {showCollegeFont && collegeFontEl?.text?.trim() && collegeFontRef.current && (() => {
+          const font = collegeFontRef.current
+          const { d, w, h } = getCollegePath(font, collegeFontEl.text, 300)
+          const strokeW = 300 * 0.07
+          return (
+            <div
+              key="college"
+              onMouseDown={e => startDrag('college', 'move', e)}
+              onTouchStart={e => startDrag('college', 'move', e)}
+              onClick={e => handleClick('college', e)}
+              style={{ position: 'absolute', left: `${collegeFontEl.x}%`, top: `${collegeFontEl.y}%`, width: `${collegeFontEl.size}%`, transform: 'translate(-50%, -50%)', cursor: isCollegeFontSelected ? 'grab' : 'pointer', zIndex: isCollegeFontSelected ? 20 : 10 }}
+            >
+              {isCollegeFontSelected && <div style={{ position: 'absolute', inset: '-5px', border: '2px dashed #d97706', borderRadius: '6px', pointerEvents: 'none' }} />}
+              <svg viewBox={`0 0 ${w} ${h}`} style={{ width: '100%', height: 'auto', display: 'block', overflow: 'visible' }}>
+                {collegeFontEl.style === 'TWO_COLOR' ? (
+                  <path d={d} fill={collegeFontEl.color} stroke={collegeFontEl.strokeColor || '#888888'} strokeWidth={strokeW * 2} strokeLinejoin="round" paintOrder="stroke" fillRule="evenodd"/>
+                ) : collegeFontEl.style === 'HOLLOW' ? (
+                  <>
+                    {collegeFontEl.fillColor && collegeFontEl.fillColor !== 'transparent' && <path d={d} fill={collegeFontEl.fillColor} fillRule="evenodd"/>}
+                    <path d={d} fill="none" stroke={collegeFontEl.color} strokeWidth={strokeW} strokeLinejoin="round"/>
+                  </>
+                ) : (
+                  <path d={d} fill={collegeFontEl.color} fillRule="evenodd"/>
+                )}
+              </svg>
+              {isCollegeFontSelected && (
+                <div onMouseDown={e => startDrag('college', 'resize', e)} onTouchStart={e => startDrag('college', 'resize', e)} onClick={e => e.stopPropagation()} style={{ position: 'absolute', bottom: '-10px', right: '-10px', width: '20px', height: '20px', background: '#d97706', border: '2px solid #fff', borderRadius: '4px', cursor: 'nwse-resize', zIndex: 30, boxShadow: '0 1px 4px rgba(0,0,0,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <svg width="8" height="8" viewBox="0 0 8 8" fill="none"><path d="M1 7L7 1M4 7L7 4" stroke="white" strokeWidth="1.5" strokeLinecap="round" /></svg>
+                </div>
+              )}
+            </div>
+          )
+        })()}
+
         {letterStyle !== 'TTO' && letterStyle !== 'DADDY' && letters.map(letter => {
           const isSelected = selected === letter.id
           const isTwoColor = letterStyle.includes('TWO_COLOR')
@@ -932,7 +984,7 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
         })}
       </div>
 
-      {selected && (selectedLetter || selectedTTOLetter || isEstSelected || isIllusSelected || isDadTextSelected || isChildNameSelected || isExtraTextSelected) && (
+      {selected && (selectedLetter || selectedTTOLetter || isEstSelected || isIllusSelected || isDadTextSelected || isChildNameSelected || isExtraTextSelected || isCollegeFontSelected) && (
         <div style={{ padding: '10px 16px', display: 'flex', alignItems: 'center', gap: '8px', borderTop: '1px solid #f3f4f6', background: '#fafafa', borderRadius: '0 0 12px 12px', flexWrap: 'wrap' }}>
           {isIllusSelected ? (
             <>
@@ -980,6 +1032,29 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
                 ))}
                 <input type="color" value={currentColor || '#000000'} onChange={e => setColor(e.target.value)} style={{ width: '26px', height: '26px', padding: 0, border: '2px solid #d1d5db', cursor: 'pointer', borderRadius: '50%', background: 'none' }} title="Власний колір" />
                 <span style={{ fontSize: '11px', color: '#9ca3af', marginLeft: 'auto', whiteSpace: 'nowrap' }}>Тягни • кут → розмір</span>
+              </div>
+            </div>
+          ) : isCollegeFontSelected ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', width: '100%' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                <span style={{ fontSize: '11px', color: '#6b7280', fontWeight: 600, flexShrink: 0 }}>Стиль:</span>
+                {[['SOLID','Суцільний'],['TWO_COLOR','2 кольори'],['HOLLOW','Контур']].map(([s, label]) => (
+                  <button key={s} onMouseDown={e => e.stopPropagation()} onClick={e => { e.stopPropagation(); setCollegeFontEl(prev => ({ ...prev, style: s })) }} style={{ padding: '2px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 700, border: 'none', cursor: 'pointer', background: collegeFontEl.style === s ? '#d97706' : '#f3f4f6', color: collegeFontEl.style === s ? '#fff' : '#6b7280' }}>{label}</button>
+                ))}
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                <span style={{ fontSize: '11px', color: '#6b7280', fontWeight: 600, minWidth: '55px' }}>Колір:</span>
+                {PRESET_COLORS.map(color => (
+                  <button key={color} onClick={() => setColor(color)} style={{ width: '20px', height: '20px', borderRadius: '50%', background: color, border: currentColor === color ? '3px solid #d97706' : '2px solid #d1d5db', cursor: 'pointer', padding: 0, flexShrink: 0 }} />
+                ))}
+                <input type="color" value={currentColor || '#000000'} onChange={e => setColor(e.target.value)} style={{ width: '26px', height: '26px', padding: 0, border: '2px solid #d1d5db', cursor: 'pointer', borderRadius: '50%', background: 'none' }} />
+                {collegeFontEl.style !== 'SOLID' && <>
+                  <span style={{ fontSize: '11px', color: '#6b7280', fontWeight: 600, marginLeft: '4px' }}>{collegeFontEl.style === 'TWO_COLOR' ? 'Рамка:' : 'Заливка:'}</span>
+                  {PRESET_COLORS.map(color => (
+                    <button key={color} onClick={() => setCollegeFontEl(prev => ({ ...prev, [collegeFontEl.style === 'TWO_COLOR' ? 'strokeColor' : 'fillColor']: color }))} style={{ width: '20px', height: '20px', borderRadius: '50%', background: color, border: (collegeFontEl.style === 'TWO_COLOR' ? collegeFontEl.strokeColor : collegeFontEl.fillColor) === color ? '3px solid #d97706' : '2px solid #d1d5db', cursor: 'pointer', padding: 0, flexShrink: 0 }} />
+                  ))}
+                  <input type="color" value={collegeFontEl.style === 'TWO_COLOR' ? (collegeFontEl.strokeColor || '#888888') : (collegeFontEl.fillColor || '#ffffff')} onChange={e => setCollegeFontEl(prev => ({ ...prev, [collegeFontEl.style === 'TWO_COLOR' ? 'strokeColor' : 'fillColor']: e.target.value }))} style={{ width: '26px', height: '26px', padding: 0, border: '2px solid #d1d5db', cursor: 'pointer', borderRadius: '50%', background: 'none' }} />
+                </>}
               </div>
             </div>
           ) : (
@@ -1031,6 +1106,30 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
             />
           </div>
         )}
+        {/* College Block font text */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span style={{ fontSize: '11px', color: '#6b7280', fontWeight: 500, minWidth: '80px', flexShrink: 0 }}>College:</span>
+          <input
+            type="text"
+            value={collegeFontEl.text}
+            onChange={e => setCollegeFontEl(prev => ({ ...prev, text: e.target.value }))}
+            placeholder="БУДЬ-ЯКИЙ ТЕКСТ"
+            disabled={!showCollegeFont}
+            onMouseDown={e => e.stopPropagation()}
+            style={{ flex: 1, border: showCollegeFont ? '1px solid #fde68a' : '1px solid #e5e7eb', borderRadius: '8px', padding: '4px 10px', fontSize: '12px', outline: 'none', textTransform: 'uppercase', opacity: showCollegeFont ? 1 : 0.4 }}
+          />
+          <button
+            onMouseDown={e => e.stopPropagation()}
+            onClick={e => { e.stopPropagation(); setShowCollegeFont(v => !v); if (!showCollegeFont) setSelected('college') }}
+            title={showCollegeFont ? 'Сховати College Block текст' : 'Показати College Block текст'}
+            style={{ flexShrink: 0, padding: '4px', borderRadius: '8px', border: showCollegeFont ? '1px solid #fde68a' : '1px solid #e5e7eb', background: showCollegeFont ? '#fffbeb' : '#f9fafb', color: showCollegeFont ? '#d97706' : '#9ca3af', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          >
+            {showCollegeFont
+              ? <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              : <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+            }
+          </button>
+        </div>
       </div>
     </div>
   )
