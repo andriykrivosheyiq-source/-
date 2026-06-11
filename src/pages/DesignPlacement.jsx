@@ -477,7 +477,7 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
   ])
   const [estEl, setEstEl] = useState(initialState?.estEl || { x: 50, y: 88, color: '#000000', fontSize: 6 })
   const [extraTexts, setExtraTexts] = useState(initialState?.extraTexts || [])
-  const [collegeFontEl, setCollegeFontEl] = useState(initialState?.collegeFontEl || { x: 50, y: 50, size: 25, style: 'SOLID', color: '#000000', fillColor: '#ffffff', strokeColor: '#888888', strokeWidthMult: 1, text: 'DADDY' })
+  const [collegeFontEl, setCollegeFontEl] = useState(initialState?.collegeFontEl || { x: 50, y: 50, size: 25, style: 'SOLID', color: '#000000', fillColor: 'transparent', strokeColor: '#888888', strokeWidthMult: 1, text: 'DADDY' })
   const [showCollegeFont, setShowCollegeFont] = useState(initialState?.showCollegeFont ?? false)
   const collegeFontRef = useRef(null)
   const [illus, setIllus] = useState(initialState?.illus || { x: 50, y: 45, size: 52, cropBottom: 0 })
@@ -848,9 +848,13 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
                   // paint-order="stroke": border drawn first (outside), fill on top
                   <path d={g.d} fill={collegeFontEl.color} stroke={collegeFontEl.strokeColor || '#888888'} strokeWidth={actualStrokeW} strokeLinejoin="round" paintOrder="stroke" fillRule="evenodd"/>
                 ) : collegeFontEl.style === 'HOLLOW' ? (
-                  // paint-order="stroke": thick stroke drawn first (half outside = visible border),
-                  // fill on top covers inner half of stroke → clean border, no inner artifacts
-                  <path d={g.d} fill={collegeFontEl.fillColor || '#ffffff'} fillRule="evenodd" stroke={collegeFontEl.color} strokeWidth={actualStrokeW} strokeLinejoin="round" paintOrder="stroke"/>
+                  (!collegeFontEl.fillColor || collegeFontEl.fillColor === 'transparent' || collegeFontEl.fillColor === 'none') ? (
+                    // transparent interior: pure centered outline, background shows through
+                    <path d={g.d} fill="none" stroke={collegeFontEl.color} strokeWidth={g.baseStrokeW * mlt} strokeLinejoin="round"/>
+                  ) : (
+                    // opaque interior: thick stroke first (paint-order), fill covers inner half
+                    <path d={g.d} fill={collegeFontEl.fillColor} fillRule="evenodd" stroke={collegeFontEl.color} strokeWidth={actualStrokeW} strokeLinejoin="round" paintOrder="stroke"/>
+                  )
                 ) : (
                   <path d={g.d} fill={collegeFontEl.color} fillRule="evenodd"/>
                 )}
@@ -1040,7 +1044,7 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
                 <span style={{ fontSize: '11px', color: '#6b7280', fontWeight: 600, flexShrink: 0 }}>Стиль:</span>
                 {[['SOLID','Суцільний'],['TWO_COLOR','2 кольори'],['HOLLOW','Контур']].map(([s, label]) => (
-                  <button key={s} onMouseDown={e => e.stopPropagation()} onClick={e => { e.stopPropagation(); setCollegeFontEl(prev => ({ ...prev, style: s })) }} style={{ padding: '2px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 700, border: 'none', cursor: 'pointer', background: collegeFontEl.style === s ? '#d97706' : '#f3f4f6', color: collegeFontEl.style === s ? '#fff' : '#6b7280' }}>{label}</button>
+                  <button key={s} onMouseDown={e => e.stopPropagation()} onClick={e => { e.stopPropagation(); setCollegeFontEl(prev => ({ ...prev, style: s, ...(s === 'HOLLOW' ? { fillColor: 'transparent' } : {}) })) }} style={{ padding: '2px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 700, border: 'none', cursor: 'pointer', background: collegeFontEl.style === s ? '#d97706' : '#f3f4f6', color: collegeFontEl.style === s ? '#fff' : '#6b7280' }}>{label}</button>
                 ))}
                 {collegeFontEl.style !== 'SOLID' && (
                   <>
@@ -1063,6 +1067,10 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
               {collegeFontEl.style !== 'SOLID' && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
                   <span style={{ fontSize: '11px', color: '#6b7280', fontWeight: 600, minWidth: '55px' }}>{collegeFontEl.style === 'TWO_COLOR' ? 'Рамка:' : 'Заливка:'}</span>
+                  {collegeFontEl.style === 'HOLLOW' && (
+                    // transparent / no-fill swatch (background shows through)
+                    <button title="Без заливки (прозоро)" onClick={() => setCollegeFontEl(prev => ({ ...prev, fillColor: 'transparent' }))} style={{ width: '20px', height: '20px', borderRadius: '50%', cursor: 'pointer', padding: 0, flexShrink: 0, position: 'relative', border: (!collegeFontEl.fillColor || collegeFontEl.fillColor === 'transparent') ? '3px solid #d97706' : '2px solid #d1d5db', background: 'linear-gradient(45deg, #fff 45%, #ef4444 45%, #ef4444 55%, #fff 55%)' }} />
+                  )}
                   {PRESET_COLORS.map(color => {
                     const cur2 = collegeFontEl.style === 'TWO_COLOR' ? collegeFontEl.strokeColor : collegeFontEl.fillColor
                     const key2 = collegeFontEl.style === 'TWO_COLOR' ? 'strokeColor' : 'fillColor'

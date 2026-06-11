@@ -77,21 +77,20 @@ export async function drawCollegeFontOnCanvas(ctx, el, W, H) {
     ctx.fill(p2d, 'evenodd')
 
   } else if (el.style === 'HOLLOW') {
-    // stroke first (thick, centered), then fill covers the inside half
-    ctx.strokeStyle = el.color
-    ctx.lineWidth = actualStrokeW
-    ctx.stroke(p2d)
     const fc = el.fillColor
-    if (fc && fc !== 'transparent' && fc !== 'none') {
+    const transparent = !fc || fc === 'transparent' || fc === 'none'
+    if (transparent) {
+      // pure outline: single-width centered stroke, interior shows the product
+      ctx.strokeStyle = el.color
+      ctx.lineWidth = g.baseStrokeW * mlt
+      ctx.stroke(p2d)
+    } else {
+      // opaque interior: thick stroke first, fill covers the inner half
+      ctx.strokeStyle = el.color
+      ctx.lineWidth = actualStrokeW
+      ctx.stroke(p2d)
       ctx.fillStyle = fc
       ctx.fill(p2d, 'evenodd')
-    } else {
-      // transparent interior: erase the inside of the stroke using destination-out
-      ctx.save()
-      ctx.globalCompositeOperation = 'destination-out'
-      ctx.fillStyle = 'rgba(0,0,0,1)'
-      ctx.fill(p2d, 'evenodd')
-      ctx.restore()
     }
 
   } else {
