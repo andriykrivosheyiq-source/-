@@ -1800,7 +1800,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
   const [estVersion, setEstVersion] = useState(0)
   const [activeTab, setActiveTab] = useState(0)
   const [designHistories, setDesignHistories] = useState({}) // tabIndex → [oldImage, ...]
-  const [sketchHistory, setSketchHistory] = useState([]) // [oldImageUrl, ...]
+  const [sketchHistory, setSketchHistory] = useState(designData?.sketchHistory || []) // [oldImageUrl, ...]
   const [selectedProduct, setSelectedProduct] = useState(designData?.selectedProducts?.[0] || 'hoodie-black')
   const [showAIEdit, setShowAIEdit] = useState(false)
   const [showChangeProduct, setShowChangeProduct] = useState(false)
@@ -2553,6 +2553,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
       estText,
       mockupOverlay,
       extraMockupProducts,
+      sketchHistory,
     }
 
     const catMap = { 'hoodie-basic': 'hoodie', 'hoodie-fleece': 'hoodie', 'hoodie-premium': 'hoodie', 'tshirt-basic': 'tshirt', 'tshirt-oversized': 'oversized', 'sweatshirt': 'sweatshirt', 'cap': 'cap', 'shopper': 'totebag' }
@@ -2815,6 +2816,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
       estText,
       mockupOverlay,
       extraMockupProducts,
+      sketchHistory,
     }
     let transparentImage = mockupDesignUrl || null
     if (!transparentImage && currentDesignImage) {
