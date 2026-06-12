@@ -1796,6 +1796,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
   const navigate = useNavigate()
   const estPosterRef = useRef(null)
   const autoSaveRef = useRef(false)
+  const pendingSketchSaveRef = useRef(false)
   const [estVersion, setEstVersion] = useState(0)
   const [activeTab, setActiveTab] = useState(0)
   const [designHistories, setDesignHistories] = useState({}) // tabIndex → [oldImage, ...]
@@ -2033,6 +2034,15 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
     doSave(true)
   }, [mockupDesignUrl]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Auto-save after sketch upload (when old sketch moved to history)
+  useEffect(() => {
+    if (!pendingSketchSaveRef.current) return
+    if (!currentDesignImage) return
+    if (!mockupDesignUrl) return
+    pendingSketchSaveRef.current = false
+    doSave(false)
+  }, [currentDesignImage, mockupDesignUrl]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const handleUploadSketch = (e) => {
     const file = e.target.files?.[0]
     if (!file) return
@@ -2052,6 +2062,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
       }
       if (currentDesignImage) {
         setSketchHistory(prev => [currentDesignImage, ...prev].slice(0, 10))
+        pendingSketchSaveRef.current = true
       }
       onUpdate?.({ generatedDesigns: [{ label, image: finalUrl }] })
       setActiveTab(0)
