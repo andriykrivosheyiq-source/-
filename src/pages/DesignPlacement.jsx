@@ -1755,6 +1755,7 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
   const [estVersion, setEstVersion] = useState(0)
   const [activeTab, setActiveTab] = useState(0)
   const [designHistories, setDesignHistories] = useState({}) // tabIndex → [oldImage, ...]
+  const [sketchHistory, setSketchHistory] = useState([]) // [oldImageUrl, ...]
   const [selectedProduct, setSelectedProduct] = useState(designData?.selectedProducts?.[0] || 'hoodie-black')
   const [showAIEdit, setShowAIEdit] = useState(false)
   const [showChangeProduct, setShowChangeProduct] = useState(false)
@@ -2005,6 +2006,9 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
           setUploadingSketch(false)
         }
       }
+      if (currentDesignImage) {
+        setSketchHistory(prev => [currentDesignImage, ...prev].slice(0, 10))
+      }
       onUpdate?.({ generatedDesigns: [{ label, image: finalUrl }] })
       setActiveTab(0)
     }
@@ -2056,11 +2060,18 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
   const restoreHistoryImage = (tabIdx, historyImage) => {
     const updated = (generatedDesigns || []).map((d, i) => i === tabIdx ? { ...d, image: historyImage } : d)
     onUpdate?.({ generatedDesigns: updated })
-    // Remove the restored entry from history (it's now the current design)
     setDesignHistories(prev => {
       const arr = (prev[tabIdx] || []).filter(img => img !== historyImage)
       return { ...prev, [tabIdx]: arr }
     })
+  }
+
+  const restoreSketchImage = (img) => {
+    if (currentDesignImage) {
+      setSketchHistory(prev => [currentDesignImage, ...prev.filter(i => i !== img)].slice(0, 10))
+    }
+    onUpdate?.({ generatedDesigns: [{ label: 'Відновлено', image: img }] })
+    setActiveTab(0)
   }
 
   const handleDownload = async () => {
@@ -3086,6 +3097,28 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
                 </div>
               )
             })()}
+
+            {/* Sketch history strip */}
+            {sketchHistory.length > 0 && (
+              <div className="mt-4 border border-amber-100 bg-amber-50/50 rounded-xl p-3">
+                <p className="text-xs font-semibold text-amber-700 mb-2">
+                  <svg className="inline-block mr-1" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.73"/></svg>
+                  Попередні ескізи — клікни щоб відновити
+                </p>
+                <div className="flex gap-2 overflow-x-auto pb-1">
+                  {sketchHistory.map((img, hi) => (
+                    <button key={hi} onClick={() => restoreSketchImage(img)} title={`Відновити ескіз ${hi + 1}`}
+                      className="flex-shrink-0 w-24 h-24 rounded-lg overflow-hidden border-2 border-amber-200 hover:border-amber-500 bg-white transition-all group relative"
+                    >
+                      <img src={img} alt="" className="w-full h-full object-contain" />
+                      <div className="absolute inset-0 bg-amber-600/0 group-hover:bg-amber-600/10 transition-colors flex items-end justify-center pb-1">
+                        <span className="text-[9px] font-bold text-amber-700 bg-white/90 px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity">Відновити</span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <div className="flex gap-3 mt-4">
               <button onClick={handleRegenerate} disabled={regenerating || editing} className="btn-secondary flex-1 justify-center">
