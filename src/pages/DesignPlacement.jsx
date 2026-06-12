@@ -540,6 +540,20 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
     loadImgEl(imageUrl).then(img => {
       if (!active) return
       const c = trimTransparent(removeWhiteBg(img, 230, true))
+      // Auto-fit: width is sized as % of the 16:9 poster, height is auto. A tall
+      // (portrait) illustration at a big size% overflows the poster vertically and
+      // looks huge. Shrink size so the artwork fits within the poster height.
+      // Skip when a crop is applied (user may have intentionally zoomed for cropping).
+      if (c.width > 0 && c.height > 0) {
+        const aspect = c.height / c.width
+        const fitSize = (9 / 16) / aspect * 100 // size% whose rendered height == poster height
+        setIllus(prev => {
+          if (prev.cropBottom || prev.cropLeft || prev.cropRight) return prev
+          const maxSize = fitSize * 0.95
+          if (prev.size <= maxSize) return prev
+          return { ...prev, size: Math.max(10, maxSize) }
+        })
+      }
       c.toBlob(blob => {
         if (!active) return
         const url = URL.createObjectURL(blob)
