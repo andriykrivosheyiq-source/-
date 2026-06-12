@@ -126,8 +126,17 @@ export async function sendToClientCRM({ chatId, files, note, isRevision = false,
 
   if (!response.ok) {
     const errText = await response.text().catch(() => '')
-    let msg = `Sitniks HTTP ${response.status}`
-    try { msg = JSON.parse(errText)?.message || msg } catch {}
+    let detail = ''
+    try {
+      const j = JSON.parse(errText)
+      // Sitniks may return the reason under different keys; surface whatever is there.
+      detail = j?.message || j?.error || j?.title
+        || (j?.errors && (typeof j.errors === 'string' ? j.errors : JSON.stringify(j.errors)))
+        || ''
+    } catch {
+      detail = errText.slice(0, 200) // non-JSON body — show raw start
+    }
+    const msg = detail ? `Sitniks HTTP ${response.status}: ${detail}` : `Sitniks HTTP ${response.status}`
     throw new Error(msg)
   }
 
