@@ -496,6 +496,7 @@ async function renderEstTransparent(letters, estEl, estText, showEstText, imageU
 const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estText, showEstText, onSetShowEstText, initialState, onStateChange }, ref) {
   const containerRef = useRef(null)
   const illusImgRef = useRef(null)
+  const illusContainerRef = useRef(null)
   const dragRef = useRef(null)
   const dragMovedRef = useRef(false)
   const wasSelectedRef = useRef(false)
@@ -601,19 +602,19 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
         if (dr.type === 'move')    setIllus(prev => ({ ...prev, x: dr.ox + dx, y: dr.oy + dy }))
         if (dr.type === 'resize')  setIllus(prev => ({ ...prev, size: Math.max(10, Math.min(100, dr.os + (dx + dy) * 0.5)) }))
         if (dr.type === 'cropBottom') {
-          const pixelDy = dr.sy - clientY  // positive = dragging up = more crop from bottom
-          const newCropPx = dr.os / 100 * dr.imgH + pixelDy
-          setIllus(prev => ({ ...prev, cropBottom: Math.max(0, Math.min(80, newCropPx / dr.imgH * 100)) }))
+          // absolute: how far cursor is from bottom edge of illus container
+          const crop = (dr.illusBottom - clientY) / dr.illusH * 100
+          setIllus(prev => ({ ...prev, cropBottom: Math.max(0, Math.min(80, crop)) }))
         }
         if (dr.type === 'cropLeft') {
-          const pixelDx = clientX - dr.sx  // positive = dragging right = more crop from left
-          const newCropPx = dr.os / 100 * dr.imgW + pixelDx
-          setIllus(prev => ({ ...prev, cropLeft: Math.max(0, Math.min(80, newCropPx / dr.imgW * 100)) }))
+          // absolute: how far cursor is from left edge of illus container
+          const crop = (clientX - dr.illusLeft) / dr.illusW * 100
+          setIllus(prev => ({ ...prev, cropLeft: Math.max(0, Math.min(80, crop)) }))
         }
         if (dr.type === 'cropRight') {
-          const pixelDx = dr.sx - clientX  // positive = dragging left = more crop from right
-          const newCropPx = dr.os / 100 * dr.imgW + pixelDx
-          setIllus(prev => ({ ...prev, cropRight: Math.max(0, Math.min(80, newCropPx / dr.imgW * 100)) }))
+          // absolute: how far cursor is from right edge of illus container
+          const crop = (dr.illusRight - clientX) / dr.illusW * 100
+          setIllus(prev => ({ ...prev, cropRight: Math.max(0, Math.min(80, crop)) }))
         }
       } else {
         const isTTO = dr.id === 'tLeft' || dr.id === 'tRight' || dr.id === 'o'
@@ -661,13 +662,17 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
       dragRef.current = { id, type, sx: clientX, sy: clientY, ox: childNameEl.x, oy: childNameEl.y, os: childNameEl.fontSize, cw: rect.width, ch: rect.height }
     } else if (id === 'illus') {
       const imgRect = illusImgRef.current?.getBoundingClientRect()
-      const imgH = imgRect?.height || 100
-      const imgW = imgRect?.width || 100
+      const illusRect = illusContainerRef.current?.getBoundingClientRect()
+      const imgH = imgRect?.height || illusRect?.height || 100
+      const imgW = illusRect?.width || imgRect?.width || 100
       const os = type === 'cropBottom' ? illus.cropBottom
         : type === 'cropLeft' ? illus.cropLeft
         : type === 'cropRight' ? illus.cropRight
         : illus.size
-      dragRef.current = { id, type, sx: clientX, sy: clientY, ox: illus.x, oy: illus.y, os, imgH, imgW, cw: rect.width, ch: rect.height }
+      dragRef.current = { id, type, sx: clientX, sy: clientY, ox: illus.x, oy: illus.y, os, imgH, imgW, cw: rect.width, ch: rect.height,
+        illusLeft: illusRect?.left ?? 0, illusRight: illusRect?.right ?? 0,
+        illusTop: illusRect?.top ?? 0, illusBottom: illusRect?.bottom ?? 0,
+        illusW: illusRect?.width || 100, illusH: illusRect?.height || 100 }
     } else {
       const letter = letters.find(l => l.id === id) || ttoLetters.find(l => l.id === id)
       dragRef.current = { id, type, sx: clientX, sy: clientY, ox: letter.x, oy: letter.y, os: type === 'rotate' ? letter.rotation : letter.size, cw: rect.width, ch: rect.height }
@@ -814,6 +819,7 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
 
         {imageUrl && (
           <div
+            ref={illusContainerRef}
             onMouseDown={e => startDrag('illus', 'move', e)}
             onTouchStart={e => startDrag('illus', 'move', e)}
             onClick={e => handleClick('illus', e)}
@@ -3107,14 +3113,21 @@ export default function DesignPlacement({ designData, onUpdate, onSaveOrder, onU
                 </p>
                 <div className="flex gap-2 overflow-x-auto pb-1">
                   {sketchHistory.map((img, hi) => (
-                    <button key={hi} onClick={() => restoreSketchImage(img)} title={`Відновити ескіз ${hi + 1}`}
-                      className="flex-shrink-0 w-24 h-24 rounded-lg overflow-hidden border-2 border-amber-200 hover:border-amber-500 bg-white transition-all group relative"
-                    >
-                      <img src={img} alt="" className="w-full h-full object-contain" />
-                      <div className="absolute inset-0 bg-amber-600/0 group-hover:bg-amber-600/10 transition-colors flex items-end justify-center pb-1">
-                        <span className="text-[9px] font-bold text-amber-700 bg-white/90 px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity">Відновити</span>
-                      </div>
-                    </button>
+                    <div key={hi} className="flex-shrink-0 relative group">
+                      <button onClick={() => restoreSketchImage(img)} title={`Відновити ескіз ${hi + 1}`}
+                        className="w-24 h-24 rounded-lg overflow-hidden border-2 border-amber-200 hover:border-amber-500 bg-white transition-all block"
+                      >
+                        <img src={img} alt="" className="w-full h-full object-contain" />
+                        <div className="absolute inset-0 bg-amber-600/0 group-hover:bg-amber-600/10 transition-colors flex items-end justify-center pb-1 pointer-events-none">
+                          <span className="text-[9px] font-bold text-amber-700 bg-white/90 px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity">Відновити</span>
+                        </div>
+                      </button>
+                      <button
+                        onClick={() => setSketchHistory(prev => prev.filter((_, i) => i !== hi))}
+                        title="Видалити"
+                        className="absolute top-1 right-1 w-5 h-5 rounded-full bg-red-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-xs font-bold leading-none z-10 hover:bg-red-600"
+                      >×</button>
+                    </div>
                   ))}
                 </div>
               </div>
