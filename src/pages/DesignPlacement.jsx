@@ -418,13 +418,21 @@ async function drawIllus(ctx, imageUrl, illus, W, H) {
     const sx = cleaned.width * cropL
     const sW = cleaned.width * (1 - cropL - cropR)
     const sH = cleaned.height * (1 - cropB)
-    // Destination rect keeps the un-cropped box anchored at the same top-left
-    const iX = illus.x / 100 * W - iW / 2
-    const iY = illus.y / 100 * H - iH / 2
-    const dX = iX + iW * cropL
+    // Destination rect, relative to the box centre (matches CSS rotate around centre)
+    const dX = -iW / 2 + iW * cropL
+    const dY = -iH / 2
     const dW = iW * (1 - cropL - cropR)
     const dH = iH * (1 - cropB)
-    if (sW > 0 && sH > 0) ctx.drawImage(cleaned, sx, 0, sW, sH, dX, iY, dW, dH)
+    const cx = illus.x / 100 * W
+    const cy = illus.y / 100 * H
+    const rot = (illus.rotation || 0) * Math.PI / 180
+    if (sW > 0 && sH > 0) {
+      ctx.save()
+      ctx.translate(cx, cy)
+      if (rot) ctx.rotate(rot)
+      ctx.drawImage(cleaned, sx, 0, sW, sH, dX, dY, dW, dH)
+      ctx.restore()
+    }
   } catch { /* skip */ }
 }
 
@@ -517,7 +525,7 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
   const [collegeFontEl, setCollegeFontEl] = useState(initialState?.collegeFontEl || { x: 50, y: 50, size: 25, style: 'SOLID', color: '#000000', fillColor: 'transparent', strokeColor: '#888888', strokeWidthMult: 1, text: 'DADDY' })
   const [showCollegeFont, setShowCollegeFont] = useState(initialState?.showCollegeFont ?? false)
   const collegeFontRef = useRef(null)
-  const [illus, setIllus] = useState(initialState?.illus || { x: 50, y: 45, size: 52, cropBottom: 0, cropLeft: 0, cropRight: 0 })
+  const [illus, setIllus] = useState(initialState?.illus || { x: 50, y: 45, size: 52, rotation: 0, cropBottom: 0, cropLeft: 0, cropRight: 0 })
   const [illusOnTop, setIllusOnTop] = useState(initialState?.illusOnTop || false)
   const [childName, setChildName] = useState(initialState?.childName || '')
   const [showChildName, setShowChildName] = useState(initialState?.showChildName ?? false)
@@ -615,6 +623,7 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
       } else if (dr.id === 'illus') {
         if (dr.type === 'move')    setIllus(prev => ({ ...prev, x: dr.ox + dx, y: dr.oy + dy }))
         if (dr.type === 'resize')  setIllus(prev => ({ ...prev, size: Math.max(10, Math.min(100, dr.os + (dx + dy) * 0.5)) }))
+        if (dr.type === 'rotate')  setIllus(prev => ({ ...prev, rotation: dr.os + dx * 0.4 }))
         if (dr.type === 'cropBottom') {
           // absolute: how far cursor is from bottom edge of illus container
           const crop = (dr.illusBottom - clientY) / dr.illusH * 100
@@ -682,6 +691,7 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
       const os = type === 'cropBottom' ? illus.cropBottom
         : type === 'cropLeft' ? illus.cropLeft
         : type === 'cropRight' ? illus.cropRight
+        : type === 'rotate' ? (illus.rotation || 0)
         : illus.size
       dragRef.current = { id, type, sx: clientX, sy: clientY, ox: illus.x, oy: illus.y, os, imgH, imgW, cw: rect.width, ch: rect.height,
         illusLeft: illusRect?.left ?? 0, illusRight: illusRect?.right ?? 0,
@@ -837,7 +847,7 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
             onMouseDown={e => startDrag('illus', 'move', e)}
             onTouchStart={e => startDrag('illus', 'move', e)}
             onClick={e => handleClick('illus', e)}
-            style={{ position: 'absolute', left: `${illus.x}%`, top: `${illus.y}%`, width: `${illus.size}%`, transform: 'translate(-50%, -50%)', cursor: selected === 'illus' ? 'grab' : 'pointer', zIndex: selected === 'illus' ? 22 : (illusOnTop ? 12 : 5) }}
+            style={{ position: 'absolute', left: `${illus.x}%`, top: `${illus.y}%`, width: `${illus.size}%`, transform: `translate(-50%, -50%) rotate(${illus.rotation || 0}deg)`, transformOrigin: 'center center', cursor: selected === 'illus' ? 'grab' : 'pointer', zIndex: selected === 'illus' ? 22 : (illusOnTop ? 12 : 5) }}
           >
             {/* Clip wrapper: clips from bottom/left/right; dashed border inside clips too */}
             <div style={{ clipPath: (illus.cropBottom > 0 || illus.cropLeft > 0 || illus.cropRight > 0) ? `inset(0 ${illus.cropRight || 0}% ${illus.cropBottom || 0}% ${illus.cropLeft || 0}%)` : undefined }}>
@@ -862,6 +872,19 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
               <div onMouseDown={e => startDrag('illus', 'resize', e)} onTouchStart={e => startDrag('illus', 'resize', e)} onClick={e => e.stopPropagation()} style={{ position: 'absolute', bottom: '-10px', right: '-10px', width: '20px', height: '20px', background: '#4f46e5', border: '2px solid #fff', borderRadius: '4px', cursor: 'nwse-resize', zIndex: 30, boxShadow: '0 1px 4px rgba(0,0,0,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <svg width="8" height="8" viewBox="0 0 8 8" fill="none"><path d="M1 7L7 1M4 7L7 4" stroke="white" strokeWidth="1.5" strokeLinecap="round" /></svg>
               </div>
+            )}
+            {/* Rotate handle — top center, drag left/right to rotate (like letters) */}
+            {selected === 'illus' && (
+              <>
+                <div onMouseDown={e => startDrag('illus', 'rotate', e)} onTouchStart={e => startDrag('illus', 'rotate', e)} onClick={e => e.stopPropagation()} style={{ position: 'absolute', top: '-30px', left: '50%', transform: 'translateX(-50%)', width: '22px', height: '22px', background: '#ffffff', border: '2px solid #4f46e5', borderRadius: '50%', cursor: 'ew-resize', zIndex: 32, boxShadow: '0 1px 4px rgba(0,0,0,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#4f46e5" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38"/></svg>
+                </div>
+                {Math.round(illus.rotation || 0) !== 0 && (
+                  <div style={{ position: 'absolute', top: '-28px', left: 'calc(50% + 16px)', background: '#4f46e5', color: '#fff', fontSize: '10px', fontWeight: 700, padding: '2px 6px', borderRadius: '4px', pointerEvents: 'none', whiteSpace: 'nowrap', lineHeight: '16px' }}>
+                    {Math.round(illus.rotation || 0)}°
+                  </div>
+                )}
+              </>
             )}
             {/* Crop-bottom handle — sits at the crop boundary line (bottom center) */}
             {selected === 'illus' && (
@@ -1089,10 +1112,11 @@ const EstPosterView = React.forwardRef(function EstPosterView({ imageUrl, estTex
             <>
               <span style={{ fontSize: '12px', color: '#6b7280', fontWeight: 500 }}>Ескіз:</span>
               <span style={{ fontSize: '11px', color: '#9ca3af' }}>{Math.round(illus.size)}% розмір</span>
+              {Math.round(illus.rotation || 0) !== 0 && <span style={{ fontSize: '11px', color: '#4f46e5', fontWeight: 600 }}>{Math.round(illus.rotation)}° поворот</span>}
               {illus.cropBottom > 0 && <span style={{ fontSize: '11px', color: '#4f46e5', fontWeight: 600 }}>знизу {Math.round(illus.cropBottom)}%</span>}
               {illus.cropLeft > 0 && <span style={{ fontSize: '11px', color: '#4f46e5', fontWeight: 600 }}>зліва {Math.round(illus.cropLeft)}%</span>}
               {illus.cropRight > 0 && <span style={{ fontSize: '11px', color: '#4f46e5', fontWeight: 600 }}>справа {Math.round(illus.cropRight)}%</span>}
-              <span style={{ fontSize: '11px', color: '#9ca3af', marginLeft: 'auto', whiteSpace: 'nowrap' }}>Тягни · сині ручки → обрізання · кут → розмір</span>
+              <span style={{ fontSize: '11px', color: '#9ca3af', marginLeft: 'auto', whiteSpace: 'nowrap' }}>Тягни · ○ поворот · сині ручки → обрізання · кут → розмір</span>
             </>
           ) : letterStyle.includes('TWO_COLOR') && selectedLetter ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', width: '100%' }}>
